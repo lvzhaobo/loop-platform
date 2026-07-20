@@ -1,0 +1,3 @@
+{"id": "REQ-001", "title": "教育课程展示站", "case": "education", "priority": 1, "status": "pending"}
+{"id": "REQ-002", "title": "电商商品列表与详情", "case": "ecommerce", "priority": 2, "status": "pending"}
+{"id": "REQ-003", "title": "个人博客", "case": "blog", "priority": 3, "status": "pending"}

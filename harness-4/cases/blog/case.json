@@ -1,0 +1,30 @@
+{
+  "name": "blog",
+  "entity": "post",
+  "title": "极简阅读风博客:文章列表 + 详情",
+  "data_file": "data/posts.json",
+  "min_items": 6,
+  "required_fields": ["id", "title", "author", "date", "summary", "content"],
+  "numeric_fields": {},
+  "field_rules": {
+    "id": {"type": "int", "sequential_from": 1},
+    "title": {"type": "string", "max_len": 60},
+    "summary": {"type": "string", "max_len": 120},
+    "content": {"type": "string", "min_len": 200}
+  },
+  "loader_function": "load_posts",
+  "route_functions": ["post_list", "post_detail", "api_posts", "api_post_detail"],
+  "routes": {
+    "list": "/",
+    "detail_sample": "/post/1",
+    "api_list": "/api/posts",
+    "api_detail_ok": "/api/posts/1",
+    "api_detail_missing": "/api/posts/9999"
+  },
+  "list_marker": "post-card",
+  "detail_markers": ["article-body"],
+  "colors": ["#2c3e50", "#888888"],
+  "needs_images": false,
+  "image_field": null,
+  "extra_required_files": ["data/posts.json"]
+}

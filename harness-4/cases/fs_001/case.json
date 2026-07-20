@@ -1,0 +1,82 @@
+{
+  "name": "fs_001",
+  "title": "在线学习平台",
+  "data_file": "data/courses.json",
+  "loader_function": "load_courses",
+  "route_functions": [
+    "course_list",
+    "course_detail",
+    "api_courses",
+    "api_course_detail"
+  ],
+  "needs_images": true,
+  "image_field": "cover_image",
+  "extra_required_files": [
+    "data/courses.json"
+  ],
+  "entity": "course",
+  "min_items": 8,
+  "required_fields": [
+    "id",
+    "title",
+    "description",
+    "instructor",
+    "duration",
+    "category"
+  ],
+  "numeric_fields": {
+    "duration": "number"
+  },
+  "field_rules": {
+    "id": {
+      "type": "int",
+      "sequential_from": 1
+    },
+    "title": {
+      "type": "string",
+      "max_len": 200
+    },
+    "description": {
+      "type": "string",
+      "min_len": 100
+    },
+    "instructor": {
+      "type": "string",
+      "max_len": 100
+    },
+    "duration": {
+      "type": "number",
+      "gt": 0
+    },
+    "category": {
+      "type": "string",
+      "max_len": 50
+    },
+    "price": {
+      "type": "number",
+      "gte": 0
+    }
+  },
+  "routes": {
+    "list": "/",
+    "detail_sample": "/course/1",
+    "api_list": "/api/courses",
+    "api_detail_ok": "/api/courses/1",
+    "api_detail_missing": "/api/courses/9999"
+  },
+  "list_marker": "course-card",
+  "detail_markers": [
+    "btn-enroll",
+    "course-detail-body"
+  ],
+  "colors": [
+    "#e67e22",
+    "#27ae60"
+  ],
+  "list_card_children": [
+    "course-card-title",
+    "course-card-image",
+    "course-card-instructor",
+    "course-card-price"
+  ]
+}

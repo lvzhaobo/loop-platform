@@ -1,0 +1,81 @@
+{
+  "name": "jobs",
+  "title": "招聘网站首页与职位详情页",
+  "data_file": "data/jobs.json",
+  "loader_function": "load_jobs",
+  "route_functions": [
+    "job_list",
+    "job_detail",
+    "api_jobs",
+    "api_job_detail"
+  ],
+  "needs_images": true,
+  "image_field": "cover",
+  "extra_required_files": [
+    "data/jobs.json"
+  ],
+  "entity": "job",
+  "min_items": 8,
+  "required_fields": [
+    "id",
+    "title",
+    "company",
+    "salary",
+    "city",
+    "responsibilities",
+    "requirements"
+  ],
+  "numeric_fields": {},
+  "field_rules": {
+    "id": {
+      "type": "int",
+      "sequential_from": 1
+    },
+    "title": {
+      "type": "string",
+      "max_len": 100
+    },
+    "company": {
+      "type": "string",
+      "max_len": 100
+    },
+    "salary": {
+      "type": "string",
+      "max_len": 50
+    },
+    "city": {
+      "type": "string",
+      "max_len": 50
+    },
+    "responsibilities": {
+      "type": "string",
+      "min_len": 100
+    },
+    "requirements": {
+      "type": "string",
+      "min_len": 100
+    }
+  },
+  "routes": {
+    "list": "/",
+    "detail_sample": "/job/1",
+    "api_list": "/api/jobs",
+    "api_detail_ok": "/api/jobs/1",
+    "api_detail_missing": "/api/jobs/9999"
+  },
+  "list_marker": "job-card",
+  "detail_markers": [
+    "job-detail-body",
+    "job-detail-btn"
+  ],
+  "colors": [
+    "#e67e22",
+    "#27ae60"
+  ],
+  "list_card_children": [
+    "job-card-title",
+    "job-card-company",
+    "job-card-salary",
+    "job-card-city"
+  ]
+}

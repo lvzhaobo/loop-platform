@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Studio · 控制台</title>
+<style>
+  :root{
+    --bg:#eceef1; --surface:#ffffff; --surface-2:#f6f7f9; --surface-3:#eef0f3;
+    --border:#e2e5ea; --border-2:#d7dbe1;
+    --text:#1a1d23; --muted:#6a717c; --faint:#9aa1ac;
+    --accent:#3a6ff0; --accent-weak:#eaf1ff; --accent-line:#c9dbff;
+    --ok:#1f9d55; --ok-weak:#e8f7ee; --warn:#c07d16; --warn-weak:#fbf1de; --err:#d64545; --err-weak:#fbeaea;
+    --code-bg:#12151b; --code-fg:#d7dbe0; --code-dim:#7c8698; --code-line:#232833;
+    --shadow:0 1px 2px rgba(20,25,35,.05),0 4px 16px rgba(20,25,35,.06);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    --r:8px; --r-sm:6px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0e1015; --surface:#161922; --surface-2:#1b1f29; --surface-3:#20242f;
+    --border:#282d38; --border-2:#333a47;
+    --text:#e7eaef; --muted:#98a0ad; --faint:#69707d;
+    --accent:#5d8bff; --accent-weak:#1a2438; --accent-line:#2c3b5c;
+    --ok:#3ec77e; --ok-weak:#14251b; --warn:#e0a13a; --warn-weak:#2a2312; --err:#f06a6a; --err-weak:#2b1717;
+    --code-bg:#0b0d12; --code-fg:#d7dbe0; --code-dim:#6a7484; --code-line:#1b1f28;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;
+    height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
+  ::selection{background:var(--accent-weak)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--faint)}
+  code,pre,.mono{font-family:var(--mono)}
+
+  /* ── 顶栏 ── */
+  .topbar{height:52px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;background:var(--surface);border-bottom:1px solid var(--border);position:relative;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px;font-size:15px;letter-spacing:.2px}
+  .logo{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#7aa0ff);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;box-shadow:var(--shadow)}
+  .brand b{font-weight:650}
+  .brand .ver{font-size:11px;color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:20px;margin-left:4px}
+  .top-actions{display:flex;align-items:center;gap:10px}
+  .env-chip{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--border);
+    padding:4px 9px;border-radius:20px;display:flex;gap:6px;align-items:center}
+  .env-chip b{color:var(--ok);font-weight:600}
+  .icon-btn{width:32px;height:32px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+    border-radius:var(--r-sm);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn{border:1px solid var(--border-2);background:var(--surface);color:var(--text);padding:7px 14px;
+    border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-family:var(--sans);transition:.15s;font-weight:500}
+  .btn:hover{border-color:var(--faint)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:5px 11px;font-size:12px}
+
+  /* ── 布局 ── */
+  .layout{display:flex;height:calc(100vh - 52px)}
+  .sidebar{width:272px;flex:0 0 272px;background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;transition:width .2s ease,flex-basis .2s ease}
+  .nav-search{padding:12px 12px 4px;position:relative}
+  .nav-search .si{position:absolute;left:23px;top:calc(50% + 4px);transform:translateY(-50%);color:var(--faint);font-size:13px;pointer-events:none}
+  .nav-search input{width:100%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+    border-radius:8px;padding:8px 10px 8px 30px;font-size:12.5px;outline:none;transition:.15s;font-family:var(--sans)}
+  .nav-search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak);background:var(--surface)}
+  nav{flex:1;overflow-y:auto;padding:6px 6px 14px}
+  .nav-sec{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+    padding:15px 14px 6px;font-weight:700;opacity:.7}
+  .nav-item{display:flex;align-items:center;gap:11px;margin:2px 8px;padding:9px 11px;border-radius:8px;
+    cursor:pointer;color:var(--text);font-size:13.5px;font-weight:450;transition:.1s;user-select:none}
+  .nav-item:hover{background:var(--surface-3)}
+  .nav-item.active{background:var(--accent);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(58,111,240,.32)}
+  .nav-item .ic{width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:13px;
+    color:var(--muted);flex:0 0 auto;border-radius:5px}
+  .nav-item:hover .ic{color:var(--text)}
+  .nav-item.active .ic{color:#fff}
+  .nav-item .cnt{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
+  /* 分组父级 */
+  .nav-parent{display:flex;align-items:center;gap:11px;margin:2px 8px;padding:9px 11px;border-radius:8px;
+    cursor:pointer;color:var(--text);font-size:13.5px;font-weight:600;transition:.1s;user-select:none}
+  .nav-parent:hover{background:var(--surface-3)}
+  .nav-parent .pgi{width:20px;text-align:center;font-size:13px;color:var(--muted);flex:0 0 auto}
+  .nav-parent .plabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nav-parent .cnt{font-size:10.5px;color:var(--muted);font-family:var(--mono);background:var(--surface-3);
+    border-radius:20px;padding:1px 8px;font-weight:600}
+  .nav-parent:hover .cnt{background:var(--surface)}
+  .nav-parent .caret{font-size:16px;color:var(--faint);transition:transform .2s;line-height:1;width:14px;text-align:center}
+  .nav-parent.open .caret{transform:rotate(90deg)}
+  .subnav{overflow:hidden;max-height:0;transition:max-height .24s ease}
+  .subnav.open{max-height:900px}
+  .subwrap{margin:2px 8px 8px 24px;border-left:1.5px solid var(--border);padding-left:4px}
+  .subnav .nav-item{margin:2px 0;padding:7px 10px;font-size:12.8px;color:var(--muted);gap:9px}
+  .subnav .nav-item:hover{color:var(--text)}
+  .subnav .nav-item.active{color:#fff}
+  .subnav .nav-item .lf{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .subnav .nav-item .ftag{font-family:var(--mono);font-size:9.5px;letter-spacing:.3px;color:var(--faint);
+    border:1px solid var(--border);border-radius:4px;padding:1px 5px;line-height:1.4;flex:0 0 auto}
+  .subnav .nav-item.active .ftag{color:#fff;border-color:rgba(255,255,255,.55)}
+  .subnav .nav-item .rodot{width:6px;height:6px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+  .subnav .nav-item .endot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 auto}
+  .subnav .nav-item .endot.off{background:var(--faint)}
+  .subnav .nav-item.active .rodot,.subnav .nav-item.active .endot{background:#fff}
+  .nav-hidden{display:none!important}
+  .side-foot{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);
+    display:flex;justify-content:space-between;align-items:center}
+  .side-foot .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:5px;box-shadow:0 0 0 3px var(--ok-weak)}
+  /* 侧栏折叠 */
+  .sidebar.collapsed{width:64px;flex-basis:64px}
+  .sidebar.collapsed .nav-search{display:none}
+  .sidebar.collapsed nav{padding-top:10px}
+  .sidebar.collapsed .nav-sec{height:1px;padding:0;margin:10px 14px;background:var(--border);color:transparent;overflow:hidden;font-size:0}
+  .sidebar.collapsed .nav-item,.sidebar.collapsed .nav-parent{justify-content:center;padding:10px 0;margin:3px 8px;gap:0}
+  .sidebar.collapsed .nav-item .ic,.sidebar.collapsed .nav-parent .pgi{font-size:15px}
+  .sidebar.collapsed .lbl,.sidebar.collapsed .plabel,.sidebar.collapsed .cnt,
+  .sidebar.collapsed .caret,.sidebar.collapsed .lf,.sidebar.collapsed .ftag,
+  .sidebar.collapsed .endot,.sidebar.collapsed .rodot{display:none}
+  .sidebar.collapsed .subnav{display:none!important}
+  .sidebar.collapsed .side-foot{justify-content:center}
+  .sidebar.collapsed .side-foot .mono{display:none}
+
+  /* ── 主区 ── */
+  .main{flex:1;overflow-y:auto;padding:0}
+  .panel{display:none;max-width:1080px;margin:0 auto;padding:26px 34px 60px}
+  .panel.show{display:block;animation:fade .25s}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .phead{margin-bottom:20px}
+  .crumb{font-size:12px;color:var(--faint);font-family:var(--mono);margin-bottom:6px}
+  .crumb b{color:var(--muted);font-weight:500}
+  .ptitle{font-size:21px;font-weight:650;letter-spacing:-.2px}
+  .psub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6}
+
+  /* 卡片/表单 */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow)}
+  .card+.card{margin-top:16px}
+  label.fl{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
+  textarea,input[type=text],input.txt{width:100%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);
+    border-radius:var(--r-sm);padding:10px 12px;font-size:13px;font-family:var(--sans);outline:none;transition:.15s;resize:vertical}
+  textarea:focus,input.txt:focus{border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-weak)}
+  textarea.req{min-height:120px;line-height:1.6}
+  textarea.code{font-family:var(--mono);font-size:12.5px;line-height:1.65;min-height:320px;white-space:pre}
+  textarea.code[readonly]{opacity:.72;cursor:default}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+  .row .col{flex:1;min-width:150px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{border:1px solid var(--border-2);background:var(--surface-2);border-radius:20px;padding:6px 13px;
+    font-size:12.5px;cursor:pointer;color:var(--muted);transition:.15s}
+  .chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-weak)}
+  .clr{display:flex;align-items:center;gap:8px}
+  .clr input[type=color]{width:34px;height:34px;border:1px solid var(--border-2);border-radius:8px;background:none;cursor:pointer;padding:2px}
+  .actbar{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+
+  .sect-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);
+    font-weight:600;margin:22px 0 10px}
+  .hint{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+
+  /* 结构化约束 */
+  .kv{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .taglist{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--surface-2);
+    border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;min-height:44px}
+  .taglist .t{background:var(--surface);border:1px solid var(--border-2);border-radius:6px;padding:4px 8px;
+    font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:7px}
+  .taglist .t .x{cursor:pointer;color:var(--faint);font-size:11px}
+  .taglist .t .x:hover{color:var(--err)}
+  .taglist input{border:none;background:none;outline:none;font-family:var(--mono);font-size:12px;color:var(--text);min-width:130px;flex:1}
+  .flist{display:flex;flex-direction:column;gap:6px}
+  .flist .fr{display:flex;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:12.5px}
+  .flist .fr span:last-child{color:var(--faint)}
+
+  /* 编辑器头 */
+  .ed-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+  .ed-path{font-family:var(--mono);font-size:13px}
+  .ed-path .d{color:var(--faint)}
+  .ed-acts{display:flex;align-items:center;gap:10px}
+  .badge{font-size:11px;padding:2px 9px;border-radius:20px;font-family:var(--mono)}
+  .badge.lang{background:var(--accent-weak);color:var(--accent)}
+  .badge.ro{background:var(--warn-weak);color:var(--warn)}
+  /* switch */
+  .switch{position:relative;display:inline-block;width:38px;height:21px}
+  .switch input{display:none}
+  .slider{position:absolute;inset:0;background:var(--border-2);border-radius:20px;transition:.2s;cursor:pointer}
+  .slider::before{content:"";position:absolute;width:15px;height:15px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked+.slider{background:var(--accent)}
+  .switch input:checked+.slider::before{transform:translateX(17px)}
+  .lk{font-size:12px;color:var(--muted)}
+  .ro-note{font-size:12px;color:var(--warn);margin-bottom:12px;background:var(--warn-weak);padding:9px 12px;border-radius:var(--r-sm)}
+
+  /* Spec 拆分 */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .fact{background:var(--code-bg);border-radius:var(--r);padding:16px;overflow:auto;max-height:520px}
+  .fact .ttl{color:#8fb6ff;font-family:var(--mono);font-size:12px;margin-bottom:10px}
+  .fact pre{color:var(--code-fg);font-family:var(--mono);font-size:12.5px;line-height:1.75;white-space:pre-wrap}
+  .fact .k{color:#8fb6ff}.fact .s{color:#8fd7a0}.fact .n{color:#e0a13a}
+  .spec-tabs{display:flex;gap:6px;margin-bottom:12px}
+  .spec-tab{padding:6px 14px;border-radius:20px;font-size:12.5px;cursor:pointer;color:var(--muted);border:1px solid var(--border)}
+  .spec-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .specdoc{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:18px;max-height:520px;overflow:auto}
+  .specdoc h3{font-size:14px;margin-bottom:12px}
+  .specdoc p{font-size:13px;color:var(--muted);margin:7px 0;line-height:1.6}
+  .specdoc code{background:var(--surface-3);padding:1px 6px;border-radius:5px;font-size:12px;color:var(--text)}
+  .specdoc table{width:100%;border-collapse:collapse;margin-top:6px}
+  .specdoc th,.specdoc td{border:1px solid var(--border);padding:7px 10px;font-size:12.5px;text-align:left}
+  .specdoc th{background:var(--surface-3);color:var(--muted);font-weight:600}
+  .thinking{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;padding:40px;justify-content:center}
+  .spinner{width:18px;height:18px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* 运行 */
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px}
+  .mode{border:1px solid var(--border-2);border-radius:var(--r);padding:15px;cursor:pointer;transition:.15s;background:var(--surface)}
+  .mode:hover{border-color:var(--accent)}
+  .mode.sel{border-color:var(--accent);background:var(--accent-weak)}
+  .mode .mt{font-weight:600;font-size:13.5px;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .mode .md{font-size:12px;color:var(--muted);line-height:1.55}
+  .loopbadge{font-size:10px;background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px}
+  .comp-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+  .comp{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:20px;padding:5px 12px;
+    font-size:12px;background:var(--surface);color:var(--muted)}
+  .comp .cn{font-family:var(--mono);color:var(--text)}
+  .comp .cr{color:var(--faint)}
+  .comp.run{border-color:var(--accent);color:var(--accent);background:var(--accent-weak)}
+  .comp.ok2{border-color:var(--ok);background:var(--ok-weak);color:var(--ok)}
+  .comp .cdot{width:7px;height:7px;border-radius:50%;background:var(--border-2);flex:0 0 auto}
+  .comp.run .cdot{background:var(--accent);animation:pulse 1s infinite}
+  .comp.ok2 .cdot{background:var(--ok)}
+  @keyframes pulse{50%{opacity:.3}}
+  .runbar{display:flex;align-items:center;gap:14px;margin:16px 0}
+  .progress{flex:1;height:6px;background:var(--surface-3);border-radius:6px;overflow:hidden}
+  .progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#7aa0ff);transition:width .3s}
+  .ptext{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:38px;text-align:right}
+  .console{background:var(--code-bg);border-radius:var(--r);padding:16px 18px;font-family:var(--mono);font-size:12.5px;
+    line-height:1.75;height:300px;overflow-y:auto;border:1px solid var(--code-line)}
+  .console .dim{color:var(--code-dim)}.console .b{color:#8fb6ff}.console .ok{color:#5fd08a}
+  .console .err{color:#f0817f}.console .warn{color:#e5b04b}
+  .banner{margin-top:14px;padding:14px 16px;border-radius:var(--r);background:var(--ok-weak);color:var(--ok);
+    font-size:13.5px;display:none;border:1px solid transparent}
+  .banner.show{display:block}
+
+  /* 输出目录 */
+  .out-wrap{display:grid;grid-template-columns:340px 1fr;gap:16px;margin-top:14px}
+  .otree{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:14px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.9;max-height:420px;overflow:auto;white-space:pre}
+  .otree .f{cursor:pointer;padding:0 4px;border-radius:4px}
+  .otree .f:hover{background:var(--accent-weak)}
+  .otree .f.sel{background:var(--accent-weak);color:var(--accent)}
+  .otree .dn{color:var(--muted)}
+  .oviewer{background:var(--code-bg);border-radius:var(--r);padding:14px;overflow:auto;max-height:420px;border:1px solid var(--code-line)}
+  .oviewer .ovh{color:#8fb6ff;font-family:var(--mono);font-size:12px;margin-bottom:10px;border-bottom:1px solid var(--code-line);padding-bottom:8px}
+  .oviewer pre{color:var(--code-fg);font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+
+  /* 概览 */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+  .stat .sv{font-size:24px;font-weight:680;letter-spacing:-.5px}
+  .stat .sl{font-size:12px;color:var(--muted);margin-top:4px}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .fnode{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    padding:14px 16px;position:relative}
+  .fnode+.fnode{margin-left:26px}
+  .fnode+.fnode::before{content:"→";position:absolute;left:-20px;top:50%;transform:translateY(-50%);color:var(--faint)}
+  .fnode .fn-t{font-weight:600;font-size:13px;margin-bottom:5px}
+  .fnode .fn-d{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .fnode .fn-n{position:absolute;top:-9px;left:14px;width:20px;height:20px;border-radius:50%;background:var(--accent);
+    color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600}
+
+  /* 通用 pill / 表格 / 可观测 & 密钥 */
+  .pill{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;font-family:var(--mono);white-space:nowrap}
+  .pill.ok{background:var(--ok-weak);color:var(--ok)}
+  .pill.bad{background:var(--err-weak);color:var(--err)}
+  .pill.warn{background:var(--warn-weak);color:var(--warn)}
+  .pill.dim{background:var(--surface-3);color:var(--muted)}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);
+    padding:9px 12px;border-bottom:1px solid var(--border);font-weight:600}
+  .tbl td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+  .tbl tbody tr{cursor:pointer}
+  .tbl tbody tr:hover td{background:var(--surface-2)}
+  .tbl tbody tr.sel td{background:var(--accent-weak)}
+  .tbl .mono{font-size:12px;color:var(--muted)}
+  .run-detail{margin-top:14px;border:1px solid var(--border);border-radius:var(--r);padding:16px;background:var(--surface-2)}
+  .run-detail .rd-h{font-size:13px;font-weight:600;margin-bottom:10px}
+  .dim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .dimc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px}
+  .dimc .dn{font-size:11px;color:var(--muted)}
+  .dimc .dvv{font-size:13px;font-weight:600;margin-top:3px}
+  .bar{height:6px;border-radius:4px;background:var(--surface-3);overflow:hidden;margin-top:12px}
+  .bar>i{display:block;height:100%;background:var(--ok)}
+  .sec-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .sec-row:last-child{border-bottom:none}
+  .sec-ic{width:34px;height:34px;border-radius:8px;background:var(--accent-weak);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+  .sec-main{flex:1;min-width:0}
+  .sec-name{font-weight:600;font-size:13px;font-family:var(--mono)}
+  .sec-meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .sec-val{font-family:var(--mono);font-size:12.5px;color:var(--text);background:var(--surface-3);
+    padding:4px 10px;border-radius:6px;letter-spacing:.5px}
+  .sec-acts{display:flex;gap:6px;flex:0 0 auto}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);
+    padding:11px 20px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;z-index:80;pointer-events:none;box-shadow:var(--shadow)}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <button class="icon-btn" id="collapseBtn" title="折叠/展开侧栏" style="margin-right:2px">☷</button>
+      <span class="logo">H</span>
+      <span>Harness <b>Studio</b></span>
+      <span class="ver">v4 · 控制台</span>
+    </div>
+    <div class="top-actions">
+      <div class="env-chip">MODE <b id="modeTag">real</b> · seed 42 · T=0</div>
+      <button class="icon-btn" id="themeBtn" title="切换亮/暗">◐</button>
+      <button class="btn primary sm" onclick="gotoRun()">▶ 运行</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="nav-search"><span class="si">⌕</span><input id="navSearch" placeholder="搜索配置 / 文件…"></div>
+      <nav id="nav"></nav>
+      <div class="side-foot"><span><span class="dot"></span><span class="lbl">就绪</span></span><span class="mono">harness-4</span></div>
+    </aside>
+
+    <main class="main" id="main">
+      <!-- 概览 -->
+      <section class="panel" id="v-overview">
+        <div class="phead">
+          <div class="crumb">Harness Studio / <b>概览</b></div>
+          <div class="ptitle">工作台概览</div>
+          <div class="psub">契约驱动的确定性代码生成:一个需求进,一份可运行且通过全维度验收的应用出。</div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="sv">4</div><div class="sl">内置用例</div></div>
+          <div class="stat"><div class="sv">18</div><div class="sl">可配置文件</div></div>
+          <div class="stat"><div class="sv">8</div><div class="sl">验收维度</div></div>
+          <div class="stat"><div class="sv">0</div><div class="sl">温度 · 可复现</div></div>
+        </div>
+        <div class="sect-label">生成流水线</div>
+        <div class="flow">
+          <div class="fnode"><span class="fn-n">1</span><div class="fn-t">需求描述</div><div class="fn-d">自然语言写清要做什么</div></div>
+          <div class="fnode"><span class="fn-n">2</span><div class="fn-t">规格拆分</div><div class="fn-d">派生 case.json 与三份 spec</div></div>
+          <div class="fnode"><span class="fn-n">3</span><div class="fn-t">加载约束</div><div class="fn-d">全局硬约束 + 规则 + 提示词</div></div>
+          <div class="fnode"><span class="fn-n">4</span><div class="fn-t">运行验收</div><div class="fn-d">门禁三关 → 报告 → 产物</div></div>
+        </div>
+        <div class="actbar"><button class="btn primary" onclick="route('req')">开始新需求 →</button></div>
+      </section>
+
+      <!-- 需求 -->
+      <section class="panel" id="v-req">
+        <div class="phead">
+          <div class="crumb">工作流 / <b>① 需求描述</b></div>
+          <div class="ptitle">描述你要生成的应用</div>
+          <div class="psub">用一句话说清:做什么、列表展示哪些信息、详情页有什么操作、想要的风格配色。</div>
+        </div>
+        <div class="card">
+          <label class="fl">需求描述</label>
+          <textarea class="req" id="req" placeholder="例:做一个在线学习平台,首页展示课程卡片(封面、标题、讲师、时长、简介),点进去看课程详情和报名按钮。风格清爽、学习蓝。"></textarea>
+          <div class="chips" id="examples">
+            <span class="chip" data-ex="edu">🎓 在线学习</span>
+            <span class="chip" data-ex="shop">🛒 电商商城</span>
+            <span class="chip" data-ex="blog">📝 极简博客</span>
+            <span class="chip" data-ex="recipe">🍳 美食菜谱</span>
+          </div>
+          <div class="row">
+            <div class="col"><label class="fl">用例名(entity 集合)</label><input class="txt" id="caseName" value="education"></div>
+            <div class="col"><label class="fl">主色</label><div class="clr"><input type="color" id="color1" value="#1a73e8"><input class="txt" id="color1t" value="#1a73e8"></div></div>
+            <div class="col"><label class="fl">强调色</label><div class="clr"><input type="color" id="color2" value="#34a853"><input class="txt" id="color2t" value="#34a853"></div></div>
+          </div>
+          <div class="actbar"><button class="btn primary" onclick="toStep2()">拆分规格 →</button></div>
+        </div>
+      </section>
+
+      <!-- 规格 -->
+      <section class="panel" id="v-spec">
+        <div class="phead">
+          <div class="crumb">工作流 / <b>② 规格拆分</b></div>
+          <div class="ptitle">从需求派生规格</div>
+          <div class="psub">左侧是唯一事实源 <code>case.json</code>,右侧三份 spec 由它自动渲染,永不漂移。</div>
+        </div>
+        <div class="thinking" id="p2-thinking"><span class="spinner"></span> 正在从需求拆分事实与规格…</div>
+        <div id="p2-body" style="display:none">
+          <div class="split">
+            <div class="fact"><div class="ttl"># cases/&lt;name&gt;/case.json · 事实源</div><pre id="factJson"></pre></div>
+            <div>
+              <div class="spec-tabs">
+                <span class="spec-tab active" data-d="data">数据模型</span>
+                <span class="spec-tab" data-d="api">接口契约</span>
+                <span class="spec-tab" data-d="ui">UI 规范</span>
+              </div>
+              <div class="specdoc" id="specDoc"></div>
+            </div>
+          </div>
+          <div class="actbar">
+            <button class="btn ghost" onclick="route('req')">← 改需求</button>
+            <button class="btn" onclick="route('constraints.json')">查看约束 →</button>
+            <button class="btn primary" onclick="gotoRun()">去运行 →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 配置编辑器(通用) -->
+      <section class="panel" id="v-editor">
+        <div class="phead">
+          <div class="crumb" id="ed-crumb">配置中心</div>
+          <div class="ptitle" id="ed-title">配置</div>
+        </div>
+        <div class="card">
+          <div class="ed-bar">
+            <div class="ed-path" id="ed-path"></div>
+            <div class="ed-acts" id="ed-acts"></div>
+          </div>
+          <div id="ed-body"></div>
+        </div>
+      </section>
+
+      <!-- 运行 -->
+      <section class="panel" id="v-run">
+        <div class="phead">
+          <div class="crumb">工作流 / <b>③ 运行生成</b></div>
+          <div class="ptitle">选择运行方式并生成</div>
+          <div class="psub">生成受确定性脚手架约束,产物需通过验收才算成功。</div>
+        </div>
+        <div class="modes" id="modes">
+          <div class="mode" data-m="once"><div class="mt">单次生成</div><div class="md">调一次模型直接生成并验收,快速看效果。</div></div>
+          <div class="mode sel" data-m="gate"><div class="mt">Harness 门禁</div><div class="md">自洽 → 派生 Schema → 生成 → 全维度验收,一关不过即失败。推荐。</div></div>
+          <div class="mode" data-m="loop"><div class="mt">Loop 自动 <span class="loopbadge">auto</span></div><div class="md">失败报告回喂模型自动重试,直到通过或达上限。</div></div>
+        </div>
+        <div class="sect-label">本次将调用的组件(按执行顺序)</div>
+        <div class="comp-row" id="compRow"></div>
+        <div class="runbar">
+          <button class="btn primary" id="runBtn" onclick="runPipeline()">▶ 运行</button>
+          <div class="progress"><i id="prog"></i></div>
+          <span class="ptext" id="progtext">就绪</span>
+        </div>
+        <div class="console" id="console"><span class="dim"># 控制台输出将显示在这里…</span></div>
+        <div class="banner" id="banner"></div>
+        <div id="outputPanel" style="display:none">
+          <div class="sect-label">输出结果目录 · <span id="outPath" class="mono" style="color:var(--accent);text-transform:none"></span></div>
+          <div class="out-wrap">
+            <div class="otree" id="otree"></div>
+            <div class="oviewer" id="oviewer"><div class="ovh"># 点击左侧文件查看内容(Mock)</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 运行历史 · 可观测 -->
+      <section class="panel" id="v-runs">
+        <div class="phead">
+          <div class="crumb">运维 · 可观测 / <b>运行历史</b></div>
+          <div class="ptitle">运行历史与复现校验</div>
+          <div class="psub">来自 <code>reports/runs.jsonl</code>:每次运行的结果、耗时、产物哈希;同输入复跑哈希一致才算确定性达标。</div>
+        </div>
+        <div class="stat-grid" id="runsStat"></div>
+        <div class="card">
+          <table class="tbl">
+            <thead><tr><th>时间</th><th>用例</th><th>模式</th><th>结果</th><th>耗时</th><th>产物哈希</th><th>复现</th></tr></thead>
+            <tbody id="runsBody"></tbody>
+          </table>
+          <div id="runDetail"></div>
+        </div>
+      </section>
+
+      <!-- 密钥与安全 -->
+      <section class="panel" id="v-secrets">
+        <div class="phead">
+          <div class="crumb">运维 · 可观测 / <b>密钥与安全</b></div>
+          <div class="ptitle">密钥管理</div>
+          <div class="psub">密钥由平台加密托管,永不落明文;<code>config.env</code> 仅保存 <code>${secret:name}</code> 占位引用。</div>
+        </div>
+        <div id="secWarn"></div>
+        <div class="card">
+          <div class="sect-label">已托管密钥</div>
+          <div id="secList"></div>
+        </div>
+        <div class="card">
+          <div class="sect-label">config.env · 引用预览(不含明文)</div>
+          <textarea class="code" id="envPreview" readonly style="min-height:120px"></textarea>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="prototype-v2.js"></script>
+</body>
+</html>

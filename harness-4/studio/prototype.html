@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness-4 · 需求驱动生成(原型)</title>
+<style>
+  :root{
+    --blue:#1a73e8; --green:#34a853; --amber:#f9ab00; --red:#d93025;
+    --bg:#f4f6fa; --panel:#fff; --border:#e4e7ec; --text:#1f2329; --muted:#6b7280;
+    --ink:#1e1e1e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+  .prototype-badge{position:fixed;top:10px;right:12px;background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
+    padding:3px 10px;border-radius:999px;font-size:12px;z-index:60}
+
+  .top{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 28px}
+  .brand{font-weight:700;font-size:17px}
+  .brand span{color:var(--muted);font-weight:400;margin-left:6px;font-size:13px}
+  .steps{display:flex;gap:0;margin-top:14px}
+  .step{display:flex;align-items:center;gap:8px;color:var(--muted);flex:0 0 auto;cursor:pointer}
+  .step .dot{width:26px;height:26px;border-radius:50%;background:#e8eaed;color:var(--muted);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  .step.active{color:var(--blue)} .step.active .dot{background:var(--blue);color:#fff}
+  .step.done .dot{background:var(--green);color:#fff} .step.done{color:var(--green)}
+  .step-line{flex:1;height:2px;background:var(--border);margin:0 14px;min-width:24px}
+
+  .wrap{max-width:1220px;margin:24px auto;padding:0 24px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:18px}
+  .card h2{margin:0 0 4px;font-size:18px}
+  .card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+
+  textarea{width:100%;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:15px;
+    font-family:inherit;min-height:120px;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--blue)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+  .chip:hover{border-color:var(--blue);color:var(--blue)}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
+  .mini{flex:1;min-width:180px}
+  .mini label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .mini input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+  .swatch{display:inline-flex;gap:6px;align-items:center}
+  .swatch input[type=color]{width:38px;height:34px;border:1px solid var(--border);border-radius:8px;padding:2px;background:#fff}
+
+  .btn{border:none;border-radius:9px;padding:11px 20px;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-ghost{background:#fff;border:1px solid var(--border);color:var(--text)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .actions{display:flex;justify-content:space-between;margin-top:18px}
+
+  /* Step2 */
+  .split{display:grid;grid-template-columns:340px 1fr;gap:18px}
+  .fact{background:var(--ink);color:#d4d4d4;border-radius:10px;padding:14px;font-family:ui-monospace,Menlo,monospace;
+    font-size:12px;line-height:1.65;white-space:pre-wrap;max-height:440px;overflow:auto;margin:0}
+  .fact .k{color:#9cdcfe}.fact .s{color:#ce9178}.fact .n{color:#b5cea8}
+  .spec-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .spec-tab{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .spec-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .doc{border:1px solid var(--border);border-radius:10px;padding:18px;background:#fcfcfd;min-height:380px;font-size:13.5px;line-height:1.7}
+  .doc h3{margin:0 0 10px;font-size:15px}
+  .doc table{width:100%;border-collapse:collapse;margin:8px 0}
+  .doc th,.doc td{border:1px solid var(--border);padding:6px 8px;text-align:left;font-size:12.5px}
+  .doc th{background:#f3f4f6}
+  .doc code,code{background:#eef;padding:1px 5px;border-radius:4px;font-size:12px}
+  .tag{display:inline-block;background:#e8f0fe;color:var(--blue);border-radius:6px;padding:2px 8px;font-size:12px;margin:2px}
+
+  .thinking{display:flex;align-items:center;gap:10px;color:var(--muted);padding:30px 0;justify-content:center}
+  .spinner{width:18px;height:18px;border:2.5px solid #dfe3e8;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .fade{animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* Step3 配置中心 */
+  .explorer{display:grid;grid-template-columns:262px 1fr;gap:18px}
+  .tree{border:1px solid var(--border);border-radius:10px;padding:8px;background:#fcfcfd;max-height:560px;overflow:auto}
+  .tree-group{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:12px 8px 5px}
+  .tree-file{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+  .tree-file:hover{background:#eef1f6}
+  .tree-file.active{background:#e8f0fe;color:var(--blue);font-weight:600}
+  .tree-file .fi{display:flex;align-items:center;gap:8px;min-width:0}
+  .tree-file .fi .ic{font-size:12px;opacity:.7}
+  .tree-file .fi .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dotstate{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto}
+  .dotstate.off{background:#c4c7cc}
+
+  .editor-pane{border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;min-height:560px}
+  .ep-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .ep-head .path{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .ep-head .path .dir{color:var(--muted)}
+  .ep-head-actions{display:flex;align-items:center;gap:10px}
+  .ep-body{padding:16px;flex:1;overflow:auto}
+  .code-edit{width:100%;min-height:400px;border:1px solid var(--border);border-radius:8px;padding:14px;
+    font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;resize:vertical;background:#fff}
+  .hint{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .locktag{font-size:11px;background:#f1f3f4;color:var(--muted);padding:2px 8px;border-radius:6px}
+
+  /* switch */
+  .switch{position:relative;display:inline-block;width:38px;height:20px}
+  .switch input{display:none}
+  .slider{position:absolute;inset:0;background:#c4c7cc;border-radius:999px;transition:.2s;cursor:pointer}
+  .slider:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .slider{background:var(--green)}
+  .switch input:checked + .slider:before{transform:translateX(18px)}
+
+  /* structured constraints form */
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fitem label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .fitem input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  .taglist{display:flex;flex-wrap:wrap;gap:6px;border:1px solid var(--border);border-radius:8px;padding:8px;min-height:42px}
+  .taglist .t{background:#fde8e8;color:var(--red);border-radius:6px;padding:3px 8px;font-size:12px;display:inline-flex;gap:6px;align-items:center}
+  .taglist .t .x{cursor:pointer;opacity:.6}
+  .taglist input{border:none;outline:none;flex:1;min-width:90px;font-size:12px;padding:4px}
+  .filelist{border:1px solid var(--border);border-radius:8px;padding:6px}
+  .filelist .fl{display:flex;justify-content:space-between;padding:5px 8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border-bottom:1px dashed #eee}
+  .filelist .fl:last-child{border-bottom:none}
+  .subhead{font-size:13px;font-weight:600;margin:18px 0 8px;color:var(--text)}
+
+  /* Step4 */
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .mode{border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:.15s}
+  .mode:hover{border-color:#c3d4f5}
+  .mode.sel{border-color:var(--blue);background:#f5f9ff}
+  .mode .mt{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
+  .mode .md{color:var(--muted);font-size:12.5px;margin-top:8px;line-height:1.6}
+  .mode .loopbadge{background:#fef3e0;color:#b26a00;font-size:11px;padding:1px 7px;border-radius:6px}
+  .console{background:var(--ink);border-radius:10px;padding:16px;font-family:ui-monospace,Menlo,monospace;
+    font-size:12.5px;line-height:1.75;color:#d4d4d4;min-height:230px;max-height:340px;overflow:auto}
+  .console .ok{color:#4ec9b0}.console .warn{color:#dcdcaa}.console .err{color:#f48771}.console .dim{color:#808080}.console .b{color:#569cd6}
+  .runbar{display:flex;align-items:center;gap:14px;margin:14px 0}
+  .progress{flex:1;height:8px;background:#e8eaed;border-radius:999px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--green));transition:width .4s}
+  .result-banner{margin-top:14px;padding:14px 16px;border-radius:10px;background:#e6f4ea;color:#137333;font-size:14px;display:none}
+  .result-banner.show{display:block}
+  .hidden{display:none}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;
+    padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;z-index:80;pointer-events:none}
+  .toast.show{opacity:1}
+
+  /* 组件调用 chips */
+  .comp-row{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 16px}
+  .comp{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:8px;padding:6px 11px;font-size:12.5px;background:#fff;color:var(--muted)}
+  .comp .cn{font-family:ui-monospace,Menlo,monospace;color:var(--text)}
+  .comp .cr{font-size:11px;color:var(--muted)}
+  .comp.run{border-color:var(--blue);color:var(--blue);background:#f5f9ff}
+  .comp.ok2{border-color:var(--green);background:#f2fbf5}
+  .comp .cdot{width:7px;height:7px;border-radius:50%;background:#c4c7cc;flex:0 0 auto}
+  .comp.run .cdot{background:var(--blue);animation:pulse 1s infinite}
+  .comp.ok2 .cdot{background:var(--green)}
+  @keyframes pulse{50%{opacity:.3}}
+
+  /* 输出目录 */
+  .out-wrap{display:grid;grid-template-columns:352px 1fr;gap:16px;margin-top:14px}
+  .otree{background:#fbfbfd;border:1px solid var(--border);border-radius:10px;padding:14px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.85;max-height:430px;overflow:auto;white-space:pre}
+  .otree .f{cursor:pointer;padding:0 4px;border-radius:4px}
+  .otree .f:hover{background:#e8f0fe}
+  .otree .f.sel{background:#e8f0fe;color:var(--blue)}
+  .otree .dn{color:var(--muted)}
+  .otree .sz{color:#b0b4ba;font-size:11px}
+  .oviewer{background:var(--ink);border-radius:10px;padding:14px;overflow:auto;max-height:430px}
+  .oviewer .ovh{color:#9cdcfe;font-family:ui-monospace,Menlo,monospace;font-size:12px;margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:8px}
+  .oviewer pre{margin:0;color:#d4d4d4;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+
+  .ro-note{font-size:12px;color:var(--amber);margin-bottom:10px}
+  .code-edit[readonly]{background:#f7f7f9;color:#555}
+  .code-badge{font-size:11px;background:#eef2ff;color:#4f46e5;padding:2px 8px;border-radius:6px}
+  .ro-badge{font-size:11px;background:#fff4e5;color:#b26a00;padding:2px 8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="prototype-badge">原型图 · Prototype(交互演示 / Mock 数据)</div>
+
+<div class="top">
+  <div class="brand">Harness-4 <span>需求驱动的确定性生成流水线</span></div>
+  <div class="steps" id="stepper">
+    <div class="step active" data-s="1"><div class="dot">1</div>描述需求</div>
+    <div class="step-line"></div>
+    <div class="step" data-s="2"><div class="dot">2</div>拆分规格 Spec</div>
+    <div class="step-line"></div>
+    <div class="step" data-s="3"><div class="dot">3</div>配置约束</div>
+    <div class="step-line"></div>
+    <div class="step" data-s="4"><div class="dot">4</div>运行生成</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===== Step 1 ===== -->
+  <section class="card" id="p1">
+    <h2>描述你要生成的应用</h2>
+    <div class="sub">用一句话说清"做什么"。Harness 会自动拆成规格文档并套上工程约束——你不必手填字段。</div>
+    <textarea id="req" placeholder="例如:做一个在线学习平台,首页展示课程卡片(封面、标题、讲师、时长、简介),点进去看课程详情和报名按钮。风格清爽、学习蓝。"></textarea>
+    <div class="chips" id="examples">
+      <span class="chip" data-ex="edu">🎓 在线课程平台</span>
+      <span class="chip" data-ex="shop">🛒 电商商品列表</span>
+      <span class="chip" data-ex="blog">✍️ 极简阅读博客</span>
+      <span class="chip" data-ex="recipe">🍳 美食菜谱</span>
+    </div>
+    <div class="row">
+      <div class="mini"><label>用例名(可自动推断)</label><input id="caseName" placeholder="education"></div>
+      <div class="mini"><label>主色调</label>
+        <span class="swatch"><input type="color" id="color1" value="#1a73e8"><input id="color1t" value="#1a73e8" style="max-width:110px"></span></div>
+      <div class="mini"><label>强调色</label>
+        <span class="swatch"><input type="color" id="color2" value="#34a853"><input id="color2t" value="#34a853" style="max-width:110px"></span></div>
+    </div>
+    <div class="actions"><span></span><button class="btn btn-primary" onclick="toStep2()">AI 拆分规格 →</button></div>
+  </section>
+
+  <!-- ===== Step 2 ===== -->
+  <section class="card hidden" id="p2">
+    <h2>自动拆分为规格文档</h2>
+    <div class="sub">需求 → 唯一事实源 <code>case.json</code> + 三份人读规格。规格是事实源的派生,天然一致、可微调。</div>
+    <div id="p2-thinking" class="thinking"><div class="spinner"></div> AI 正在理解需求并拆分规格文档…</div>
+    <div id="p2-body" class="split hidden">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">唯一事实源 · <code>cases/&lt;用例&gt;/case.json</code></div>
+        <pre class="fact" id="factJson"></pre>
+      </div>
+      <div>
+        <div class="spec-tabs">
+          <span class="spec-tab active" data-d="data">data-model.md</span>
+          <span class="spec-tab" data-d="api">api-contract.md</span>
+          <span class="spec-tab" data-d="ui">ui-spec.md</span>
+        </div>
+        <div class="doc" id="specDoc"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="goto(1)">← 返回改需求</button>
+      <button class="btn btn-primary" id="p2next" onclick="toStep3()" disabled>确认规格,配置约束 →</button>
+    </div>
+  </section>
+
+  <!-- ===== Step 3 配置中心 ===== -->
+  <section class="card hidden" id="p3">
+    <h2>配置约束</h2>
+    <div class="sub">Harness-4 的所有框架文件都可在此配置。左侧选文件,右侧编辑;规则文件可开关启用。<b>当前为 Mock 数据,保存仅存内存</b>,后续对接真实写盘。</div>
+    <div class="explorer">
+      <div class="tree" id="tree"></div>
+      <div class="editor-pane">
+        <div class="ep-head">
+          <div class="path" id="epPath"><span class="dir">harness-4/</span>constraints.json</div>
+          <div class="ep-head-actions" id="epActions"></div>
+        </div>
+        <div class="ep-body" id="epBody"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="goto(2)">← 返回规格</button>
+      <button class="btn btn-primary" onclick="toStep4()">确认约束,去运行 →</button>
+    </div>
+  </section>
+
+  <!-- ===== Step 4 ===== -->
+  <section class="card hidden" id="p4">
+    <h2>选择运行方式</h2>
+    <div class="sub">确定性脚手架已就位。选一种执行策略开始生成与验收。</div>
+    <div class="modes" id="modes">
+      <div class="mode" data-m="once"><div class="mt">▶ 单次生成</div><div class="md">生成一次代码,立即跑一遍验收(结构 / 数据 / 渲染 / 单测)。快速看结果。</div></div>
+      <div class="mode sel" data-m="gate"><div class="mt">🚦 Harness 门禁</div><div class="md">自洽性 → 派生 Schema → 生成 → 全维度验收。一关不过即失败。推荐。</div></div>
+      <div class="mode" data-m="loop"><div class="mt">🔁 Loop 自动 <span class="loopbadge">auto</span></div><div class="md">失败时把报告回喂模型自动重试,直到通过或达上限。无人值守。</div></div>
+    </div>
+    <div class="subhead" style="margin-top:2px">本次将调用的组件(按执行顺序)</div>
+    <div class="comp-row" id="compRow"></div>
+    <div class="runbar">
+      <button class="btn btn-primary" id="runBtn" onclick="runPipeline()">▶ 运行</button>
+      <div class="progress"><i id="prog"></i></div>
+      <span id="progtext" style="color:var(--muted);font-size:12px;min-width:64px">待运行</span>
+    </div>
+    <div class="console" id="console"><span class="dim"># 控制台输出将显示在这里…</span></div>
+    <div class="result-banner" id="banner"></div>
+
+    <div id="outputPanel" class="hidden">
+      <div class="subhead" style="margin-top:22px">📁 输出结果目录 · <span id="outPath" style="font-family:ui-monospace,Menlo,monospace;color:var(--blue)"></span></div>
+      <div class="out-wrap">
+        <div class="otree" id="otree"></div>
+        <div class="oviewer" id="oviewer"><div class="ovh"># 点击左侧文件查看内容(Mock)</div></div>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="goto(3)">← 返回约束</button>
+      <button class="btn btn-ghost" onclick="goto(1)">↺ 新需求</button>
+    </div>
+  </section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="prototype.js"></script>
+</body>
+</html>

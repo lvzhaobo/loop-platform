@@ -1,0 +1,70 @@
+{
+  "name": "ecommerce",
+  "entity": "product",
+  "title": "淘宝风电商:商品列表 + 详情",
+  "data_file": "data/products.json",
+  "min_items": 8,
+  "required_fields": [
+    "id",
+    "title",
+    "price",
+    "sales",
+    "image",
+    "shop",
+    "desc"
+  ],
+  "numeric_fields": {
+    "price": "number",
+    "sales": "int"
+  },
+  "field_rules": {
+    "id": {
+      "type": "int",
+      "sequential_from": 1
+    },
+    "title": {
+      "type": "string",
+      "max_len": 40
+    },
+    "price": {
+      "type": "number",
+      "gt": 0
+    },
+    "sales": {
+      "type": "int",
+      "gte": 0
+    },
+    "desc": {
+      "type": "string",
+      "min_len": 30
+    }
+  },
+  "loader_function": "load_products",
+  "route_functions": [
+    "product_list",
+    "product_detail",
+    "api_products",
+    "api_product_detail"
+  ],
+  "routes": {
+    "list": "/",
+    "detail_sample": "/product/1",
+    "api_list": "/api/products",
+    "api_detail_ok": "/api/products/1",
+    "api_detail_missing": "/api/products/9999"
+  },
+  "list_marker": "product-card",
+  "detail_markers": [
+    "btn-cart",
+    "btn-buy"
+  ],
+  "colors": [
+    "#ff5000",
+    "#ff0036"
+  ],
+  "needs_images": true,
+  "image_field": "image",
+  "extra_required_files": [
+    "data/products.json"
+  ]
+}

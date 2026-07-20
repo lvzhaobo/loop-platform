@@ -1,0 +1,32 @@
+{
+  "name": "education",
+  "entity": "course",
+  "title": "在线学习平台:课程列表 + 详情",
+  "data_file": "data/courses.json",
+  "min_items": 6,
+  "required_fields": ["id", "title", "teacher", "level", "duration", "cover", "summary", "content"],
+  "numeric_fields": {"duration": "int"},
+  "field_rules": {
+    "id": {"type": "int", "sequential_from": 1},
+    "title": {"type": "string", "max_len": 50},
+    "duration": {"type": "int", "gt": 0},
+    "summary": {"type": "string", "max_len": 120},
+    "content": {"type": "string", "min_len": 200}
+  },
+  "loader_function": "load_courses",
+  "route_functions": ["course_list", "course_detail", "api_courses", "api_course_detail"],
+  "routes": {
+    "list": "/",
+    "detail_sample": "/course/1",
+    "api_list": "/api/courses",
+    "api_detail_ok": "/api/courses/1",
+    "api_detail_missing": "/api/courses/9999"
+  },
+  "list_marker": "course-card",
+  "list_card_children": ["course-cover", "course-title", "course-meta", "course-summary"],
+  "detail_markers": ["btn-enroll", "course-outline"],
+  "colors": ["#1a73e8", "#34a853"],
+  "needs_images": true,
+  "image_field": "cover",
+  "extra_required_files": ["data/courses.json"]
+}
