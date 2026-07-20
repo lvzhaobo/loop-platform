@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harness-4 配置工作台</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/studio.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Harness-4 <span>配置工作台</span></div>
+    <div class="topbar-actions">
+      <button id="btn-trigger" class="btn btn-primary btn-sm">🚀 开始交付</button>
+      <span id="global-status" class="pill">就绪</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 左侧:用例列表 + 全局 constraints -->
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>用例</h2>
+          <button id="btn-new-case" class="btn btn-primary btn-sm">+ 新建</button>
+        </div>
+        <ul id="case-list" class="case-list"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>全局约束 constraints.json</h2></div>
+        <div class="field">
+          <label>技术栈(锁定)</label>
+          <div class="readonly-box" id="tech-box">加载中…</div>
+        </div>
+        <div class="field">
+          <label>禁用依赖 banned_deps(逗号分隔)</label>
+          <textarea id="banned-deps" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>禁用代码模式 banned_code_patterns(逗号分隔)</label>
+          <textarea id="banned-patterns" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>max_inline_style</label>
+          <input id="max-inline-style" type="number" min="0">
+        </div>
+        <div class="field">
+          <label>run_cases(勾选参与运行的用例)</label>
+          <div id="run-cases-box" class="checkbox-box"></div>
+        </div>
+        <button id="btn-save-constraints" class="btn btn-outline btn-block">保存全局约束</button>
+      </section>
+    </aside>
+
+    <!-- 中间:用例表单 -->
+    <main class="editor">
+      <div class="editor-head">
+        <h2 id="editor-title">用例编辑</h2>
+        <div class="editor-actions">
+          <button id="btn-delete-case" class="btn btn-danger btn-sm" hidden>删除用例</button>
+          <button id="btn-save-case" class="btn btn-primary">保存用例(写盘+派生 spec)</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field"><label>用例名 name(目录名,英文)</label><input id="f-name" placeholder="如 recipe"></div>
+        <div class="field"><label>实体 entity(单数英文)</label><input id="f-entity" placeholder="如 recipe"></div>
+      </div>
+      <div class="field"><label>标题 title</label><input id="f-title" placeholder="如 美食菜谱:列表 + 详情"></div>
+      <div class="grid2">
+        <div class="field"><label>数据文件 data_file</label><input id="f-data-file" placeholder="data/recipes.json"></div>
+        <div class="field"><label>最少条目 min_items</label><input id="f-min-items" type="number" min="1" value="6"></div>
+      </div>
+      <div class="field"><label>loader 函数名 loader_function</label><input id="f-loader" placeholder="load_recipes"></div>
+
+      <h3 class="section-title">字段 field_rules
+        <button class="btn btn-outline btn-sm" id="btn-add-field">+ 字段</button>
+      </h3>
+      <div class="table-wrap">
+        <table class="rules-table">
+          <thead><tr>
+            <th>字段名</th><th>类型</th><th>是否 numeric</th>
+            <th>sequential_from</th><th>max_len</th><th>min_len</th><th>gt</th><th>gte</th><th></th>
+          </tr></thead>
+          <tbody id="field-rows"></tbody>
+        </table>
+      </div>
+
+      <h3 class="section-title">路由 routes</h3>
+      <div class="grid2">
+        <div class="field"><label>list</label><input id="r-list" value="/"></div>
+        <div class="field"><label>detail_sample</label><input id="r-detail" placeholder="/recipe/1"></div>
+        <div class="field"><label>api_list</label><input id="r-api-list" placeholder="/api/recipes"></div>
+        <div class="field"><label>api_detail_ok</label><input id="r-api-ok" placeholder="/api/recipes/1"></div>
+        <div class="field"><label>api_detail_missing</label><input id="r-api-missing" placeholder="/api/recipes/9999"></div>
+        <div class="field"><label>route_functions(逗号分隔)</label><input id="r-funcs" placeholder="recipe_list, recipe_detail, api_recipes, api_recipe_detail"></div>
+      </div>
+
+      <h3 class="section-title">UI / 样式</h3>
+      <div class="grid2">
+        <div class="field"><label>list_marker(卡片根 class)</label><input id="u-list-marker" placeholder="recipe-card"></div>
+        <div class="field"><label>list_card_children(逗号分隔,可空)</label><input id="u-card-children" placeholder="recipe-cover, recipe-title"></div>
+        <div class="field"><label>detail_markers(逗号分隔)</label><input id="u-detail-markers" placeholder="btn-cook, recipe-steps"></div>
+        <div class="field"><label>配色 colors(逗号分隔 #hex)</label><input id="u-colors" placeholder="#e67e22, #27ae60"></div>
+      </div>
+      <div class="grid2">
+        <div class="field checkbox-inline"><label><input type="checkbox" id="u-needs-images"> 需要图片 needs_images</label></div>
+        <div class="field"><label>image_field(需要图片时填)</label><input id="u-image-field" placeholder="cover"></div>
+      </div>
+    </main>
+
+    <!-- 右侧:预览 + 校验 -->
+    <aside class="preview">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>自洽性预检</h2>
+          <button id="btn-gate" class="btn btn-outline btn-sm">跑真实门禁</button>
+        </div>
+        <div id="validate-result" class="validate-result">编辑后自动校验…</div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>产物预览</h2></div>
+        <div class="tabs">
+          <button class="tab active" data-tab="case">case.json</button>
+          <button class="tab" data-tab="data-model.md">data-model</button>
+          <button class="tab" data-tab="api-contract.md">api-contract</button>
+          <button class="tab" data-tab="ui-spec.md">ui-spec</button>
+        </div>
+        <pre id="preview-body" class="preview-body">…</pre>
+      </section>
+    </aside>
+  </div>
+
+  <!-- 一键交付日志抽屉:纯新增,继承 delivery-loop 触发逻辑,不影响上面的配置/门禁。内联样式与脚本,不依赖 studio.js/css -->
+  <div id="trigger-drawer" style="position:fixed;right:16px;bottom:16px;width:540px;max-width:92vw;
+       background:#0f1420;color:#d7e0ee;border:1px solid #2a3550;border-radius:12px;
+       box-shadow:0 12px 32px rgba(0,0,0,.35);display:none;z-index:9999;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+         padding:10px 14px;background:#151d2e;border-bottom:1px solid #2a3550">
+      <strong style="font-size:13px">🚀 一键交付 · 完整流水线</strong>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span id="trigger-pill" style="font-size:12px;padding:2px 10px;border-radius:999px;background:#26324d">就绪</span>
+        <span id="trigger-close" style="cursor:pointer;font-size:14px;opacity:.7" title="收起">✕</span>
+      </span>
+    </div>
+    <pre id="trigger-log" style="margin:0;padding:12px 14px;height:300px;overflow:auto;
+         font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all"></pre>
+    <div style="padding:8px 14px;background:#151d2e;border-top:1px solid #2a3550;
+         font-size:11px;color:#8794ad">飞书→编译契约→生成代码→20项验收→推 GitHub→部署 ECS</div>
+  </div>
+  <script>
+  (function(){
+    var btn=document.getElementById('btn-trigger');
+    var drawer=document.getElementById('trigger-drawer');
+    var pill=document.getElementById('trigger-pill');
+    var logEl=document.getElementById('trigger-log');
+    var timer=null;
+    function setPill(t,bg){pill.textContent=t;pill.style.background=bg;}
+    function poll(){
+      fetch('/api/trigger/status').then(function(r){return r.json();}).then(function(s){
+        logEl.textContent=s.log||'(暂无输出)';logEl.scrollTop=logEl.scrollHeight;
+        if(s.running){setPill('运行中…','#7a5b12');}
+        else{
+          if(timer){clearInterval(timer);timer=null;}
+          btn.disabled=false;
+          if(s.exit_code===0){setPill('✔ 完成','#1c5c34');}
+          else if(s.exit_code===null){setPill('就绪','#26324d');}
+          else{setPill('✘ 失败(exit '+s.exit_code+')','#6b1f1f');}
+        }
+      }).catch(function(){setPill('状态拉取失败','#6b1f1f');});
+    }
+    document.getElementById('trigger-close').addEventListener('click',function(){drawer.style.display='none';});
+    btn.addEventListener('click',function(){
+      drawer.style.display='block';
+      if(timer){return;}  // 已在轮询:只展开抽屉,不重复触发
+      if(!confirm('将跑完整交付流水线(真实 LLM + 推 GitHub + 触发 ECS 部署),确认开始？')){return;}
+      btn.disabled=true;setPill('启动中…','#7a5b12');logEl.textContent='';
+      fetch('/api/trigger',{method:'POST'}).then(function(r){return r.json().then(function(j){return {s:r.status,j:j};});}).then(function(o){
+        if(o.s===409){setPill('已有一批在跑','#7a5b12');poll();timer=setInterval(poll,2000);return;}
+        timer=setInterval(poll,2000);poll();
+      }).catch(function(){setPill('请求失败','#6b1f1f');btn.disabled=false;});
+    });
+  })();
+  </script>
+  <script src="{{ url_for('static', filename='js/studio.js') }}"></script>
+</body>
+</html>

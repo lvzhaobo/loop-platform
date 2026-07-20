@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ecommerce data item",
+  "type": "array",
+  "minItems": 8,
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "title",
+      "price",
+      "sales",
+      "image",
+      "shop",
+      "desc"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer"
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 40
+      },
+      "price": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "sales": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "image": {
+        "type": "string"
+      },
+      "shop": {
+        "type": "string"
+      },
+      "desc": {
+        "type": "string",
+        "minLength": 30
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>loop-platform · 一键交付</title>
+  <style>
+    :root { --bg:#0f1220; --card:#1a1f36; --line:#2a3050; --fg:#e8ebf5; --muted:#9aa3c0;
+            --ok:#27ae60; --busy:#e67e22; --err:#e74c3c; --brand:#5b8cff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+           background:var(--bg); color:var(--fg); display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:560px; background:var(--card); border:1px solid var(--line);
+            border-radius:16px; padding:28px 26px; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+    h1 { margin:0 0 4px; font-size:20px; }
+    .sub { color:var(--muted); margin:0 0 20px; font-size:13px; }
+    .flow { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 22px; }
+    .flow span { background:#141834; border:1px solid var(--line); color:var(--muted);
+                 padding:4px 10px; border-radius:999px; font-size:12px; }
+    .flow span b { color:var(--fg); font-weight:600; }
+    label { display:block; font-size:12px; color:var(--muted); margin:0 0 6px; }
+    input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+            background:#0d1024; color:var(--fg); font-size:14px; margin-bottom:16px; }
+    button { width:100%; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:600;
+             color:#fff; background:linear-gradient(135deg,#5b8cff,#7b5bff); cursor:pointer; transition:.15s; }
+    button:hover { filter:brightness(1.08); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .status { margin-top:18px; padding:14px; border-radius:10px; background:#0d1024; border:1px solid var(--line);
+              font-size:13px; white-space:pre-wrap; word-break:break-all; min-height:44px; color:var(--muted); }
+    .status.ok { border-color:var(--ok); color:#b7f0cf; }
+    .status.busy { border-color:var(--busy); color:#f6d4ac; }
+    .status.err { border-color:var(--err); color:#f6b7b0; }
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; background:var(--muted); }
+    .dot.live { background:var(--ok); } .dot.down { background:var(--err); }
+    .foot { margin-top:16px; font-size:11px; color:var(--muted); text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>loop-platform · 一键交付</h1>
+    <p class="sub"><span id="hdot" class="dot"></span><span id="health">检查服务中…</span></p>
+
+    <div class="flow">
+      <span><b>飞书文档</b></span><span>→ 编译契约</span><span>→ 生成代码</span>
+      <span>→ 20 项验收</span><span>→ 推 GitHub</span><span>→ 部署 ECS</span>
+    </div>
+
+    <label>触发密钥（X-Trigger-Token，未设可留空）</label>
+    <input id="token" type="password" placeholder="服务未启用密钥时留空即可" autocomplete="off" />
+
+    <button id="run">🚀 跑一批需求</button>
+
+    <div id="status" class="status">点击按钮，从需求池取任务跑通全流程。正在跑时再点会返回“忙碌”，不会堆积。</div>
+
+    <div class="foot">等价命令：<code>curl -X POST /trigger -H "X-Trigger-Token: …"</code></div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const tokenEl = $("token"), btn = $("run"), statusEl = $("status");
+
+    // 记住上次输入的 token（仅存本地浏览器）
+    tokenEl.value = localStorage.getItem("trigger_token") || "";
+    tokenEl.addEventListener("input", () => localStorage.setItem("trigger_token", tokenEl.value));
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (cls ? " " + cls : "");
+    }
+
+    // 健康检查
+    fetch("health").then(r => r.json()).then(d => {
+      $("hdot").className = "dot " + (d.ok ? "live" : "down");
+      $("health").textContent = d.ok ? "服务在线" : "服务异常";
+    }).catch(() => {
+      $("hdot").className = "dot down";
+      $("health").textContent = "连不上服务";
+    });
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      setStatus("⏳ 已触发，正在跑全流程……这一步可能要一两分钟（真实 LLM 生成 + 推送 + 部署）。", "busy");
+      const headers = {};
+      if (tokenEl.value) headers["X-Trigger-Token"] = tokenEl.value;
+      try {
+        const res = await fetch("trigger", { method: "POST", headers });
+        const d = await res.json();
+        if (res.status === 200 && d.ok) {
+          setStatus("✅ 本批完成（exit=" + d.exit_code + "）\n开始：" + d.started_at + "\n结束：" + d.finished_at + "\n\n去 loop-sample 看新样例，或访问部署后的 ECS 端口。", "ok");
+        } else if (res.status === 409 || d.busy) {
+          setStatus("🟠 上一批仍在运行，本次被忽略（不排队堆积）。稍后再试。", "busy");
+        } else if (res.status === 401) {
+          setStatus("🔒 鉴权失败：缺少或错误的触发密钥。请在上方填入正确的 X-Trigger-Token。", "err");
+        } else {
+          setStatus("❌ 本批未通过（exit=" + (d.exit_code ?? "?") + "）：" + (d.reason || "详见服务端日志。"), "err");
+        }
+      } catch (e) {
+        setStatus("❌ 请求失败：" + e + "\n检查服务是否在线、端口是否可达。", "err");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

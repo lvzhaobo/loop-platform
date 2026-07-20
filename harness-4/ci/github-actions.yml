@@ -1,0 +1,38 @@
+# Harness-4 CI 门禁工作流(模板)
+#
+# 启用方法:把本文件复制到仓库根目录 .github/workflows/harness-4-gate.yml
+# 作用:推送/PR 触及 harness-4/ 时自动运行门禁,产物不过验收则红灯,挡住合并。
+# 说明:自洽性 + 派生 Schema + 离线样例闭环均无需密钥;真实生成闭环需配置 DEEPSEEK_API_KEY。
+name: harness-4-gate
+on:
+  push:
+    paths: ["harness-4/**"]
+  pull_request:
+    paths: ["harness-4/**"]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装依赖
+        run: pip install "Flask==3.0.3"
+      - name: 自洽性 + 派生 Schema(无需密钥)
+        run: |
+          python harness-4/tools/check_consistency.py
+          python harness-4/tools/build_schema.py
+      - name: 离线样例闭环(无需密钥,验证流水线自身)
+        env:
+          HARNESS_MODE: sample
+          HARNESS_DET_CHECK: "1"
+        run: bash harness-4/generate.sh
+      - name: 真实生成闭环(需 DEEPSEEK_API_KEY secret)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "未配置 DEEPSEEK_API_KEY,跳过真实闭环(自洽+离线样例已校验)"; exit 0
+          fi
+          HARNESS_MODE=real bash harness-4/generate.sh

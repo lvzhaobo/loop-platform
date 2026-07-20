@@ -1,0 +1,27 @@
+{
+  "FS-001": {
+    "status": "done",
+    "started_at": "2026-07-21 00:36:36",
+    "finished_at": "2026-07-21 00:38:59",
+    "output_dir": "output/20260721-003636-education",
+    "attempts": 3,
+    "determinism": "drift",
+    "publish": {
+      "committed": true,
+      "pushed": true,
+      "branch": "main",
+      "sample_n": 2,
+      "port": "1002",
+      "subdir": "sample2",
+      "commit": "73b29b1",
+      "remote": "github.com/lvzhaobo/loop-sample.git",
+      "path": "sample2/ @ main"
+    },
+    "deploy": {
+      "deployed": true,
+      "host": "47.76.211.100",
+      "url": "http://47.76.211.100:1002/",
+      "workdir": "~/apps/loop-sample/sample2"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "education data item",
+  "type": "array",
+  "minItems": 6,
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "title",
+      "teacher",
+      "level",
+      "duration",
+      "cover",
+      "summary",
+      "content"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer"
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "teacher": {
+        "type": "string"
+      },
+      "level": {
+        "type": "string"
+      },
+      "duration": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "cover": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "content": {
+        "type": "string",
+        "minLength": 200
+      }
+    }
+  }
+}

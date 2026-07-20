@@ -1,0 +1,76 @@
+{
+  "name": "recipe",
+  "title": "美食菜谱:菜谱列表 + 做法详情",
+  "data_file": "data/recipes.json",
+  "loader_function": "load_recipes",
+  "route_functions": [
+    "recipe_list",
+    "recipe_detail",
+    "api_recipes",
+    "api_recipe_detail"
+  ],
+  "needs_images": true,
+  "image_field": "cover",
+  "extra_required_files": [
+    "data/recipes.json"
+  ],
+  "entity": "recipe",
+  "min_items": 6,
+  "required_fields": [
+    "id",
+    "title",
+    "chef",
+    "cuisine",
+    "minutes",
+    "cover",
+    "summary",
+    "steps"
+  ],
+  "numeric_fields": {
+    "minutes": "int"
+  },
+  "field_rules": {
+    "id": {
+      "type": "int",
+      "sequential_from": 1
+    },
+    "title": {
+      "type": "string",
+      "max_len": 40
+    },
+    "minutes": {
+      "type": "int",
+      "gt": 0
+    },
+    "summary": {
+      "type": "string",
+      "max_len": 100
+    },
+    "steps": {
+      "type": "string",
+      "min_len": 100
+    }
+  },
+  "routes": {
+    "list": "/",
+    "detail_sample": "/recipe/1",
+    "api_list": "/api/recipes",
+    "api_detail_ok": "/api/recipes/1",
+    "api_detail_missing": "/api/recipes/9999"
+  },
+  "list_marker": "recipe-card",
+  "detail_markers": [
+    "btn-cook",
+    "recipe-steps"
+  ],
+  "colors": [
+    "#e67e22",
+    "#27ae60"
+  ],
+  "list_card_children": [
+    "recipe-cover",
+    "recipe-title",
+    "recipe-meta",
+    "recipe-summary"
+  ]
+}
