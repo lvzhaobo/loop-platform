@@ -2,6 +2,8 @@
 # ============================================================
 #  build_repos.sh — 把 loop-platform / loop-specs 组装到 dist-repos/ 并本地提交
 #  安全:排除密钥与运行时状态;只做本地 git commit,不推远端(推送用 push_repos.sh)。
+#  非破坏:保留各发布仓库的 .git 历史与远端,用 rsync --delete 增量清理,
+#         有变化才增量提交(不再 rm -rf + git init 推倒重建)。
 #  用法: bash delivery-loop/publish/build_repos.sh
 # ============================================================
 set -euo pipefail
@@ -21,18 +23,23 @@ EXCLUDES=(
   --exclude 'output' --exclude 'dist-repos' --exclude '.DS_Store'
   --exclude '.last_ts' --exclude '*.log'
   --exclude 'backlog/feishu_state.json'
+  --exclude 'backlog/feishu_state.json.*'
   --exclude 'backlog/feishu_docs.json'
   --exclude 'backlog/backlog.jsonl'
+  --exclude '*.bak.*' --exclude '*.damaged.*' --exclude '*.pre-*'
 )
 
-echo "==> 清理旧产物 $OUT"
-rm -rf "$PLATFORM" "$SPECS"
+echo "==> 准备目录 $OUT(保留各仓库 .git 历史与远端)"
 mkdir -p "$PLATFORM" "$SPECS/cases"
+# specs 的 cases 整体重建以清理已删用例;platform 的 harness-4/delivery-loop
+# 由下方 rsync --delete 增量清理。两者都不动各自的 .git。
+rm -rf "$SPECS/cases"
+mkdir -p "$SPECS/cases"
 
 # ---------------- loop-platform ----------------
 echo "==> 组装 loop-platform"
-rsync -a "${EXCLUDES[@]}" "$ROOT/harness-4"      "$PLATFORM/"
-rsync -a "${EXCLUDES[@]}" "$ROOT/delivery-loop"  "$PLATFORM/"
+rsync -a --delete "${EXCLUDES[@]}" "$ROOT/harness-4"      "$PLATFORM/"
+rsync -a --delete "${EXCLUDES[@]}" "$ROOT/delivery-loop"  "$PLATFORM/"
 
 cp "$TPL/platform.README.md"   "$PLATFORM/README.md"
 cp "$TPL/platform.gitignore"   "$PLATFORM/.gitignore"
@@ -58,18 +65,24 @@ cp "$TPL/specs.gitignore"  "$SPECS/.gitignore"
 
 # ---------------- 本地提交 ----------------
 commit_repo () {
-  local dir="$1" name="$2"
+  local dir="$1" name="$2" msg="$3"
   ( cd "$dir"
-    git init -q -b main
+    # 已是仓库则保留历史与远端;仅首次构建才初始化
+    [ -d .git ] || git init -q -b main
     git add -A
-    git -c user.name="吕昭波" -c user.email="lvzhaobo@gmail.com" \
-        commit -q -m "chore: initial commit of $name"
-    echo "  ✅ $name: $(git rev-list --count HEAD) commit, $(git ls-files | wc -l | tr -d ' ') files"
+    if git diff --cached --quiet; then
+      echo "  ⏭  $name: 无变化,跳过提交(保留历史 $(git rev-list --count HEAD 2>/dev/null || echo 0) commit)"
+    else
+      git -c user.name="吕昭波" -c user.email="lvzhaobo@gmail.com" \
+          commit -q -m "$msg"
+      echo "  ✅ $name: 已增量提交 → 现 $(git rev-list --count HEAD) commit, $(git ls-files | wc -l | tr -d ' ') files"
+    fi
   )
 }
-echo "==> 本地 git 提交(不推远端)"
-commit_repo "$PLATFORM" "loop-platform"
-commit_repo "$SPECS"    "loop-specs"
+echo "==> 本地 git 增量提交(保留历史,不推远端)"
+STAMP="$(date '+%Y-%m-%d %H:%M')"
+commit_repo "$PLATFORM" "loop-platform" "chore: rebuild dist ($STAMP)"
+commit_repo "$SPECS"    "loop-specs"    "chore: rebuild specs ($STAMP)"
 
 # ---------------- 兜底密钥复检 ----------------
 # 注:只扫会真正藏密钥的文件类型(py/js/json/env/txt/yml)。

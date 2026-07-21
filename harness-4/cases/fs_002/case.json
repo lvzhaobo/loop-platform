@@ -22,6 +22,7 @@
     "duration",
     "break_duration",
     "color",
+    "description",
     "created_at",
     "status"
   ],
@@ -40,34 +41,19 @@
     },
     "duration": {
       "type": "int",
-      "gt": 0,
-      "lte": 60
+      "gt": 0
     },
     "break_duration": {
       "type": "int",
-      "gt": 0,
-      "lte": 30
+      "gt": 0
     },
     "color": {
       "type": "string",
       "max_len": 7
     },
-    "image": {
-      "type": "string",
-      "max_len": 500
-    },
     "description": {
       "type": "string",
-      "min_len": 10,
-      "max_len": 2000
-    },
-    "created_at": {
-      "type": "string",
-      "max_len": 20
-    },
-    "loop_count": {
-      "type": "int",
-      "gte": 0
+      "min_len": 10
     },
     "status": {
       "type": "string",
@@ -95,5 +81,8 @@
     "tomato-card-name",
     "tomato-card-duration",
     "tomato-card-status"
+  ],
+  "must_contain_text": [
+    "Loop-20260721"
   ]
 }

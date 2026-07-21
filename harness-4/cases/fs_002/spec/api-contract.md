@@ -1,5 +1,4 @@
 | 名称 | 路径 |
-|------|------|
 | list | / |
 | detail_sample | /tomato/1 |
 | api_list | /api/tomatoes |
