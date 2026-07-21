@@ -2,7 +2,7 @@
 
 用法: python harness/run_model.py <产物目录> [反馈日志路径]
 依赖: 仅 Python 标准库(urllib);密钥从环境变量 DEEPSEEK_API_KEY 读取。
-生成确定性: temperature=0(见 3.md 3.3)。
+生成确定性: temperature=0。
 """
 import glob
 import json

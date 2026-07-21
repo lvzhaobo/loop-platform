@@ -4,7 +4,7 @@
 
 ## 相比 harness/ 补全了什么
 
-| 缺口(见 3.md 分析) | harness-2 的补全 |
+| harness/ 的缺口 | harness-2 的补全 |
 |----------------------|------------------|
 | ① 约束层没分层 | 拆成 `rules/base/`(跨任务通用基座)+ `rules/task/`(电商专属) |
 | ② 缺测试层 | `rules/base/testing.md` 要求产物自带 `tests/test_app.py`(stdlib unittest),`verify.py` 自动运行 |
@@ -40,3 +40,6 @@ bash harness-2/generate.sh        # 生成→验证→失败带反馈重生成,�
 
 ## 判定成功
 连续 3 次生成,`verify.py` 全部通过(7 类检查全绿),且结构与 `baseline/manifest.json` 一致。
+
+## 下一步
+看 [`../harness-3/README.md`](../harness-3/README.md):它把"单个写死的 case"升级为 `cases/` 多用例(blog/ecommerce),并引入 `constraints.json` 硬约束与 `check_consistency.py`——在**生成之前**先做自洽性证伪。完整路线见 [`../LEARNING_PATH.md`](../LEARNING_PATH.md)。
