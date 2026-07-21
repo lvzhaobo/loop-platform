@@ -21,6 +21,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport]
+import observ  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport]
 
 MODE = os.environ.get("HARNESS_MODE", "sample")
 API_KEY = os.environ.get("DEEPSEEK_API_KEY")
@@ -112,7 +113,15 @@ def call_deepseek(system: str, user: str) -> str:
         headers={"Authorization": "Bearer " + API_KEY, "Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=120) as r:
-        return json.loads(r.read())["choices"][0]["message"]["content"]
+        data = json.loads(r.read())
+    usage = data.get("usage") or {}
+    observ.emit(
+        "llm.call",
+        prompt_tokens=usage.get("prompt_tokens"),
+        completion_tokens=usage.get("completion_tokens"),
+        total_tokens=usage.get("total_tokens"),
+    )
+    return data["choices"][0]["message"]["content"]
 
 
 def generate(
@@ -129,6 +138,10 @@ def generate(
     feedback: 上一轮失败报告(real 模式拼进 prompt;sample 模式忽略内容,只看 attempt)。
     """
     module = facts["module"]
+    # 埋点上下文:第 1 次尝试开一条新链路,后续尝试复用同一 trace_id。
+    observ.set_context(mode=MODE, attempt=attempt)
+    if attempt <= 1 or observ.current("trace_id") is None:
+        observ.new_trace(str(facts.get("task") or "mathkit"))
     if MODE == "sample":
         # HARNESS_SAMPLE_STUCK=1:永远产出 BUGGY(模拟"模型怎么修都修不好"),
         # 用于演示 L3 护栏(迭代上限 / 卡死检测)被触发。

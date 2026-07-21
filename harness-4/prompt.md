@@ -9,6 +9,7 @@
 1. **技术栈**:严格遵守 `rules/task/tech-stack.md`;端口从环境变量读取(见 `rules/base/error-and-logging.md`)。
 2. **目录结构与命名**:严格遵守 `rules/task/structure.md`;文件清单以"输出格式"末尾列出的为准(含 `README.md` 与 `tests/test_app.py`)。
 3. **数据**:按 `case.json.data_file` 生成,条数 ≥ `min_items`,字段满足 `required_fields` 与 `field_rules`(长度 / 数值范围 / id 连续性等)。
+   - ⚠️ **最小长度必须留足余量**:凡 `field_rules` 带 `min_len` 的文本字段(如简介 / 正文),每一条都要**明显超过下限、建议至少为 `min_len` 的 1.3 倍**,绝不可写到刚好卡在下限附近。文本偏短是本 Harness **最常见的验收失败原因**——宁可多写,不可写短。
 4. **路由**:严格匹配 `case.json.routes` 与 `route_functions`;数据加载封装为唯一的 `loader_function`;不存在资源按 `api-contract.md` 返回 404。
 5. **UI**:严格匹配 `ui-spec.md` 与 `case.json`——列表页每个卡片根元素带 `list_marker`,详情页含全部 `detail_markers`,CSS 含全部 `colors`。
 6. **测试**:`tests/test_app.py` 用标准库 `unittest` + `app.test_client()`,覆盖 `api-contract.md` 的必测路由(列表 200、详情 200、缺失 404、首页 200)。

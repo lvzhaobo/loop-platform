@@ -15,6 +15,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport]
+import observ  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport]
 
 
 def check_consistency(spec_text: str, facts: dict[str, Any]) -> list[str]:
@@ -102,6 +103,7 @@ def verify(out_dir: str, facts: dict[str, Any], constraints: dict[str, Any]) -> 
 
     def record(name: str, ok: bool, detail: str = "") -> bool:
         results.append({"check": name, "ok": bool(ok), "detail": detail})
+        observ.emit("check.result", check=name, ok=bool(ok), detail=detail)
         return ok
 
     module_path = os.path.join(out_dir, facts["module"])
