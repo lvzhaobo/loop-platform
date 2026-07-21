@@ -195,7 +195,7 @@ ECS_SSH_PASSWORD=你的ECS密码
 
 ### 2. 配目标机器并开关
 ```bash
-export ECS_HOST="47.76.211.100"
+export ECS_HOST="<your-server-ip>"
 export ECS_DEPLOY=1
 HARNESS_AUTOCOMMIT=1 bash delivery-loop/run_backlog.sh
 ```

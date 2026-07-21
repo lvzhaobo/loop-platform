@@ -7,7 +7,7 @@
 用法(在仓库根执行):
   .venv/bin/python delivery-loop/deploy/ecs_exec.py <脚本文件路径> [超时秒]
 
-凭证:从仓库根 .env 读 ECS_SSH_PASSWORD;主机默认 47.76.211.100/root/22,
+凭证:从仓库根 .env 读 ECS_HOST / ECS_SSH_PASSWORD;用户/端口默认 root/22,
      可用 ECS_HOST / ECS_SSH_USER / ECS_SSH_PORT 覆盖(与 sync_to_ecs 一致)。
 """
 from __future__ import annotations
@@ -33,10 +33,13 @@ def main() -> int:
         script = f.read()
 
     load_env(os.path.join(ROOT, ".env"))
-    host = os.environ.get("ECS_HOST", "").strip() or "47.76.211.100"
+    host = os.environ.get("ECS_HOST", "").strip()
     user = os.environ.get("ECS_SSH_USER", "root").strip() or "root"
     port = os.environ.get("ECS_SSH_PORT", "22").strip() or "22"
     password = os.environ.get("ECS_SSH_PASSWORD", "")
+    if not host:
+        print("缺少 ECS_HOST(仓库根 .env 未配置目标服务器地址),无法连接。")
+        return 2
     if not password:
         print("缺少 ECS_SSH_PASSWORD(仓库根 .env 未配置),无法连接 ECS。")
         return 2

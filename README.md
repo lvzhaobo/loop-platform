@@ -97,3 +97,9 @@ HARNESS_MAX_TASKS=1 HARNESS_AUTOCOMMIT=1 bash delivery-loop/run_backlog.sh
 - [自主交付流水线-全流程与改进](delivery-loop/docs/自主交付流水线-全流程与改进.md)
 - [Spec 编译层与动态模板方案](delivery-loop/docs/Spec编译层与动态模板方案.md)
 - [GitHub 多仓发布方案](delivery-loop/docs/GitHub多仓发布方案.md)
+
+---
+
+## 许可
+
+[MIT](LICENSE)。自由使用 / 修改 / 分发 / 商用,保留版权声明即可。欢迎 fork 后按自己的领域改造。

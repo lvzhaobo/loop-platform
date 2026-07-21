@@ -9,7 +9,7 @@
   .venv/bin/python delivery-loop/deploy/sync_to_ecs.py sync    # 阶段2:打包 + 传输 + 远端安装
 
 凭证:从仓库根 .env 读 ECS_SSH_PASSWORD(必填)。
-主机:默认 47.76.211.100 / root / 22,可用环境变量 ECS_HOST / ECS_SSH_USER / ECS_SSH_PORT 覆盖。
+主机:从 .env 读 ECS_HOST;用户/端口默认 root / 22,可用 ECS_HOST / ECS_SSH_USER / ECS_SSH_PORT 覆盖。
 所有输出中的密码不打印明文(替换为 ****)。
 """
 from __future__ import annotations
@@ -186,7 +186,7 @@ systemctl is-active loop-studio loop-platform loop-spa || true
 
 def main() -> int:
     load_env(os.path.join(ROOT, ".env"))
-    host = os.environ.get("ECS_HOST", "").strip() or "47.76.211.100"
+    host = os.environ.get("ECS_HOST", "").strip()
     user = os.environ.get("ECS_SSH_USER", "root").strip() or "root"
     port = os.environ.get("ECS_SSH_PORT", "22").strip() or "22"
     password = os.environ.get("ECS_SSH_PASSWORD", "")
@@ -194,6 +194,9 @@ def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "probe"
     if mode not in ("probe", "sync"):
         print(f"未知模式 {mode!r};用法:sync_to_ecs.py [probe|sync]")
+        return 2
+    if not host:
+        print("缺少 ECS_HOST(仓库根 .env 未配置目标服务器地址),无法连接。")
         return 2
     if not password:
         print("缺少 ECS_SSH_PASSWORD(仓库根 .env 未配置),无法连接 ECS。")

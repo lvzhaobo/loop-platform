@@ -1,7 +1,7 @@
 # loop-platform 运维手册
 
 > 一键交付平台的日常运维速查。部署形态:阿里云 ECS + systemd 常驻 webhook。
-> 生产地址:`47.76.211.100` · 代码目录:`/root/loop-platform` · 服务名:`loop-platform`
+> 生产地址:`<your-server-ip>` · 代码目录:`/root/loop-platform` · 服务名:`loop-platform`
 
 ---
 
@@ -16,7 +16,7 @@
   → 真实 LLM 生成代码 + 20 项验收 (跑两次校验产物一致性)
   → 推 loop-sample 仓 (sampleN @ main)
   → GitHub Actions「Deploy samples to ECS」自动部署
-  → 线上 http://47.76.211.100:100N 上线
+  → 线上 http://<your-server-ip>:100N 上线
 ```
 
 - **配置态**:`harness-4/studio`(Flask :5100)——编辑约束/用例、一致性预检,页面上也有「🚀 开始交付」按钮。**已装成常驻服务 `loop-studio`**。
@@ -77,7 +77,7 @@ curl -sS -X POST http://127.0.0.1:8787/trigger -w "\n[HTTP %{http_code}]\n"
 
 **A. 按钮页(推荐,零公网暴露)** —— 在你自己电脑上开隧道:
 ```bash
-ssh -L 8787:127.0.0.1:8787 root@47.76.211.100
+ssh -L 8787:127.0.0.1:8787 root@<your-server-ip>
 # 浏览器打开 http://127.0.0.1:8787/ ,点「跑一批」
 ```
 
@@ -88,7 +88,7 @@ cd /root/loop-platform && bash delivery-loop/run_backlog.sh
 
 **C. studio 配置平台 + 🚀 按钮(已常驻 `loop-studio`)**:
 ```bash
-ssh -L 5100:127.0.0.1:5100 root@47.76.211.100
+ssh -L 5100:127.0.0.1:5100 root@<your-server-ip>
 # 浏览器打开 http://127.0.0.1:5100 —— 完整配置平台(约束/用例编辑 + 预检 + 🚀 开始交付)
 ```
 > 服务已开机自启;若手动前台调试可用:

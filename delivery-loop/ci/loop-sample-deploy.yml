@@ -9,7 +9,7 @@
 # 新增 sample8/sample9… 无需改本文件。
 #
 # 需在 GitHub 仓库 Settings → Secrets and variables → Actions 添加:
-#   ECS_HOST          例:47.76.211.100
+#   ECS_HOST          例:<your-server-ip>
 #   ECS_SSH_USER      例:root
 #   ECS_SSH_PORT      例:22
 #   ECS_SSH_PASSWORD  ECS 登录密码

@@ -175,7 +175,7 @@
       <div class="log" id="log"></div>
       <div class="preview" id="preview">
         <div class="h">🎉 已上线，公网可预览</div>
-        <a id="purl" href="#" target="_blank">http://47.76.211.100:1002/</a>
+        <a id="purl" href="#" target="_blank">http://<your-server-ip>:1002/</a>
         <div class="meta" id="pmeta"></div>
       </div>
     </div>
@@ -241,10 +241,10 @@ const PIPELINE = [
     ["克隆 loop-sample…","git clone lvzhaobo/loop-sample"],
     ["计算目录序号…","B 方案自动递增 → sample2"],
     ["提交并推送…","push main @ 73b29b1"],
-    ["部署 ECS…","SSH 47.76.211.100 → pip install"],
+    ["部署 ECS…","SSH <your-server-ip> → pip install"],
     ["拉起服务…","PORT=1002 nohup python3 app.py"],
     ["探活…","curl → HTTP 200 ✓"],
-    ["上线完成","http://47.76.211.100:1002/ 🎉",'ok'],
+    ["上线完成","http://<your-server-ip>:1002/ 🎉",'ok'],
   ]},
 ];
 
