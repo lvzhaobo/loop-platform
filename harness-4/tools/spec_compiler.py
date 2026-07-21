@@ -69,7 +69,7 @@ def build_prompt(free_text, name):
   - 必须含一个封面/图片字段(string),用于 image_field
   - 约束列用空格分隔的 key=value:可选 max_len=N / min_len=N / gt=N / gte=N / lt=N / lte=N;无约束留空
   - 类型只用 int / number / string
-  - 至少 6 个字段,含一个 min_len>=100 的长文本字段(详情正文)
+  - 至少 6 个字段,含一个 min_len>=10 的长文本字段(详情正文;具体长度由你根据需求加工拆解,不强制冗长)
 
 【文件2: spec/api-contract.md】—— 路由契约
 - 必须有一个表格,表头**逐字**为: | 名称 | 路径 |
@@ -87,6 +87,10 @@ def build_prompt(free_text, name):
   | list_card_children | <逗号分隔的 4 个 class,均以 list_marker 前缀开头> |
   | detail_markers     | <逗号分隔的 2 个详情页 class,如 btn-xxx, xxx-body> |
   | required_colors    | <逗号分隔的 2 个十六进制色,如 #e67e22, #27ae60>  |
+- 【关键·不要丢约束】若需求原文明确要求页面出现某段**字面文案**(品牌名/日期/版本号/口号/指定字样,
+  如「页面要显示 Loop-20260721」),必须再加一行,把这些文案**逐字照抄**(不得改写/翻译/意译):
+  | must_contain_text  | <逗号分隔的字面文案,逐字照抄需求原文> |
+  若需求没有此类字面文案要求,则**整行省略**(不要写空值、不要编造)。
 
 【文件4: case.meta.json】—— 非规格的构建约定(严格 JSON,不要注释)
 {{
@@ -121,7 +125,7 @@ MOCK = {
 | minutes | int    | 是   | gt=0              | 烹饪时长(分钟)   |
 | cover   | string | 是   |                   | 封面图 `static/img/<id>.png` |
 | summary | string | 是   | max_len=100       | 一句话简介         |
-| steps   | string | 是   | min_len=100       | 详细做法正文       |
+| steps   | string | 是   | min_len=10        | 详细做法正文       |
 """,
         "spec/api-contract.md": """# 接口契约(路由 / 响应 / 状态码)
 
@@ -143,6 +147,7 @@ MOCK = {
 | list_card_children | recipe-cover, recipe-title, recipe-meta, recipe-summary  |
 | detail_markers     | btn-cook, recipe-steps                                   |
 | required_colors    | #e67e22, #27ae60                                         |
+| must_contain_text  | 美食工坊 Loop-Kitchen                                    |
 """,
         "case.meta.json": json.dumps({
             "name": "recipe",
@@ -240,8 +245,8 @@ def contract_gate(cdir, name):
             errs.append(f"colors 含非法十六进制: {bad_c}")
 
     fr = case.get("field_rules") or {}
-    if not any(v.get("min_len", 0) >= 100 for v in fr.values() if isinstance(v, dict)):
-        errs.append("缺长文本字段(无 min_len>=100 的详情正文),详情页会太空")
+    if not any(v.get("min_len", 0) >= 10 for v in fr.values() if isinstance(v, dict)):
+        errs.append("缺长文本字段(无 min_len>=10 的详情正文),详情页会太空")
 
     if errs:
         print(f"❌ [contract_gate] {name} 契约不合规:")

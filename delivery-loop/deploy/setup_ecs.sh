@@ -51,16 +51,20 @@ say "python3 版本:$PYV(需 ≥ 3.8)"
 python3 -c 'import sys;raise SystemExit(0 if sys.version_info[:2]>=(3,8) else 1)' \
   || die "Python 版本过低(需 ≥ 3.8),请升级后重试。"
 
-# ---- 2. 拉/更新代码 ----
+# ---- 2. 拉/更新代码(三种来源:git 更新 / git 克隆 / 直传就绪) ----
 if [ -d "$APP_DIR/.git" ]; then
-  say "已存在代码目录,git 更新:$APP_DIR"
+  say "已存在 git 代码目录,git 更新:$APP_DIR"
   git -C "$APP_DIR" fetch -q origin "$BRANCH"
   git -C "$APP_DIR" checkout -q "$BRANCH"
   git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
-else
-  [ -n "$REPO_URL" ] || die "目录 $APP_DIR 不存在且未提供 REPO_URL。请:REPO_URL=... bash setup_ecs.sh"
+elif [ -n "$REPO_URL" ]; then
   say "克隆代码到 $APP_DIR ..."
   git clone -q -b "$BRANCH" "$REPO_URL" "$APP_DIR"
+elif [ -f "$APP_DIR/delivery-loop/run_backlog.sh" ]; then
+  # 直传模式:代码已由 sync_to_ecs.py 解包到位,无 .git、也没给 REPO_URL,跳过拉取。
+  say "检测到已就绪代码(直传模式,无 .git),跳过拉取:$APP_DIR"
+else
+  die "目录 $APP_DIR 无代码且未提供 REPO_URL。请 REPO_URL=... bash setup_ecs.sh,或先直传代码到该目录。"
 fi
 cd "$APP_DIR"
 
@@ -103,25 +107,30 @@ fi
 say "自检:关键入口与脚本 ..."
 for f in delivery-loop/run_backlog.sh delivery-loop/orchestrator.py \
          delivery-loop/trigger/webhook.py delivery-loop/trigger/index.html \
-         harness-4/generate.sh; do
+         harness-4/studio/server.py harness-4/generate.sh loop-platform/index.html; do
   [ -f "$f" ] || die "缺文件:$f(代码可能不完整)"
 done
 bash -n delivery-loop/run_backlog.sh
-./.venv/bin/python -c "import ast,sys; ast.parse(open('delivery-loop/orchestrator.py').read()); ast.parse(open('delivery-loop/trigger/webhook.py').read())"
+./.venv/bin/python -c "import ast,sys; [ast.parse(open(p).read()) for p in ['delivery-loop/orchestrator.py','delivery-loop/trigger/webhook.py','harness-4/studio/server.py']]"
 say "自检通过。"
 
-# ---- 6.(可选)装 systemd 常驻服务 ----
+# ---- 6.(可选)装 systemd 常驻服务(两个:webhook 按钮页 + studio 配置平台) ----
 if [ "$WITH_SERVICE" -eq 1 ]; then
-  say "渲染并安装 systemd 服务 loop-platform ..."
-  TPL="delivery-loop/deploy/loop-platform.service"
-  [ -f "$TPL" ] || die "缺服务模板:$TPL"
-  TMP=$(mktemp)
-  sed -e "s#__APP_DIR__#$APP_DIR#g" -e "s#__USER__#$(id -un)#g" "$TPL" > "$TMP"
-  $SUDO cp "$TMP" /etc/systemd/system/loop-platform.service
-  rm -f "$TMP"
+  render_unit() {  # $1=服务名 $2=模板路径 → 渲染 __APP_DIR__/__USER__ 后 cp 到 systemd
+    local name="$1" tpl="$2" tmp
+    [ -f "$tpl" ] || die "缺服务模板:$tpl"
+    tmp=$(mktemp)
+    sed -e "s#__APP_DIR__#$APP_DIR#g" -e "s#__USER__#$(id -un)#g" "$tpl" > "$tmp"
+    $SUDO cp "$tmp" "/etc/systemd/system/$name.service"
+    rm -f "$tmp"
+  }
+  say "渲染并安装 systemd 服务:loop-platform(:8787 按钮页) + loop-studio(:5100 配置平台) + loop-spa(:5200 SPA 前端) ..."
+  render_unit loop-platform delivery-loop/deploy/loop-platform.service
+  render_unit loop-studio   delivery-loop/deploy/loop-studio.service
+  render_unit loop-spa      delivery-loop/deploy/loop-spa.service
   $SUDO systemctl daemon-reload
-  $SUDO systemctl enable --now loop-platform
-  say "服务已启动。状态:systemctl status loop-platform | 日志:journalctl -u loop-platform -f"
+  $SUDO systemctl enable --now loop-platform loop-studio loop-spa
+  say "服务已启动。状态:systemctl status loop-platform loop-studio loop-spa | 日志:journalctl -u loop-studio -f"
 fi
 
 # ---- 完成 · 打印两种触发方式 ----
@@ -145,5 +154,15 @@ cat <<EOF
   ssh -L $PORT:127.0.0.1:$PORT <你>@<ECS>
   然后浏览器打开 http://127.0.0.1:$PORT/
   # 要直接公网访问:改 HARNESS_TRIGGER_HOST=0.0.0.0 + 设 HARNESS_TRIGGER_TOKEN + 安全组只放行你的 IP
+
+形态三 · 完整配置平台 studio(--with-service 时常驻,绑 127.0.0.1:5100):
+  # 约束/用例编辑 + 一致性预检 + 🚀 开始交付按钮
+  ssh -L 5100:127.0.0.1:5100 <你>@<ECS>
+  然后浏览器打开 http://127.0.0.1:5100
+
+形态四 · 精美 SPA 前端 loop-spa(--with-service 时常驻,绑 127.0.0.1:5200):
+  # Dashboard/需求/Trace/一键交付;SPA 前端打 5100 API,故需同时开两条隧道
+  ssh -L 5200:127.0.0.1:5200 -L 5100:127.0.0.1:5100 <你>@<ECS>
+  然后浏览器打开 http://127.0.0.1:5200
 ============================================================
 EOF

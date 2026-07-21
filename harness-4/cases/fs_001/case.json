@@ -1,31 +1,33 @@
 {
   "name": "fs_001",
-  "title": "在线学习平台",
-  "data_file": "data/courses.json",
-  "loader_function": "load_courses",
+  "title": "在线学习平台番茄时钟模块",
+  "data_file": "data/tomato_clocks.json",
+  "loader_function": "load_tomato_clocks",
   "route_functions": [
-    "course_list",
-    "course_detail",
-    "api_courses",
-    "api_course_detail"
+    "tomato_clock_list",
+    "tomato_clock_detail",
+    "api_tomato_clocks",
+    "api_tomato_clock_detail"
   ],
   "needs_images": true,
   "image_field": "cover_image",
   "extra_required_files": [
-    "data/courses.json"
+    "data/tomato_clocks.json"
   ],
-  "entity": "course",
+  "entity": "tomato_clock",
   "min_items": 8,
   "required_fields": [
     "id",
     "title",
+    "duration_minutes",
     "description",
-    "instructor",
-    "duration",
-    "category"
+    "color_hex",
+    "created_at",
+    "is_active"
   ],
   "numeric_fields": {
-    "duration": "number"
+    "duration_minutes": "int",
+    "is_active": "int"
   },
   "field_rules": {
     "id": {
@@ -34,49 +36,56 @@
     },
     "title": {
       "type": "string",
-      "max_len": 200
+      "max_len": 100
+    },
+    "cover_image": {
+      "type": "string",
+      "max_len": 500
+    },
+    "duration_minutes": {
+      "type": "int",
+      "gt": 0,
+      "lte": 60
     },
     "description": {
       "type": "string",
-      "min_len": 100
+      "min_len": 10,
+      "max_len": 2000
     },
-    "instructor": {
+    "color_hex": {
       "type": "string",
-      "max_len": 100
+      "max_len": 7
     },
-    "duration": {
-      "type": "number",
-      "gt": 0
-    },
-    "category": {
+    "created_at": {
       "type": "string",
-      "max_len": 50
+      "max_len": 20
     },
-    "price": {
-      "type": "number",
-      "gte": 0
+    "is_active": {
+      "type": "int",
+      "gte": 0,
+      "lte": 1
     }
   },
   "routes": {
     "list": "/",
-    "detail_sample": "/course/1",
-    "api_list": "/api/courses",
-    "api_detail_ok": "/api/courses/1",
-    "api_detail_missing": "/api/courses/9999"
+    "detail_sample": "/tomato_clock/1",
+    "api_list": "/api/tomato_clocks",
+    "api_detail_ok": "/api/tomato_clocks/1",
+    "api_detail_missing": "/api/tomato_clocks/9999"
   },
-  "list_marker": "course-card",
+  "list_marker": "tomato-card",
   "detail_markers": [
-    "btn-enroll",
-    "course-detail-body"
+    "btn-tomato",
+    "tomato-detail-body"
   ],
   "colors": [
-    "#e67e22",
-    "#27ae60"
+    "#e74c3c",
+    "#ffffff"
   ],
   "list_card_children": [
-    "course-card-title",
-    "course-card-image",
-    "course-card-instructor",
-    "course-card-price"
+    "tomato-card-image",
+    "tomato-card-title",
+    "tomato-card-duration",
+    "tomato-card-status"
   ]
 }

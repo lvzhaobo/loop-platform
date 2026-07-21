@@ -186,13 +186,20 @@ def main() -> int:
     backlog_file = os.environ.get("HARNESS_BACKLOG_FILE", "delivery-loop/backlog/backlog.jsonl")
     mode = os.environ.get("HARNESS_MODE", "sample")
     max_tasks = int(os.environ.get("HARNESS_MAX_TASKS", "0") or 0)
+    only_task = os.environ.get("HARNESS_ONLY_TASK", "").strip()  # 非空=只交付该任务 id,空=整池
 
     adapter = load_adapter(source, backlog_file=os.path.join(ROOT, backlog_file))
     pending = adapter.list_pending()
+    if only_task:
+        pending = [t for t in pending if t.id == only_task]
+        if not pending:
+            print(f"[delivery-loop] 指定任务 {only_task} 不在待处理列表(可能已完成/不存在),结束。")
+            return 0
     if max_tasks > 0:
         pending = pending[:max_tasks]
 
-    print(f"[delivery-loop] 来源={source} 模式={mode} 待办={len(pending)} 条")
+    scope = f"单条={only_task}" if only_task else "整池"
+    print(f"[delivery-loop] 来源={source} 模式={mode} 范围={scope} 待办={len(pending)} 条")
     if not pending:
         print("[delivery-loop] 需求池无 pending 任务,结束。")
         return 0

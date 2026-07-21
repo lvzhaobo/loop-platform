@@ -1,0 +1,3 @@
+# 仅 L5(LangGraph 编排层)需要。L0~L4 保持零第三方依赖。
+# 安装: pip install -r harness-5/l5_langgraph/requirements.txt
+langgraph>=1.0

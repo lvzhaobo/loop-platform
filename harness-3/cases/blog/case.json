@@ -1,0 +1,22 @@
+{
+  "name": "blog",
+  "title": "极简博客:文章列表 + 详情",
+  "data_file": "data/posts.json",
+  "min_items": 6,
+  "required_fields": ["id", "title", "author", "date", "summary", "content"],
+  "numeric_fields": {"id": "int"},
+  "loader_function": "load_posts",
+  "route_functions": ["post_list", "post_detail", "api_posts", "api_post_detail"],
+  "routes": {
+    "list": "/",
+    "detail_sample": "/post/1",
+    "api_list": "/api/posts",
+    "api_detail_missing": "/api/posts/9999"
+  },
+  "list_marker": "post-card",
+  "detail_markers": ["article-body"],
+  "colors": ["#2c3e50"],
+  "needs_images": false,
+  "image_field": null,
+  "extra_required_files": ["data/posts.json"]
+}

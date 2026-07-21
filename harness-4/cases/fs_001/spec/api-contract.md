@@ -1,7 +1,6 @@
 | 名称 | 路径 |
-|------|------|
 | list | / |
-| detail_sample | /course/1 |
-| api_list | /api/courses |
-| api_detail_ok | /api/courses/1 |
-| api_detail_missing | /api/courses/9999 |
+| detail_sample | /tomato_clock/1 |
+| api_list | /api/tomato_clocks |
+| api_detail_ok | /api/tomato_clocks/1 |
+| api_detail_missing | /api/tomato_clocks/9999 |

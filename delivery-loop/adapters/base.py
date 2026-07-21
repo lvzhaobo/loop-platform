@@ -23,6 +23,20 @@ class Task:
     extra: dict[str, Any] = field(default_factory=dict)  # 来源特有字段透传
 
 
+# 互斥的「结局说明」字段:每次 report 都完整描述本次结局,故若本次未再提供,
+# 应清掉上一状态残留(否则 done 会残留 failed 的 reason、fetched 的 note,UI 自相矛盾)。
+_OUTCOME_FIELDS = ("reason", "note")
+
+
+def apply_report(rec: dict[str, Any], status: str, fields: dict[str, Any]) -> None:
+    """把一次 report 归并进状态记录:写新状态 → 清掉本次未提供的互斥结局说明字段 → 合并本次字段。"""
+    rec["status"] = status
+    for k in _OUTCOME_FIELDS:
+        if k not in fields:
+            rec.pop(k, None)
+    rec.update(fields)
+
+
 class Adapter(abc.ABC):
     """来源适配器:负责「读取待办」与「回写结果」两个方向。"""
 

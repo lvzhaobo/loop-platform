@@ -12,9 +12,12 @@ MAX_RETRY=5
 source "$HDIR/config.env"
 [ -z "$DEEPSEEK_API_KEY" ] && [ -f .env ] && source .env
 
+# 选择 Python 解释器:优先仓库 .venv,其次 python3(macOS 无裸 python)
+if [ -x "$ROOT/.venv/bin/python" ]; then PYTHON="$ROOT/.venv/bin/python"; elif command -v python3 >/dev/null 2>&1; then PYTHON="$(command -v python3)"; else PYTHON="$(command -v python)"; fi
+
 # 用例集:优先环境变量 HARNESS_CASES;否则用 constraints.json 的 run_cases(默认运行集);
 # run_cases 缺省时回退到 cases(全部已登记用例)。仅影响「实际运行」,不影响自洽检查/Schema 派生。
-CASES="${HARNESS_CASES:-$(python -c "import json;c=json.load(open('$HDIR/constraints.json'));print(' '.join(c.get('run_cases') or c['cases']))")}"
+CASES="${HARNESS_CASES:-$("$PYTHON" -c "import json;c=json.load(open('$HDIR/constraints.json'));print(' '.join(c.get('run_cases') or c['cases']))")}"
 TS=$(date +%Y%m%d-%H%M%S)
 echo "本次批次:$TS  模式:${HARNESS_MODE:-real}  回归用例:$CASES"
 
@@ -37,16 +40,20 @@ for CASE in $CASES; do
   for i in $(seq 1 $MAX_RETRY); do
     ATTEMPTS=$i
     echo "--- [$CASE] 第 $i 次生成 ---"
-    python "$HDIR/tools/run_model.py" "$CASE" "$OUT" $FEEDBACK
+    "$PYTHON" "$HDIR/tools/run_model.py" "$CASE" "$OUT" $FEEDBACK
     # 注意:verify 的退出码不能被管道末端的 tee 吞掉,用 PIPESTATUS[0] 取 verify 本身的退出码
     set +e
-    python "$HDIR/tools/verify.py" "$CASE" "$OUT" 2>&1 | tee -a "$OUT/_verify.log"
+    "$PYTHON" "$HDIR/tools/verify.py" "$CASE" "$OUT" 2>&1 | tee -a "$OUT/_verify.log"
     VSTATUS=${PIPESTATUS[0]}
     set -e
     if [ "$VSTATUS" = "0" ]; then
       echo "✅ [$CASE] 第 $i 次通过"; RESULT="pass"; break
     fi
     echo "❌ [$CASE] 第 $i 次未通过,带反馈重生成"
+    # 生成即保存:本次未通过的产物先快照留档,避免下一次重试覆盖后丢失。
+    # 快照放在 $OUT 之外的兄弟目录,不参与确定性哈希/发布,仅供事后查看每次到底生成了什么。
+    SNAP="$OUT-attempt$i-fail"
+    rm -rf "$SNAP"; cp -R "$OUT" "$SNAP" && echo "  ↳ 第 $i 次产物已留档:$SNAP"
     FEEDBACK="$OUT/_verify.log"
     # sample 模式产物确定性,重试无意义,直接跳出
     [ "${HARNESS_MODE:-real}" = "sample" ] && break
@@ -57,7 +64,7 @@ for CASE in $CASES; do
   if [ "$RESULT" = "pass" ] && [ "${HARNESS_DET_CHECK:-0}" = "1" ]; then
     OUT2="$OUT-rerun"; mkdir -p "$OUT2"
     echo "--- [$CASE] 确定性复跑 → $OUT2 ---"
-    python "$HDIR/tools/run_model.py" "$CASE" "$OUT2"
+    "$PYTHON" "$HDIR/tools/run_model.py" "$CASE" "$OUT2"
     H1=$(hash_out "$OUT"); H2=$(hash_out "$OUT2")
     if [ "$H1" = "$H2" ]; then
       DET="identical"; echo "✅ [$CASE] 确定性:两次产物字节一致"

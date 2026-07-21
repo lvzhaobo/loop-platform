@@ -1,0 +1,15 @@
+{
+  "harness_version": "2.0.0",
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "data/products.json",
+    "templates/base.html",
+    "templates/list.html",
+    "templates/detail.html",
+    "static/css/style.css",
+    "static/js/main.js",
+    "tests/test_app.py"
+  ]
+}

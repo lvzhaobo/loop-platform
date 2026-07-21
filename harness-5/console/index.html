@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>harness-5 · 玻璃盒控制台</title>
+<style>
+:root{
+  --bg:#f4f6fb; --panel:#ffffff; --panel-2:#fafbfe; --ink:#1b2330; --ink-2:#5a6577;
+  --border:#e3e8f0; --accent:#3457d5; --accent-weak:#e8edfd;
+  --ok:#1a8a4f; --ok-weak:#e5f5ec; --err:#c8352b; --err-weak:#fbe9e7;
+  --warn:#b8860b; --warn-weak:#fbf3d9; --mute:#8b95a7;
+  --code-bg:#f5f7fb; --add:#1a8a4f; --del:#c8352b;
+}
+html[data-theme="dark"]{
+  --bg:#0f1420; --panel:#171d2b; --panel-2:#1c2333; --ink:#e6ebf4; --ink-2:#a5afc2;
+  --border:#2a3346; --accent:#6b8dff; --accent-weak:#1e2a4a;
+  --ok:#4ecb7d; --ok-weak:#16301f; --err:#ff7062; --err-weak:#341917;
+  --warn:#e0b24a; --warn-weak:#332b12; --mute:#6b7688;
+  --code-bg:#0d121d; --add:#4ecb7d; --del:#ff7062;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;
+  display:grid;grid-template-rows:52px 1fr 26px;height:100vh;overflow:hidden}
+code,pre,.mono{font-family:"SF Mono",Menlo,Consolas,monospace}
+
+/* 顶栏 */
+.appbar{display:flex;align-items:center;gap:14px;padding:0 18px;
+  background:var(--panel);border-bottom:1px solid var(--border);z-index:20}
+.brand{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.brand .logo{width:24px;height:24px;border-radius:7px;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.brand .sub{font-weight:400;color:var(--ink-2);font-size:12px}
+.spacer{flex:1}
+.statuschips{display:flex;gap:8px;align-items:center;font-family:"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-2)}
+.statuschips .sc{background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:3px 9px}
+.statuschips .sc b{color:var(--ink);font-weight:600}
+.icon-btn{border:1px solid var(--border);background:var(--panel);color:var(--ink);
+  border-radius:8px;height:32px;padding:0 10px;cursor:pointer;font-size:13px}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--warn-weak);color:var(--warn);font-weight:600}
+
+/* 主体:侧栏 + 内容 */
+.shell{display:grid;grid-template-columns:266px 1fr;min-height:0}
+.side{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:12px 10px}
+.side-sec{font-size:11px;font-weight:700;color:var(--mute);letter-spacing:.5px;margin:14px 6px 6px}
+.side-sec:first-child{margin-top:4px}
+/* 侧栏导航项(复用 .tab,data-view 供 app.js 切换) */
+.tab{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;
+  color:var(--ink-2);font-weight:500;font-size:13px;margin-bottom:2px}
+.tab:hover{background:var(--panel-2)}
+.tab.active{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.tab .ti{width:18px;text-align:center;font-size:13px;opacity:.85}
+.tab .cnt{margin-left:auto;font-size:11px;background:var(--panel-2);border:1px solid var(--border);
+  color:var(--ink-2);border-radius:20px;padding:0 7px;font-weight:600}
+.tab.active .cnt{background:var(--panel);border-color:var(--accent-weak)}
+
+.main{overflow-y:auto;padding:20px 22px}
+.wrap{max-width:1120px;margin:0 auto}
+
+/* 底栏 */
+.statusbar{display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);
+  border-top:1px solid var(--border);font-size:11.5px;color:var(--ink-2)}
+.statusbar .ok-dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.statusbar .mono{color:var(--mute)}
+.statusbar .right{margin-left:auto;color:var(--mute)}
+
+.view{display:none}
+.view.active{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
+.card h3{margin:0 0 4px;font-size:15px}
+.card .desc{color:var(--ink-2);font-size:12.5px;margin-bottom:14px}
+.page-h{margin:0 0 16px}
+.page-h .crumb{font-size:12px;color:var(--mute);font-family:"SF Mono",Menlo,monospace}
+.page-h h2{margin:2px 0 0;font-size:20px}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.col{flex:1;min-width:300px}
+
+/* 联动图 */
+.pipe{display:flex;flex-direction:column;gap:0}
+.stage{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--panel-2);
+  cursor:pointer;transition:.15s;position:relative}
+.stage:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(52,87,213,.08)}
+.stage.sel{border-color:var(--accent);background:var(--accent-weak)}
+.stage .lv{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.stage .nm{font-weight:600;margin:2px 0}
+.stage .cmp{font-size:12px;color:var(--ink-2)}
+.stage .cmp b{color:var(--ink);font-weight:600}
+.arrow{align-self:center;color:var(--mute);font-size:18px;line-height:1;padding:5px 0}
+.flowtag{position:absolute;right:14px;top:14px;font-size:11px;color:var(--mute)}
+
+.srcbox{margin-top:2px}
+pre.src{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px;
+  overflow:auto;font-size:12.5px;max-height:420px;margin:0}
+.hint{color:var(--mute);font-size:12px}
+
+/* 配置面板 */
+.field{margin-bottom:16px}
+.field label{display:block;font-weight:600;margin-bottom:5px;font-size:13px}
+.field .sub{color:var(--ink-2);font-weight:400;font-size:12px}
+input[type=range]{width:100%}
+input[type=number],input[type=text]{background:var(--panel-2);border:1px solid var(--border);
+  color:var(--ink);border-radius:8px;padding:7px 10px;width:100%;font-size:13px}
+.rangeval{font-weight:700;color:var(--accent);font-family:monospace}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{background:var(--panel-2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;
+  display:flex;align-items:center;gap:6px}
+.chip .x{cursor:pointer;color:var(--mute)}
+.chip .x:hover{color:var(--err)}
+.fn-list{display:flex;flex-direction:column;gap:6px}
+.fn-row{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px}
+.fn-row .sig{font-family:monospace;flex:1;font-size:12.5px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px}
+.btn:hover{opacity:.9}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--ink)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* diff */
+.diff{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:monospace;font-size:12.5px;min-height:60px}
+.diff .add{color:var(--add)}
+.diff .del{color:var(--del)}
+.diff .none{color:var(--mute)}
+.writes{margin-top:10px;font-size:12px;color:var(--ink-2)}
+.writes .file{font-family:monospace;color:var(--accent)}
+.cmd{background:#0d121d;color:#c9d4e8;border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;margin-top:8px;overflow:auto}
+.cmd .p{color:#5b6b86}
+
+/* 运行面板 */
+.runbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+select{background:var(--panel-2);border:1px solid var(--border);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:13px}
+.switch{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.rounds{display:flex;flex-direction:column;gap:12px}
+.round{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.round .rh{padding:9px 14px;background:var(--panel-2);display:flex;align-items:center;gap:10px;font-weight:600;font-size:13px}
+.round .rh .cost{margin-left:auto;font-family:monospace;font-size:12px;color:var(--ink-2)}
+.checks{padding:6px 14px 12px}
+.chk{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;border-bottom:1px dashed var(--border)}
+.chk:last-child{border-bottom:none}
+.chk .mk{width:52px;font-size:11px;font-weight:700;text-align:center;border-radius:5px;padding:2px 0}
+.chk .mk.ok{background:var(--ok-weak);color:var(--ok)}
+.chk .mk.bad{background:var(--err-weak);color:var(--err)}
+.chk .dt{color:var(--ink-2);font-size:12px;margin-left:auto;font-family:monospace}
+.verdict{margin-top:14px;padding:12px 16px;border-radius:10px;font-weight:600}
+.verdict.ok{background:var(--ok-weak);color:var(--ok)}
+.verdict.bad{background:var(--err-weak);color:var(--err)}
+.hashcmp{margin-top:14px;font-family:monospace;font-size:12.5px}
+.hashcmp .h{padding:6px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:auto}
+.mock-note{font-size:11.5px;color:var(--warn);background:var(--warn-weak);border-radius:6px;padding:6px 10px;display:inline-block}
+
+/* 跟练模式 */
+.stepper{display:flex;flex-direction:column;gap:3px}
+.step-item{padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:9px;align-items:center;font-size:13px;color:var(--ink-2)}
+.step-item:hover{background:var(--panel-2)}
+.step-item.cur{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.step-item .n{width:21px;height:21px;border-radius:50%;background:var(--border);color:var(--ink-2);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;font-weight:600}
+.step-item.done .n{background:var(--ok);color:#fff}
+.step-item.cur .n{background:var(--accent);color:#fff}
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.step-ch{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.step-mins{font-size:12px;color:var(--mute)}
+.step-nav{display:flex;justify-content:space-between;margin-top:18px;border-top:1px solid var(--border);padding-top:14px}
+.sect{margin:16px 0}
+.sect .lb{font-weight:600;font-size:13px;margin-bottom:7px;display:flex;align-items:center;gap:7px}
+.sect .lb .tg{font-size:11px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:1px 8px;color:var(--ink-2);font-weight:500}
+.why{font-size:13.5px;line-height:1.65}
+.why-pts{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.7;color:var(--ink-2)}
+.filelist{display:flex;flex-direction:column;gap:5px}
+.filelist .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;background:var(--code-bg);border:1px solid var(--border);border-radius:7px;padding:6px 10px}
+.expose{background:var(--warn-weak);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.55}
+
+/* 概览 */
+.dash-metrics{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.dash-metrics .m{flex:1;min-width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.dash-metrics .mv{font-size:22px;font-weight:700;color:var(--accent)}
+.dash-metrics .ml{font-size:12px;color:var(--ink-2);margin-top:2px}
+.lvl-grid{display:flex;flex-direction:column;gap:8px}
+.lvl-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2)}
+.lvl-row .lb{font-size:12px;font-weight:700;color:var(--accent);width:26px;flex-shrink:0}
+.lvl-row .ln{font-weight:600;width:96px;flex-shrink:0}
+.lvl-row .ld{color:var(--ink-2);font-size:12.5px}
+
+/* 四象限 */
+.quad-wrap{display:grid;grid-template-columns:78px 1fr 1fr;gap:10px;align-items:stretch}
+.quad-corner{}
+.quad-colh{text-align:center;font-weight:700;font-size:13.5px;color:var(--accent);padding:6px 0}
+.quad-colh .s{display:block;font-weight:400;font-size:11px;color:var(--ink-2);margin-top:2px}
+.quad-rowh{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;color:var(--accent);text-align:center}
+.quad-rowh .s{font-weight:400;font-size:10px;color:var(--ink-2);margin-top:5px;line-height:1.3}
+.quad-cell{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--panel-2);min-height:130px}
+.quad-cell h4{margin:0 0 3px;font-size:14px}
+.quad-cell .qd{font-size:11.5px;color:var(--ink-2);margin-bottom:11px;line-height:1.5}
+.quad-cell.empty{border-style:dashed;background:transparent}
+.qf{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;
+  background:var(--panel);border:1px solid var(--border);margin-bottom:5px;
+  font-family:"SF Mono",Menlo,Consolas,monospace}
+.qf:hover{border-color:var(--accent);color:var(--accent)}
+.qf .qn{margin-left:auto;font-family:-apple-system,sans-serif;font-size:11px;color:var(--mute)}
+.qf.na{cursor:default;border-style:dashed;color:var(--mute);font-family:-apple-system,sans-serif}
+.qf.na:hover{border-color:var(--border);color:var(--mute)}
+
+/* 侧栏文件树 */
+.ftree{display:flex;flex-direction:column;gap:1px}
+.ftree .fg{font-size:11px;font-weight:700;color:var(--mute);margin:9px 6px 2px;letter-spacing:.3px}
+.ftree .fi{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;font-family:"SF Mono",Menlo,Consolas,monospace}
+.ftree .fi:hover{background:var(--panel-2)}
+.ftree .fi.cur{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.ftree .fi .lang{margin-left:auto;font-size:10px;color:var(--mute);font-family:sans-serif}
+.fv-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.fv-desc{color:var(--ink-2);font-size:12.5px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<!-- 顶栏 -->
+<div class="appbar">
+  <div class="brand"><span class="logo">H5</span>harness-5 <span class="sub">玻璃盒控制台</span></div>
+  <div class="spacer"></div>
+  <div class="statuschips">
+    <span class="sc">MODE <b>sample</b></span>
+    <span class="sc">seed <b>42</b></span>
+    <span class="sc">T <b>0</b></span>
+  </div>
+  <span class="badge" id="modeBadge">Mock 模式</span>
+  <button class="icon-btn" id="themeBtn" title="切换主题">☾</button>
+</div>
+
+<!-- 主体 -->
+<div class="shell">
+  <!-- 左侧栏:导航 + 常驻文件树 -->
+  <nav class="side">
+    <div class="side-sec">工作台</div>
+    <div class="tab active" data-view="v-dash"><span class="ti">▦</span>概览</div>
+
+    <div class="side-sec">跟练 · 讲解</div>
+    <div class="tab" data-view="v-guide"><span class="ti">▶</span>跟练(按章节)<span class="cnt" id="navSteps">7</span></div>
+    <div class="tab" data-view="v-pipe"><span class="ti">⇲</span>联动图<span class="cnt">5</span></div>
+    <div class="tab" data-view="v-quad"><span class="ti">⊞</span>组件四象限<span class="cnt">4</span></div>
+
+    <div class="side-sec">配置 · 运行</div>
+    <div class="tab" data-view="v-config"><span class="ti">⚙</span>配置</div>
+    <div class="tab" data-view="v-run"><span class="ti">≡</span>运行</div>
+
+    <div class="side-sec">源码 · 全部文件(玻璃盒)</div>
+    <div class="tab" data-view="v-files"><span class="ti">◎</span>源码查看器</div>
+    <div class="ftree" id="ftree"></div>
+  </nav>
+
+  <!-- 内容区 -->
+  <div class="main">
+  <div class="wrap">
+  <!-- 概览 -->
+  <div class="view active" id="v-dash">
+    <div class="page-h"><div class="crumb">harness-5 / 概览</div><h2>工作台概览</h2></div>
+    <div class="card">
+      <h3>harness-5 · 玻璃盒控制台</h3>
+      <div class="desc">一套为 Workshop 而生的最小、可编辑的 Harness + Loop 实现。从裸调模型(L0)一层层搭到可控 / 自愈 / 不失控 / 可复现(L4)。每一段都是真实文件,点左侧文件树可逐行看。</div>
+      <div class="dash-metrics" id="dashMetrics"></div>
+    </div>
+    <div class="card">
+      <h3>五层阶梯 · L0 → L4</h3>
+      <div class="desc">每层独立、几十行、能当场改。点左侧「跟练」按章节走,或「运行」直接跑。</div>
+      <div class="lvl-grid" id="lvlGrid"></div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>能在这里做什么</h3>
+          <div class="filelist">
+            <div class="f">跟练 → 按 OUTLINE 分步讲,每步现场跑</div>
+            <div class="f">源码 → 左侧文件树浏览全部真实文件(玻璃盒)</div>
+            <div class="f">联动图 → 看 L0→L4 组件谁调用谁</div>
+            <div class="f">配置 → 改 constraints/facts,实时 diff + 等价命令</div>
+            <div class="f">运行 → 选层跑,逐轮门禁 + L4 哈希比对</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>确定性基线 · output/l4/runs.jsonl</h3>
+          <div class="desc">L4 每次跑追加一行,记录产物哈希,可审计复现。</div>
+          <pre class="src" id="runsjsonl" style="max-height:220px">—</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 源码查看器(文件树在左侧栏常驻) -->
+  <div class="view" id="v-files">
+    <div class="page-h"><div class="crumb">harness-5 / 源码</div><h2>源码查看器</h2></div>
+    <div class="card">
+      <div class="desc">左侧文件树点任一文件看<b>真实内容</b>——这就是玻璃盒,不是黑箱。</div>
+      <div class="fv-head"><span id="fvPath" class="mono" style="font-weight:600"></span><span class="badge" id="fvLang"></span></div>
+      <div class="fv-desc" id="fvDesc"></div>
+      <pre class="src" id="fvCode" style="max-height:640px">点左侧文件树查看</pre>
+    </div>
+  </div>
+
+  <!-- 跟练(Workshop 分步引导) -->
+  <div class="view" id="v-guide">
+    <div class="page-h"><div class="crumb">harness-5 / 跟练</div><h2>按章节跟练</h2></div>
+    <div class="row">
+      <div class="col" style="flex:0 0 250px;min-width:230px">
+        <div class="card">
+          <h3>课程进度</h3>
+          <div class="desc">按章节走,点任一步可跳转。</div>
+          <div class="stepper" id="stepper"></div>
+        </div>
+      </div>
+      <div class="col" style="flex:1.5">
+        <div class="card" id="stepCard">
+          <div class="step-head">
+            <span class="step-ch" id="stepCh"></span>
+            <span class="step-mins" id="stepMins"></span>
+          </div>
+          <h3 id="stepTitle" style="font-size:17px"></h3>
+          <div id="stepBody"></div>
+          <div class="step-nav">
+            <button class="btn ghost" id="prevStep">← 上一步</button>
+            <button class="btn" id="nextStep">下一步 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 联动图 -->
+  <div class="view" id="v-pipe">
+    <div class="page-h"><div class="crumb">harness-5 / 联动图</div><h2>组件联动 · L0 → L4</h2></div>
+    <div class="row">
+      <div class="col" style="flex:1.1">
+        <div class="card">
+          <h3>数据流向</h3>
+          <div class="desc">点任一阶段,右侧显示它对应的真实源码片段与"谁调用谁"。箭头即数据流向。</div>
+          <div class="pipe" id="pipe"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card srcbox" id="srcCard">
+          <h3 id="srcTitle">点左侧阶段查看源码</h3>
+          <div class="desc" id="srcDesc">每个阶段都是一个真实文件,不是黑盒。</div>
+          <pre class="src" id="srcCode">// 选择左侧任一阶段</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 组件四象限 -->
+  <div class="view" id="v-quad">
+    <div class="page-h"><div class="crumb">harness-5 / 四象限</div><h2>组件四象限 · 前馈/后馈 × 计算型/推理型</h2></div>
+    <div class="card">
+      <div class="desc">两根轴给所有组件归位:<b>前馈</b>(生成方向・Maker)对 <b>后馈</b>(验收回喂・Checker);<b>计算型</b>(确定性、不调模型)对 <b>推理型</b>(靠大模型)。点任一文件跳到源码查看器逐行看。</div>
+      <div class="quad-wrap" id="quadWrap"></div>
+    </div>
+    <div class="card">
+      <h3>怎么读这张图</h3>
+      <div class="filelist">
+        <div class="f">左右轴 = <b>计算型 vs 推理型</b>:计算型结果确定、可复现(测试/正则/哈希/schema);推理型靠大模型、可能漂移。</div>
+        <div class="f">上下轴 = <b>前馈 vs 后馈</b>:前馈把东西<b>造出来</b>(Maker),后馈把东西<b>验回去</b>(Checker)。</div>
+        <div class="f"><b>lib/model.py</b> 同时落在两个前馈格:real 分支调 DeepSeek(推理型)、sample 分支离线确定产物(计算型)。</div>
+        <div class="f"><b>后馈・推理型</b>刻意留空——harness-5 的 Checker 全是计算型,因为<b>确定性是最硬的验收</b>;要补语义评判见 promptfoo/DeepEval。</div>
+        <div class="f">编排层 l1~l5(gate/loop/loop_guarded/graph)把前馈↔后馈串起来,本身是<b>计算型控制流</b>,不产内容也不做语义判断。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置 -->
+  <div class="view" id="v-config">
+    <div class="page-h"><div class="crumb">harness-5 / 配置</div><h2>配置中心 · 约束</h2></div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>循环护栏 · constraints.json → loop</h3>
+          <div class="desc">改这里 = 改真实的 constraints.json。下方实时显示写回内容与等价命令。</div>
+          <div class="field">
+            <label>最大迭代轮数 max_iterations <span class="rangeval" id="miVal"></span></label>
+            <input type="range" id="mi" min="1" max="10" step="1">
+          </div>
+          <div class="field">
+            <label>花费上限 max_cost <span class="rangeval" id="mcVal"></span></label>
+            <input type="range" id="mc" min="20" max="300" step="20">
+          </div>
+          <div class="field">
+            <label>每轮成本 cost_per_attempt <span class="rangeval" id="cpVal"></span></label>
+            <input type="range" id="cp" min="5" max="50" step="5">
+          </div>
+        </div>
+        <div class="card">
+          <h3>硬约束 · constraints.json</h3>
+          <div class="field">
+            <label>模块行数上限 max_lines <span class="rangeval" id="mlVal"></span></label>
+            <input type="range" id="ml" min="10" max="200" step="5">
+          </div>
+          <div class="field">
+            <label>禁用模式 banned_patterns <span class="sub">生成产物命中即安全关卡失败</span></label>
+            <div class="chips" id="banChips"></div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <input type="text" id="banInput" placeholder="新增禁用片段,如 pickle.load">
+              <button class="btn sm ghost" id="banAdd">添加</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>事实源 · spec/facts.json</h3>
+          <div class="desc">增删函数会触发"自洽性门禁"——facts 里的函数必须能在 spec.md 找到落点。</div>
+          <div class="fn-list" id="fnList"></div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <input type="text" id="fnInput" placeholder="新增函数名,如 gcd">
+            <button class="btn sm ghost" id="fnAdd">添加函数</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="position:sticky;top:0">
+          <h3>改动预览 <span class="mock-note">Mock:暂不写盘</span></h3>
+          <div class="desc">这就是"玻璃盒"——界面每改一处,都告诉你改了哪个文件的哪一行。</div>
+          <div class="writes" id="writes"></div>
+          <div style="font-weight:600;margin:12px 0 6px;font-size:13px">JSON diff</div>
+          <div class="diff" id="diff"></div>
+          <div style="font-weight:600;margin:12px 0 6px;font-size:13px">等价命令</div>
+          <div class="cmd" id="cmd"></div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn" id="saveBtn">保存(写回文件)</button>
+            <button class="btn ghost" id="resetBtn">重置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 运行 -->
+  <div class="view" id="v-run">
+    <div class="page-h"><div class="crumb">harness-5 / 运行</div><h2>运行流水线</h2></div>
+    <div class="card">
+      <h3>选层运行</h3>
+      <div class="desc">选一层运行,逐轮看门禁结果。轮数/预算受"配置"页的护栏影响——改小 max_iterations 再跑 L3 试试。</div>
+      <div class="runbar">
+        <select id="lvSel">
+          <option value="L0">L0 · 单次调用</option>
+          <option value="L1">L1 · Harness 门禁</option>
+          <option value="L2">L2 · Loop 闭环</option>
+          <option value="L3" selected>L3 · 护栏</option>
+          <option value="L4">L4 · 确定性</option>
+        </select>
+        <label class="switch"><input type="checkbox" id="stuckChk"> 模拟"修不好"(HARNESS_SAMPLE_STUCK=1)</label>
+        <button class="btn" id="runBtn">▶ 运行</button>
+        <span class="hint" id="runCmd"></span>
+      </div>
+      <div class="rounds" id="rounds"></div>
+      <div id="verdict"></div>
+      <div id="hashcmp"></div>
+    </div>
+  </div>
+  </div>
+  </div>
+</div>
+
+<!-- 底栏 -->
+<div class="statusbar">
+  <span class="ok-dot"></span>就绪
+  <span class="mono" id="stFileBase">FILE_BASE —</span>
+  <span class="right">harness-5 · 玻璃盒 = 界面每步都暴露改了哪个文件 + 等价命令</span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

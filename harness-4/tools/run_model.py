@@ -77,6 +77,14 @@ def build_context(case, constraints):
         "\n\n===== 硬性事实(唯一事实源 case.json,不得违反) =====\n"
         + json.dumps(case, ensure_ascii=False, indent=2)
     )
+    must = case.get("must_contain_text") or []
+    if must:
+        parts.append(
+            "\n\n===== 必须出现的字面文案(逐字,不得改写/翻译/省略) =====\n"
+            + "\n".join("- " + s for s in must)
+            + "\n以上每条文案必须原样出现在渲染后的页面 HTML 中;"
+            "建议写入所有页面共用的 base 模板(如页头/页脚),确保列表页与详情页都能看到。"
+        )
     parts.append(
         "\n\n===== 输出格式(强制) =====\n"
         "只输出文件,不要任何解释、不要 markdown 代码围栏。每个文件用如下格式:\n"

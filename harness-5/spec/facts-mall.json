@@ -1,0 +1,12 @@
+{
+  "task": "mall",
+  "module": "app.py",
+  "min_functions": 5,
+  "functions": [
+    {"name": "load_products", "signature": "load_products()"},
+    {"name": "product_list", "signature": "product_list()"},
+    {"name": "product_detail", "signature": "product_detail(id)"},
+    {"name": "api_products", "signature": "api_products()"},
+    {"name": "api_product_detail", "signature": "api_product_detail(id)"}
+  ]
+}

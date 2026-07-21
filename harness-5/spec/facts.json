@@ -1,0 +1,10 @@
+{
+  "module": "mathkit.py",
+  "min_functions": 4,
+  "functions": [
+    {"name": "add", "signature": "add(a, b)"},
+    {"name": "is_prime", "signature": "is_prime(n)"},
+    {"name": "fib", "signature": "fib(n)"},
+    {"name": "factorial", "signature": "factorial(n)"}
+  ]
+}

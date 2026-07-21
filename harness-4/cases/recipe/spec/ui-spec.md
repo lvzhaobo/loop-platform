@@ -7,3 +7,4 @@
 | list_card_children | recipe-cover, recipe-title, recipe-meta, recipe-summary  |
 | detail_markers     | btn-cook, recipe-steps                                   |
 | required_colors    | #e67e22, #27ae60                                         |
+| must_contain_text  | 美食工坊 Loop-Kitchen                                    |

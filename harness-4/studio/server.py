@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -52,6 +53,16 @@ _DELIVERY_DEFAULTS = {
 
 app = Flask(__name__, template_folder=os.path.join(STUDIO_DIR, "templates"),
             static_folder=os.path.join(STUDIO_DIR, "static"))
+
+
+# 允许 loop-platform 原型(另一端口的静态站)跨域读写本工作台 API。
+# 本服务仅绑定 127.0.0.1(见 __main__),故放开 CORS 只影响本机开发,安全。
+@app.after_request
+def _add_cors_headers(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -221,12 +232,15 @@ _trigger_state = {
 }
 
 
-def _run_backlog_bg():
+def _run_backlog_bg(extra_env=None):
     """后台线程:子进程跑 delivery-loop/run_backlog.sh(它自己 source config.env + .env),
-    实时把输出累积到 _trigger_state['log']。锁在 /api/trigger 里 acquire,这里 finally 释放。"""
+    实时把输出累积到 _trigger_state['log']。锁在 /api/trigger 里 acquire,这里 finally 释放。
+    extra_env:本次请求的显式覆盖(如指定 HARNESS_ONLY_TASK / HARNESS_MODE),优先于默认值。"""
     env = dict(os.environ)
     for k, v in _DELIVERY_DEFAULTS.items():
         env.setdefault(k, v)  # 仅兜底:已导出的同名变量优先
+    if extra_env:
+        env.update(extra_env)  # 本次请求的选择强制生效(覆盖默认)
     try:
         proc = subprocess.Popen(
             ["bash", RUN_BACKLOG], cwd=REPO_ROOT, env=env,
@@ -249,22 +263,173 @@ def _run_backlog_bg():
 @app.route("/api/trigger", methods=["POST"])
 def trigger_delivery():
     """点"开始交付":后台跑完整 run_backlog.sh(飞书→编译→生成→验收→推→部署)。
+    可选 body:{task:"FS-002"}只交付该条,缺省整池;{mode:"sample|real"}覆盖模式。
     正在跑时返回 409(不排队),对齐 webhook 的 busy 语义。"""
     if not _trigger_lock.acquire(blocking=False):
         return jsonify({"ok": False, "busy": True, "reason": "上一批仍在运行"}), 409
+    body = request.get_json(silent=True) or {}
+    extra = {}
+    only = str(body.get("task", "")).strip()
+    if only:
+        extra["HARNESS_ONLY_TASK"] = only
+    mode = str(body.get("mode", "")).strip()
+    if mode in ("sample", "real"):
+        extra["HARNESS_MODE"] = mode
+    scope = only or "整池"
     _trigger_state.update({
         "running": True, "exit_code": None,
         "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "finished_at": None, "log": "",
+        "finished_at": None,
+        "log": f"[studio] 发起交付 范围={scope} 模式={mode or _DELIVERY_DEFAULTS['HARNESS_MODE']}\n",
     })
-    threading.Thread(target=_run_backlog_bg, daemon=True).start()
-    return jsonify({"ok": True, "started_at": _trigger_state["started_at"]})
+    threading.Thread(target=_run_backlog_bg, args=(extra,), daemon=True).start()
+    return jsonify({"ok": True, "started_at": _trigger_state["started_at"], "scope": scope})
 
 
 @app.route("/api/trigger/status", methods=["GET"])
 def trigger_status():
     """前端轮询:回当前交付批次的运行状态与实时日志。"""
     return jsonify(_trigger_state)
+
+
+# ---------------------------------------------------------------------------
+# 需求池(feishu backlog)可视化 + 新增飞书文档链接 —— 又一个纯新增外挂:
+# 只读写 feishu_docs.json(需求清单) / feishu_state.json(处理状态),
+# 不 import 适配器、不碰 orchestrator。与 config.env 的 HARNESS_FEISHU_* 同一份文件。
+# ---------------------------------------------------------------------------
+def _repo_path(env_key, default_rel):
+    """把 config.env 里可能是相对(相对仓库根)的路径解析成绝对路径。"""
+    p = os.environ.get(env_key, default_rel)
+    return p if os.path.isabs(p) else os.path.join(REPO_ROOT, p)
+
+
+def _feishu_docs_path():
+    return _repo_path("HARNESS_FEISHU_DOCS", "delivery-loop/backlog/feishu_docs.json")
+
+
+def _feishu_state_path():
+    return _repo_path("HARNESS_FEISHU_STATE", "delivery-loop/backlog/feishu_state.json")
+
+
+_FEISHU_TOKEN_RE = re.compile(r"/(wiki|docx|docs)/([A-Za-z0-9]+)")
+
+
+def _parse_feishu_link(link):
+    """从飞书链接提取 (token_kind, token)。
+    - /wiki/<token>            -> ("wiki_token", token)
+    - /docx/<token> 或 /docs/  -> ("doc_token",  token)
+    - 直接粘贴纯 token(无斜杠) -> ("wiki_token", token)(知识库最常见)。
+    解析不出返回 (None, None)。"""
+    link = (link or "").strip()
+    m = _FEISHU_TOKEN_RE.search(link)
+    if m:
+        return ("wiki_token" if m.group(1) == "wiki" else "doc_token", m.group(2))
+    if link and "/" not in link and re.fullmatch(r"[A-Za-z0-9]+", link):
+        return ("wiki_token", link)
+    return (None, None)
+
+
+def _next_fs_id(docs):
+    """扫描已有 FS-<n> 生成下一个递增 id(FS-002...)。"""
+    mx = 0
+    for d in docs:
+        m = re.fullmatch(r"FS-(\d+)", str(d.get("id", "")))
+        if m:
+            mx = max(mx, int(m.group(1)))
+    return f"FS-{mx + 1:03d}"
+
+
+@app.route("/api/backlog", methods=["GET"])
+def get_backlog():
+    """读需求池:合并 feishu_docs.json + feishu_state.json,给前端渲染清单与状态。"""
+    docs_path = _feishu_docs_path()
+    state_path = _feishu_state_path()
+    docs = _read_json(docs_path).get("docs", []) if os.path.exists(docs_path) else []
+    state = _read_json(state_path) if os.path.exists(state_path) else {}
+    items = []
+    for d in docs:
+        tid = str(d.get("id"))
+        st = state.get(tid, {})
+        status = st.get("status", "pending")
+        items.append({
+            "id": tid,
+            "title": d.get("title", tid),
+            "token_kind": "wiki_token" if d.get("wiki_token") else ("doc_token" if d.get("doc_token") else None),
+            "token": d.get("wiki_token") or d.get("doc_token"),
+            "priority": d.get("priority", 99),
+            # 适配器把 done/fetched 视为已处理跳过,其余(含 failed / 无记录)仍会入队
+            "pending": status not in ("done", "fetched"),
+            "status": status,
+            "attempts": st.get("attempts"),
+            "finished_at": st.get("finished_at"),
+            "publish": st.get("publish"),
+        })
+    items.sort(key=lambda x: (x["priority"], x["id"]))
+    return jsonify({"docs": items, "source": os.environ.get("HARNESS_BACKLOG_SOURCE", "local")})
+
+
+@app.route("/api/backlog", methods=["POST"])
+def add_backlog():
+    """新增一条飞书文档需求:{title?, link, priority?, force?}。
+    从链接解析 wiki_token/doc_token,自动生成 FS-NNN,追加进 feishu_docs.json。
+    允许重复添加同一文档(文档内容会变/需多次拿同一文档生成):每条各自一个 id 与状态。
+    但默认会检测重复:token 已存在且 force 不为真时返回 409+duplicate,由前端二次确认后带 force 重提。"""
+    data = request.get_json(force=True) or {}
+    title = (data.get("title") or "").strip()
+    kind, token = _parse_feishu_link(data.get("link"))
+    if not token:
+        return jsonify({"ok": False, "error": "无法从链接解析飞书文档 token(需含 /wiki/ 或 /docx/,或直接粘贴纯 token)"}), 400
+    if not title:
+        title = token
+    docs_path = _feishu_docs_path()
+    cfg = _read_json(docs_path) if os.path.exists(docs_path) else {"docs": []}
+    docs = cfg.setdefault("docs", [])
+    if not data.get("force"):
+        dups = [str(d.get("id")) for d in docs
+                if d.get("wiki_token") == token or d.get("doc_token") == token]
+        if dups:
+            return jsonify({"ok": False, "duplicate": True, "existing": dups,
+                            "error": f"该文档已在需求池中(id={', '.join(dups)})"}), 409
+    try:
+        priority = int(data.get("priority", len(docs) + 1))
+    except (TypeError, ValueError):
+        priority = len(docs) + 1
+    entry = {"id": _next_fs_id(docs), "title": title, kind: token, "priority": priority}
+    docs.append(entry)
+    _write_json(docs_path, cfg)
+    return jsonify({"ok": True, "id": entry["id"], "entry": entry})
+
+
+@app.route("/api/backlog/<tid>/reset", methods=["POST"])
+def reset_backlog(tid):
+    """清除某需求的处理状态(从 feishu_state.json 移除),令其重新变 pending 可再次交付。"""
+    state_path = _feishu_state_path()
+    state = _read_json(state_path) if os.path.exists(state_path) else {}
+    if str(tid) in state:
+        del state[str(tid)]
+        _write_json(state_path, state)
+        return jsonify({"ok": True, "id": tid, "reset": True})
+    return jsonify({"ok": True, "id": tid, "reset": False, "note": "该需求本无状态记录"})
+
+
+@app.route("/api/backlog/<tid>", methods=["DELETE"])
+def delete_backlog(tid):
+    """从需求池移除一条文档(并清掉它的状态记录)。"""
+    docs_path = _feishu_docs_path()
+    cfg = _read_json(docs_path) if os.path.exists(docs_path) else {"docs": []}
+    docs = cfg.get("docs", [])
+    remaining = [d for d in docs if str(d.get("id")) != str(tid)]
+    if len(remaining) == len(docs):
+        return jsonify({"ok": False, "error": f"需求 {tid} 不存在"}), 404
+    cfg["docs"] = remaining
+    _write_json(docs_path, cfg)
+    state_path = _feishu_state_path()
+    if os.path.exists(state_path):
+        state = _read_json(state_path)
+        if str(tid) in state:
+            del state[str(tid)]
+            _write_json(state_path, state)
+    return jsonify({"ok": True, "id": tid})
 
 
 if __name__ == "__main__":

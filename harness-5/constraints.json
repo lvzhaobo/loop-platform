@@ -1,0 +1,11 @@
+{
+  "language": "python",
+  "module": "mathkit.py",
+  "banned_patterns": ["eval(", "exec(", "os.system", "import os", "subprocess"],
+  "max_lines": 120,
+  "loop": {
+    "max_iterations": 5,
+    "max_cost": 100,
+    "cost_per_attempt": 20
+  }
+}

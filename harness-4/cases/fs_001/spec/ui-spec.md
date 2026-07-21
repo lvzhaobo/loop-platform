@@ -1,6 +1,5 @@
 | 键 | 值 |
-|-----|-----|
-| list_marker | course-card |
-| list_card_children | course-card-title, course-card-image, course-card-instructor, course-card-price |
-| detail_markers | btn-enroll, course-detail-body |
-| required_colors | #e67e22, #27ae60 |
+| list_marker | tomato-card |
+| list_card_children | tomato-card-image, tomato-card-title, tomato-card-duration, tomato-card-status |
+| detail_markers | btn-tomato, tomato-detail-body |
+| required_colors | #e74c3c, #ffffff |

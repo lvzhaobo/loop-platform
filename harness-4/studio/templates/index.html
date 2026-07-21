@@ -16,8 +16,27 @@
   </header>
 
   <div class="layout">
-    <!-- 左侧:用例列表 + 全局 constraints -->
+    <!-- 左侧:需求池 + 用例列表 + 全局 constraints -->
     <aside class="sidebar">
+      <!-- 需求池(feishu backlog):纯新增外挂,只读写 feishu_docs.json / feishu_state.json -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>需求池 <span id="backlog-source" class="pill" style="font-size:11px"></span></h2>
+          <button id="btn-refresh-backlog" class="btn btn-outline btn-sm">刷新</button>
+        </div>
+        <ul id="backlog-list" class="case-list"></ul>
+        <div class="field" style="margin-top:10px">
+          <label>标题(可选,留空取文档 token)</label>
+          <input id="bl-title" placeholder="如 在线书店(飞书Spec)">
+        </div>
+        <div class="field">
+          <label>飞书文档链接</label>
+          <input id="bl-link" placeholder="https://xxx.feishu.cn/wiki/xxxx 或 /docx/xxxx">
+        </div>
+        <button id="btn-add-backlog" class="btn btn-primary btn-block">+ 加入需求池</button>
+        <p style="font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.5">飞书文档需先授权给应用可读。加入后为 <b>pending</b>,点右上「🚀 开始交付」即会处理;已完成项可「重跑」。</p>
+      </section>
+
       <section class="panel">
         <div class="panel-head">
           <h2>用例</h2>
@@ -180,6 +199,86 @@
         timer=setInterval(poll,2000);poll();
       }).catch(function(){setPill('请求失败','#6b1f1f');btn.disabled=false;});
     });
+  })();
+  </script>
+
+  <!-- 需求池面板逻辑:自包含 IIFE,不依赖 studio.js(与上面的触发抽屉同一「纯新增」风格) -->
+  <script>
+  (function(){
+    var listEl=document.getElementById('backlog-list');
+    var srcEl=document.getElementById('backlog-source');
+    var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+    var BADGE={pending:['pending','#e8f0fe','#1a73e8'],
+               done:['✔ done','#e6f4ea','#34a853'],
+               fetched:['fetched','#e6f4ea','#34a853'],
+               failed:['✘ failed','#fce8e6','#d93025']};
+    function badge(status){
+      var b=BADGE[status]||[status,'#f1f3f4','#5f6368'];
+      return '<span style="padding:1px 8px;border-radius:999px;font-size:11px;background:'
+        +b[1]+';color:'+b[2]+'">'+esc(b[0])+'</span>';
+    }
+    function meta(it){
+      var parts=[esc(it.id),'P'+it.priority];
+      if(it.publish&&it.publish.subdir){parts.push(esc(it.publish.subdir)+':'+esc(it.publish.port||''));}
+      if(it.attempts){parts.push(it.attempts+' 次');}
+      return parts.join(' · ');
+    }
+    function load(){
+      fetch('/api/backlog').then(function(r){return r.json();}).then(function(d){
+        srcEl.textContent='来源 '+(d.source||'?');
+        var docs=d.docs||[];
+        listEl.innerHTML='';
+        if(!docs.length){listEl.innerHTML='<li style="cursor:default;color:#5f6368;display:block">暂无需求,在下方粘贴飞书文档链接加入。</li>';return;}
+        docs.forEach(function(it){
+          var li=document.createElement('li');
+          li.style.cssText='display:block;cursor:default;padding:8px 10px';
+          var rerun=(it.status==='done'||it.status==='fetched')
+            ? '<button data-act="reset" data-id="'+esc(it.id)+'" class="btn btn-outline btn-sm" style="padding:2px 8px">重跑</button>' : '';
+          li.innerHTML=
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'
+            + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(it.title)+'">'
+            +   badge(it.status)+' '+esc(it.title)+'</span>'
+            + '<span style="display:flex;gap:4px;flex:none">'+rerun
+            +   '<button data-act="del" data-id="'+esc(it.id)+'" class="btn btn-danger btn-sm" style="padding:2px 8px">✕</button></span>'
+            + '</div>'
+            + '<div style="font-size:11px;color:#5f6368;margin-top:2px">'+meta(it)+'</div>';
+          listEl.appendChild(li);
+        });
+      }).catch(function(){srcEl.textContent='加载失败';});
+    }
+    listEl.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-act]');if(!b){return;}
+      var id=b.getAttribute('data-id'),act=b.getAttribute('data-act');
+      if(act==='reset'){
+        if(!confirm('重跑 '+id+'?将清除它的处理状态,下次交付会重新生成。')){return;}
+        fetch('/api/backlog/'+encodeURIComponent(id)+'/reset',{method:'POST'}).then(load);
+      }else if(act==='del'){
+        if(!confirm('从需求池移除 '+id+'?')){return;}
+        fetch('/api/backlog/'+encodeURIComponent(id),{method:'DELETE'})
+          .then(function(r){return r.json();}).then(function(j){if(!j.ok&&j.error){alert(j.error);}load();});
+      }
+    });
+    document.getElementById('btn-refresh-backlog').addEventListener('click',load);
+    function submitBacklog(force){
+      var link=document.getElementById('bl-link').value.trim();
+      var title=document.getElementById('bl-title').value.trim();
+      if(!link){alert('请粘贴飞书文档链接');return;}
+      fetch('/api/backlog',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({link:link,title:title,force:!!force})})
+        .then(function(r){return r.json().then(function(j){return {s:r.status,j:j};});})
+        .then(function(o){
+          if(o.j.duplicate&&!force){
+            if(confirm((o.j.error||'该文档已在需求池中')+'\n内容可能已更新。仍要再加一条吗?')){submitBacklog(true);}
+            return;
+          }
+          if(!o.j.ok){alert(o.j.error||'新增失败');return;}
+          document.getElementById('bl-link').value='';document.getElementById('bl-title').value='';
+          load();
+        }).catch(function(){alert('请求失败');});
+    }
+    document.getElementById('btn-add-backlog').addEventListener('click',function(){submitBacklog(false);});
+    load();
   })();
   </script>
   <script src="{{ url_for('static', filename='js/studio.js') }}"></script>

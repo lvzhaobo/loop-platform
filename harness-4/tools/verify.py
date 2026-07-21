@@ -190,8 +190,10 @@ def check_unittest(out):
 
 # ---------- 运行时真渲染 ----------
 
-def wait_ready(proc, path, timeout=15.0):
-    """轮询列表路由直到 200 或超时(替代固定 sleep)。"""
+def wait_ready(proc, path, timeout=40.0):
+    """轮询列表路由直到 200 或超时(替代固定 sleep)。
+    超时给到 40s:部分环境(如 macOS 本地 host=0.0.0.0 时 getfqdn 反向解析慢)
+    werkzeug 启动会白等几秒;进程真崩溃仍由 proc.poll() 立即判失败,抬高上限无副作用。"""
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -206,6 +208,11 @@ def wait_ready(proc, path, timeout=15.0):
 def check_runtime(out, case):
     env = dict(os.environ)
     env["PORT"] = str(VERIFY_PORT)
+    # 清除父进程(如 studio 的 Flask 调试重载器)注入的 werkzeug 套接字传递变量:
+    # 否则被验收的 app.py 里 werkzeug 会去 socket.fromfd(继承来的 fd) 复用父进程套接字,
+    # 在 Python 3.14 下触发 OSError: [Errno 9] Bad file descriptor,导致服务永远起不来。
+    env.pop("WERKZEUG_SERVER_FD", None)
+    env.pop("WERKZEUG_RUN_MAIN", None)
     proc = subprocess.Popen(
         [sys.executable, "app.py"], cwd=out, env=env,
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
@@ -232,6 +239,7 @@ def check_runtime(out, case):
         record("接口:api_detail_missing → 404", st == 404, f"status={st}")
 
         st, html = http_get(routes["list"])
+        list_html = html if st == 200 else ""
         cnt = html.count(case["list_marker"]) if st == 200 else 0
         record("渲染:列表页 list_marker 数达标", st == 200 and cnt >= n_data, f"marker={cnt} data={n_data}")
 
@@ -251,6 +259,15 @@ def check_runtime(out, case):
         missing_mk = [m for m in case["detail_markers"] if m not in html] if st == 200 else case["detail_markers"]
         record("渲染:详情页含全部 detail_markers", st == 200 and not missing_mk,
                f"status={st} 缺: {missing_mk}" if missing_mk else "")
+
+        # 需求明确要求的字面文案:必须逐字出现在渲染后的页面(列表或详情任一)。
+        # 这是把「需求关键约束」真正卡住的门禁:编译层保留进 case.must_contain_text,此处校验。
+        must = case.get("must_contain_text") or []
+        if must:
+            rendered = list_html + (html if st == 200 else "")
+            missing_txt = [t for t in must if t not in rendered]
+            record("渲染:页面含全部指定文案", not missing_txt,
+                   "缺文案: " + ", ".join(missing_txt) if missing_txt else "")
     finally:
         try:
             proc.send_signal(signal.SIGTERM)

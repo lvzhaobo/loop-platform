@@ -1,23 +1,11 @@
 {
-  "harness_version": "4.0.0",
-  "tech": {
-    "language": "python",
-    "framework": "flask",
-    "entry": "app.py",
-    "start_cmd": ["python", "app.py"],
-    "port_env": "PORT",
-    "default_port": 5000
-  },
-  "base_required_files": [
-    "app.py",
-    "requirements.txt",
-    "README.md",
-    "templates/base.html",
-    "templates/list.html",
-    "templates/detail.html",
-    "static/css/style.css",
-    "static/js/main.js",
-    "tests/test_app.py"
+  "banned_code_patterns": [
+    "eval(",
+    "exec(",
+    "os.system(",
+    "subprocess.",
+    "__import__(",
+    "pickle.load"
   ],
   "banned_deps": [
     "django",
@@ -30,15 +18,40 @@
     "bootstrap",
     "pytest"
   ],
-  "banned_code_patterns": [
-    "eval(",
-    "exec(",
-    "os.system(",
-    "subprocess.",
-    "__import__(",
-    "pickle.load"
+  "base_required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/base.html",
+    "templates/list.html",
+    "templates/detail.html",
+    "static/css/style.css",
+    "static/js/main.js",
+    "tests/test_app.py"
   ],
-  "max_inline_style": 2,
-  "cases": ["ecommerce", "blog", "education"],
-  "run_cases": ["education"]
+  "cases": [
+    "blog",
+    "ecommerce",
+    "education",
+    "fs_001",
+    "fs_002",
+    "jobs",
+    "recipe"
+  ],
+  "harness_version": "4.0.0",
+  "max_inline_style": 3,
+  "run_cases": [
+    "education"
+  ],
+  "tech": {
+    "default_port": 5000,
+    "entry": "app.py",
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT",
+    "start_cmd": [
+      "python",
+      "app.py"
+    ]
+  }
 }

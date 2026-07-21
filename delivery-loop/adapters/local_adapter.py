@@ -9,7 +9,7 @@ import json
 import os
 from typing import Any
 
-from .base import Adapter, Task
+from .base import Adapter, Task, apply_report
 
 # Task 数据类已声明的字段(其余字段收进 extra 透传,回写时再展开)
 _KNOWN = {"id", "title", "source", "status", "priority", "case", "spec_text"}
@@ -62,7 +62,6 @@ class LocalAdapter(Adapter):
         rows = self._read_all()
         for r in rows:
             if str(r["id"]) == str(task_id):
-                r["status"] = status
-                r.update(fields)
+                apply_report(r, status, fields)
                 break
         self._write_all(rows)

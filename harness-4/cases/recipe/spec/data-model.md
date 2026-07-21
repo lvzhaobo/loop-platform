@@ -14,4 +14,4 @@
 | minutes | int    | 是   | gt=0              | 烹饪时长(分钟)   |
 | cover   | string | 是   |                   | 封面图 `static/img/<id>.png` |
 | summary | string | 是   | max_len=100       | 一句话简介         |
-| steps   | string | 是   | min_len=100       | 详细做法正文       |
+| steps   | string | 是   | min_len=10        | 详细做法正文       |

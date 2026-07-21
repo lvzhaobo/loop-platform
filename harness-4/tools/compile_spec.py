@@ -124,7 +124,7 @@ def parse_ui(md):
     """ui-spec.md 的「键|值」标记表 → list_marker/list_card_children/detail_markers/colors。"""
     tbl = _find_table(md, "键", "值")
     d = {r["键"]: r["值"] for r in (tbl["rows"] if tbl else [])}
-    out = {
+    out: dict = {
         "list_marker": d.get("list_marker", "").strip() or None,
         "detail_markers": _split_list(d.get("detail_markers", "")),
         "colors": [c.lower() for c in _split_list(d.get("required_colors", ""))],
@@ -132,6 +132,11 @@ def parse_ui(md):
     children = _split_list(d.get("list_card_children", ""))
     if children:  # 可选字段:只有声明了才写入(保持无该需求用例的原形)
         out["list_card_children"] = children
+    # 可选字段:需求明确要求页面出现的字面文案(品牌名/日期/口号等),
+    # 逐字保留进 case.json,供 maker 照抄渲染、verify 校验渲染页确实含之。
+    must = _split_list(d.get("must_contain_text", ""))
+    if must:
+        out["must_contain_text"] = must
     return out
 
 

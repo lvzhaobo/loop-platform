@@ -19,31 +19,38 @@
   → 线上 http://47.76.211.100:100N 上线
 ```
 
-- **配置态**:`harness-4/studio`(Flask :5100)——编辑约束/用例、一致性预检,页面上也有「🚀 开始交付」按钮。
-- **运行态**:`delivery-loop/trigger/webhook.py`(:8787)——常驻按钮服务,systemd 托管的就是它。
+- **配置态**:`harness-4/studio`(Flask :5100)——编辑约束/用例、一致性预检,页面上也有「🚀 开始交付」按钮。**已装成常驻服务 `loop-studio`**。
+- **运行态**:`delivery-loop/trigger/webhook.py`(:8787)——极简"跑一批"按钮页。**已装成常驻服务 `loop-platform`**。
+
+> `--with-service` 部署时,`setup_ecs.sh` 会**同时装这两个服务**(开机自启 + 崩溃自拉起)。两者都绑 `127.0.0.1`,经 SSH 隧道访问。
 
 ---
 
 ## 2. 服务运维(systemd)
 
-服务单元:`/etc/systemd/system/loop-platform.service`,常驻的是 webhook(:8787,默认绑 `127.0.0.1`)。
+ECS 上有**两个**常驻服务,均绑 `127.0.0.1`,经 SSH 隧道访问:
+
+| 服务名 | 端口 | 是什么 | 单元文件 |
+|---|---|---|---|
+| `loop-platform` | 8787 | 极简"跑一批"按钮页(webhook) | `/etc/systemd/system/loop-platform.service` |
+| `loop-studio` | 5100 | 完整配置平台(约束/用例编辑 + 预检 + 🚀 按钮) | `/etc/systemd/system/loop-studio.service` |
 
 ```bash
-# 状态 / 实时日志
-systemctl status loop-platform
+# 状态 / 实时日志(把服务名换成 loop-studio 即查 studio)
+systemctl status loop-platform loop-studio
 journalctl -u loop-platform -f
+journalctl -u loop-studio -f
 
-# 起 / 停 / 重启
-systemctl start   loop-platform
-systemctl stop    loop-platform
-systemctl restart loop-platform
+# 起 / 停 / 重启(可一次带两个)
+systemctl restart loop-platform loop-studio
 
 # 反复重启失败时,先清失败计数再重启
 systemctl reset-failed loop-platform && systemctl restart loop-platform
 ```
 
-服务在 `ExecStart` 里先 `source .env + config.env` 再启动 webhook,所以触发出来的每一批都拿得到
-DEEPSEEK / FEISHU / GITHUB 凭证。开关(feishu/real/push 等)写在 unit 的 `Environment=` 段,密钥只从 `.env` 读。
+两个服务都在 `ExecStart` 里先 `source .env + config.env` 再启动,所以触发出来的每一批都拿得到
+DEEPSEEK / FEISHU / GITHUB 凭证。开关(feishu/real/push 等)写在各自 unit 的 `Environment=` 段,密钥只从 `.env` 读。
+studio 用 `flask run`(关 reloader,PID 稳定)启动,`server.py` 本身不改。
 
 ---
 
@@ -79,14 +86,13 @@ ssh -L 8787:127.0.0.1:8787 root@47.76.211.100
 cd /root/loop-platform && bash delivery-loop/run_backlog.sh
 ```
 
-**C. studio 配置平台 + 🚀 按钮**:
+**C. studio 配置平台 + 🚀 按钮(已常驻 `loop-studio`)**:
 ```bash
 ssh -L 5100:127.0.0.1:5100 root@47.76.211.100
-# ECS 上:
-cd /root/loop-platform && set -a && . ./.env && . delivery-loop/config.env && set +a \
-  && STUDIO_PORT=5100 ./.venv/bin/python harness-4/studio/server.py
-# 浏览器打开 http://127.0.0.1:5100
+# 浏览器打开 http://127.0.0.1:5100 —— 完整配置平台(约束/用例编辑 + 预检 + 🚀 开始交付)
 ```
+> 服务已开机自启;若手动前台调试可用:
+> `cd /root/loop-platform && set -a && . ./.env && . delivery-loop/config.env && set +a && STUDIO_PORT=5100 ./.venv/bin/python harness-4/studio/server.py`
 
 ---
 
@@ -154,6 +160,6 @@ cd /root/loop-platform && bash delivery-loop/deploy/setup_ecs.sh --with-service
 | 一批入口 | `delivery-loop/run_backlog.sh` |
 | webhook | `delivery-loop/trigger/webhook.py` |
 | 部署脚本 | `delivery-loop/deploy/setup_ecs.sh` |
-| systemd 模板 | `delivery-loop/deploy/loop-platform.service` |
+| systemd 模板 | `delivery-loop/deploy/loop-platform.service` · `delivery-loop/deploy/loop-studio.service` |
 | 产物输出 | `output/<时间戳>-<case>/` |
 | 配置默认值 | `delivery-loop/config.env`(`${VAR:-default}`,systemd/env 覆盖优先) |

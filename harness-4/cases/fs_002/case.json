@@ -1,0 +1,99 @@
+{
+  "name": "fs_002",
+  "title": "番茄时钟-LOOP",
+  "data_file": "data/tomatoes.json",
+  "loader_function": "load_tomatoes",
+  "route_functions": [
+    "tomato_list",
+    "tomato_detail",
+    "api_tomatoes",
+    "api_tomato_detail"
+  ],
+  "needs_images": true,
+  "image_field": "image",
+  "extra_required_files": [
+    "data/tomatoes.json"
+  ],
+  "entity": "tomato",
+  "min_items": 8,
+  "required_fields": [
+    "id",
+    "name",
+    "duration",
+    "break_duration",
+    "color",
+    "created_at",
+    "status"
+  ],
+  "numeric_fields": {
+    "duration": "int",
+    "break_duration": "int"
+  },
+  "field_rules": {
+    "id": {
+      "type": "int",
+      "sequential_from": 1
+    },
+    "name": {
+      "type": "string",
+      "max_len": 100
+    },
+    "duration": {
+      "type": "int",
+      "gt": 0,
+      "lte": 60
+    },
+    "break_duration": {
+      "type": "int",
+      "gt": 0,
+      "lte": 30
+    },
+    "color": {
+      "type": "string",
+      "max_len": 7
+    },
+    "image": {
+      "type": "string",
+      "max_len": 500
+    },
+    "description": {
+      "type": "string",
+      "min_len": 10,
+      "max_len": 2000
+    },
+    "created_at": {
+      "type": "string",
+      "max_len": 20
+    },
+    "loop_count": {
+      "type": "int",
+      "gte": 0
+    },
+    "status": {
+      "type": "string",
+      "max_len": 20
+    }
+  },
+  "routes": {
+    "list": "/",
+    "detail_sample": "/tomato/1",
+    "api_list": "/api/tomatoes",
+    "api_detail_ok": "/api/tomatoes/1",
+    "api_detail_missing": "/api/tomatoes/9999"
+  },
+  "list_marker": "tomato-card",
+  "detail_markers": [
+    "btn-tomato",
+    "tomato-body"
+  ],
+  "colors": [
+    "#e74c3c",
+    "#ffffff"
+  ],
+  "list_card_children": [
+    "tomato-card-image",
+    "tomato-card-name",
+    "tomato-card-duration",
+    "tomato-card-status"
+  ]
+}

@@ -1,0 +1,31 @@
+# Harness-3 CI 门禁工作流(模板)
+#
+# 启用方法:把本文件复制到仓库根目录 .github/workflows/harness-3-gate.yml
+# 作用:推送/PR 触及 harness-3/ 时自动运行门禁,产物不过验收则红灯,挡住合并。
+# 说明:约束自洽性检查无需密钥;完整闭环需在仓库 Secrets 配置 DEEPSEEK_API_KEY。
+name: harness-3-gate
+on:
+  push:
+    paths: ["harness-3/**"]
+  pull_request:
+    paths: ["harness-3/**"]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装依赖
+        run: pip install "Flask==3.0.3"
+      - name: 约束自洽性检查(无需密钥)
+        run: python harness-3/check_consistency.py
+      - name: 全用例闭环(需 DEEPSEEK_API_KEY secret)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "未配置 DEEPSEEK_API_KEY secret,跳过生成闭环(自洽性已校验)"; exit 0
+          fi
+          bash harness-3/gate.sh

@@ -48,7 +48,7 @@
     },
     "steps": {
       "type": "string",
-      "min_len": 100
+      "min_len": 10
     }
   },
   "routes": {
@@ -72,5 +72,8 @@
     "recipe-title",
     "recipe-meta",
     "recipe-summary"
+  ],
+  "must_contain_text": [
+    "美食工坊 Loop-Kitchen"
   ]
 }

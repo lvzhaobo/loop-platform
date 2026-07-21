@@ -144,6 +144,10 @@ def _app_py(case, rt):
 
 
 def _base_html(case):
+    # 若用例声明了 must_contain_text,把这些字面文案写进共用页脚,
+    # 列表页与详情页都会带上——离线参考实现也能过 must_contain_text 门禁。
+    must = case.get("must_contain_text") or []
+    footer = ("<footer class=\"site-footer\">" + " ".join(must) + "</footer>\n") if must else ""
     return (
         "<!doctype html>\n<html lang=\"zh\">\n<head>\n"
         "<meta charset=\"utf-8\">\n"
@@ -153,6 +157,7 @@ def _base_html(case):
         "</head>\n<body>\n"
         "{% if not_found %}<h1 class=\"notfound\">404 Not Found</h1>\n"
         "{% else %}{% block body %}{% endblock %}{% endif %}\n"
+        + footer +
         "<script src=\"{{ url_for('static', filename='js/main.js') }}\"></script>\n"
         "</body>\n</html>\n"
     )

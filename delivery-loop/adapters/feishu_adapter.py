@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Any
 
-from .base import Adapter, Task
+from .base import Adapter, Task, apply_report
 
 _KNOWN = {"id", "title", "source", "status", "priority", "case", "spec_text"}
 
@@ -52,16 +53,25 @@ class FeishuAdapter(Adapter):
     @staticmethod
     def _send(req: urllib.request.Request) -> dict:
         """发送请求;4xx/5xx 时也解析飞书返回的 JSON 错误体(含 code/msg/权限提示),
-        而不是扒下一个笼统的「HTTP Error 400」。"""
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return json.loads(r.read())
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "replace")
+        而不是扒下一个笼统的「HTTP Error 400」。
+        传输层故障(握手/连接/读取超时、DNS 等 URLError)会重试最多 3 次,
+        避免偶发网络抖动直接毁掉整个交付;业务错误(HTTPError 已返回 JSON)不重试。"""
+        last_err: Exception | None = None
+        for attempt in range(3):
             try:
-                return json.loads(body)
-            except json.JSONDecodeError:
-                return {"code": e.code, "msg": f"HTTP {e.code}: {body[:300]}"}
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    return json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", "replace")
+                try:
+                    return json.loads(body)
+                except json.JSONDecodeError:
+                    return {"code": e.code, "msg": f"HTTP {e.code}: {body[:300]}"}
+            except urllib.error.URLError as e:  # 握手/超时/DNS 等传输层故障→退避重试
+                last_err = e
+                if attempt < 2:
+                    time.sleep(1.5 * (attempt + 1))
+        raise last_err  # type: ignore[misc]
 
     def _ensure_token(self) -> str:
         if self._token:
@@ -145,7 +155,6 @@ class FeishuAdapter(Adapter):
     def report(self, task_id: str, status: str, **fields: Any) -> None:
         state = self._read_state()
         rec = state.get(str(task_id), {})
-        rec["status"] = status
-        rec.update(fields)
+        apply_report(rec, status, fields)
         state[str(task_id)] = rec
         self._write_state(state)
