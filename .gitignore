@@ -15,7 +15,9 @@ output/
 dist-repos/
 .last_ts
 delivery-loop/backlog/feishu_state.json
+delivery-loop/backlog/feishu_state.json.*
 delivery-loop/backlog/feishu_docs.json
+delivery-loop/backlog/feishu_docs.json.*
 delivery-loop/backlog/backlog.jsonl
 *.log
 
