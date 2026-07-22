@@ -25,6 +25,11 @@ LLM 只负责这一步「模糊 → 结构化」,越往下越确定,漂移在门
     source .env
     python harness-4/tools/spec_compiler.py --name jobs --text "我要一个招聘网站,首页展示职位卡片,点进去看职位详情"
     python harness-4/tools/spec_compiler.py --name jobs --input req.txt
+
+    # Spec 形态(单页交互工具,不是列表/详情站):产出 spec.md + manifest.json + acceptance.json
+    #   下游不走 compile_spec.derive/contract_gate,而是 acceptance_gate + run_model(Spec 形态)+ verify_ac
+    python harness-4/tools/spec_compiler.py --name pomodoro --archetype spec --mock            # 离线自证
+    python harness-4/tools/spec_compiler.py --name pomodoro --archetype spec --text "番茄钟"    # 真实 LLM
 """
 import argparse
 import json
@@ -44,6 +49,18 @@ META_KEYS = ("name", "title", "data_file", "loader_function",
              "route_functions", "needs_images", "image_field", "extra_required_files")
 # 五条标准路由(api-contract 必须齐全,verify 依赖)
 STD_ROUTES = ("list", "detail_sample", "api_list", "api_detail_ok", "api_detail_missing")
+
+# Spec 形态:acceptance.json 允许的断言原语闭集(须与 verify_ac.py 一致)→ 每型必填键
+SPEC_AC_TYPES = {
+    "file_exists": ("file",),
+    "text_contains": ("file", "needle"),
+    "text_absent": ("file", "needle"),
+    "http_status": ("route", "expect"),
+    "http_body_contains": ("route", "needle"),
+    "http_json_min": ("route", "min"),
+    "unit_test": (),
+    "manual": (),
+}
 
 
 # ---------------------------------------------------------------- 提示词
@@ -106,6 +123,64 @@ def build_prompt(free_text, name):
 """
 
 
+# ---------------------------------------------------------------- 提示词(Spec 形态)
+def build_prompt_spec(free_text, name):
+    """教 LLM 把自由文本编译成 Spec 形态三件套:spec.md + manifest.json + acceptance.json。
+    acceptance 只能用 verify_ac 支持的断言原语闭集;TC 引用的文件必须列进 manifest.required_files。"""
+    return f"""你是 Spec 编译器。把下面的自由文本需求,编译成一套**结构化规格**,
+供代码生成器生成一个「单页交互式 Web 工具」——它围绕某个**核心交互**(计时/计算/编辑/绘制/播放等),
+**不是**「列表页 + 详情页 + 数据集」那套内容站。
+
+需求原文:
+\"\"\"{free_text}\"\"\"
+
+用例代号: {name}
+
+必须输出且只输出以下 3 个文件,用如下格式(不要任何解释、不要 markdown 围栏):
+<<<FILE: 相对路径>>>
+文件内容
+<<<ENDFILE>>>
+
+【文件1: spec/spec.md】—— 需求规格(给生成器读的中文说明)
+- 写清:一句话概述、核心交互(用户能做什么)、结构建议、非目标。
+- 结构建议里**点明哪些纯逻辑抽成独立 Python 模块**(如 `xxx_core.py`,纯函数、无副作用),便于单测。
+- 后端 Flask 很薄:`app.py` 渲染首页(通常 `/`)+ 必要时少量 JSON 接口;核心交互在前端 JS。
+- 明确「非目标」:不是内容列表站,没有列表页/详情页/数据集/图鉴。
+
+【文件2: spec/manifest.json】—— 构建约定(严格 JSON,不要注释)
+{{
+  "archetype": "spec",
+  "name": "{name}",
+  "title": "<一句话中文标题>",
+  "tech": {{"framework": "flask", "language": "python", "port_env": "PORT"}},
+  "required_files": ["app.py", "requirements.txt", "README.md", "templates/index.html", "static/js/<名>.js", "static/css/style.css", "<名>_core.py", "tests/test_<名>.py"]
+}}
+- required_files 必须列全「验收标准里引用到的每一个文件」,且至少含 `app.py`。
+
+【文件3: spec/acceptance.json】—— 验收标准 TC/AC(门禁逐条自动执行,严格 JSON)
+{{
+  "name": "{name}",
+  "ready_route": "/",
+  "acceptance": [ ... ]
+}}
+- acceptance 至少 5 条,其中**可自动判定的至少 3 条**(除 manual 外)。
+- 每条形如 {{"id":"TC1","type":"<类型>",...,"desc":"<中文说明>"}}。
+- type **只能**用下面这些(闭集),对应字段必须齐全:
+  - file_exists        {{"file":"相对路径"}}
+  - text_contains      {{"file":"相对路径","needle":"子串"}}   (可加 "regex":true)
+  - text_absent        {{"file":"相对路径","needle":"子串"}}
+  - http_status        {{"route":"/","expect":200}}
+  - http_body_contains {{"route":"/","needle":"页面应出现的文案"}}   (可加 "status":200)
+  - http_json_min      {{"route":"/api/x","min":3}}
+  - unit_test          {{"test":"tests/test_xxx.py"}}
+  - manual             {{"desc":"需人工抽检的主观项"}}
+- file_exists / text_* / unit_test 引用的文件**必须**出现在 manifest.required_files 里。
+- 至少包含:1 条 http_status 首页返回 200;1 条 http_body_contains 校验核心文案;
+  1 条 unit_test 校验抽出的纯逻辑;建议再加 1 条 text_absent 断言「不是列表站」(如 app.py 不含 detail_markers)。
+- 只写**客观可判定**的断言;主观效果(声音/动画/美观)一律用 manual。
+"""
+
+
 # ---------------------------------------------------------------- 内置离线样例(自证链路,不烧额度)
 MOCK = {
     "recipe": {
@@ -158,6 +233,59 @@ MOCK = {
             "needs_images": True,
             "image_field": "cover",
             "extra_required_files": ["data/recipes.json"],
+        }, ensure_ascii=False, indent=2),
+    }
+}
+
+# 内置离线样例(Spec 形态):番茄钟,用于不烧额度自证「编译 → acceptance_gate」
+MOCK_SPEC = {
+    "pomodoro": {
+        "spec/spec.md": """# 需求规格:番茄时钟(Pomodoro Timer)
+
+## 一句话
+一个单页番茄工作法计时器:默认 25:00 倒计时,可开始/重置,计时结束给出明显提示。
+
+## 核心交互
+- 页面打开即显示 `25:00`(分:秒)。
+- 「开始」按钮:点击后每秒递减(浏览器端用 setInterval 驱动)。
+- 「重置」按钮:把时间归回 25:00 并停止计时。
+- 计时到 0:停止,并通过明显的视觉变化提示结束。
+
+## 结构建议
+- 后端 `app.py` 只负责渲染首页 `/`,很薄。
+- 倒计时的**纯逻辑**抽到 `timer_core.py`:
+  - `format_time(seconds) -> "MM:SS"`,如 `format_time(1500) == "25:00"`。
+  - `tick(seconds) -> seconds-1`(不小于 0)。
+- 前端 `static/js/timer.js` 用 setInterval 每秒递减并刷新显示。
+- `tests/test_timer.py` 针对 `timer_core` 断言边界。
+
+## 非目标
+- 不是内容列表站;没有列表页/详情页/数据集/图片。
+- 不需要账号、数据库、外部服务。
+""",
+        "spec/manifest.json": json.dumps({
+            "archetype": "spec",
+            "name": "pomodoro",
+            "title": "番茄时钟:25 分钟专注倒计时(可开始/重置,结束有提示)",
+            "tech": {"framework": "flask", "language": "python", "port_env": "PORT"},
+            "required_files": [
+                "app.py", "requirements.txt", "README.md", "templates/index.html",
+                "static/js/timer.js", "static/css/style.css", "timer_core.py", "tests/test_timer.py",
+            ],
+        }, ensure_ascii=False, indent=2),
+        "spec/acceptance.json": json.dumps({
+            "name": "pomodoro",
+            "ready_route": "/",
+            "acceptance": [
+                {"id": "TC1", "type": "http_status", "route": "/", "expect": 200, "desc": "首页可访问"},
+                {"id": "TC2", "type": "http_body_contains", "route": "/", "needle": "25:00", "desc": "默认显示 25:00"},
+                {"id": "TC3", "type": "http_body_contains", "route": "/", "needle": "id=\"start\"", "desc": "有开始按钮"},
+                {"id": "TC4", "type": "file_exists", "file": "static/js/timer.js", "desc": "有计时逻辑脚本"},
+                {"id": "TC5", "type": "text_contains", "file": "static/js/timer.js", "needle": "setInterval", "desc": "用定时器驱动倒计时"},
+                {"id": "TC6", "type": "unit_test", "test": "tests/test_timer.py", "desc": "倒计时纯函数单测"},
+                {"id": "TC7", "type": "text_absent", "file": "app.py", "needle": "detail_markers", "desc": "不是 catalog 列表站"},
+                {"id": "AC1", "type": "manual", "desc": "计时结束有明显提示(声音/颜色),人工抽检"},
+            ],
         }, ensure_ascii=False, indent=2),
     }
 }
@@ -270,6 +398,108 @@ def run_check_cli(name):
     return r.returncode == 0
 
 
+# ---------------------------------------------------------------- 步骤(Spec 形态)
+def gen_spec_blocks_spec(free_text, name, mock):
+    """产出 Spec 形态三件套 {相对路径: 内容}。mock=True 用内置样例;否则调 LLM。"""
+    if mock:
+        if name not in MOCK_SPEC:
+            sys.exit(f"[spec_compiler] --archetype spec --mock 无内置样例:{name}(可选:{', '.join(MOCK_SPEC)})")
+        print(f"[spec_compiler] 离线 mock(Spec 形态),使用内置样例 '{name}'")
+        return dict(MOCK_SPEC[name])
+    print(f"[spec_compiler] 调用 LLM 把自由文本编译为 Spec 三件套 (name={name}) ...")
+    text = run_model.call_deepseek("你是严谨的规格编译器,只输出要求的文件块。",
+                                   build_prompt_spec(free_text, name))
+    blocks = {rel.strip(): content for rel, content in run_model.FILE_RE.findall(text)}
+    if not blocks:
+        sys.exit("[spec_compiler] LLM 输出未解析到文件块,格式不符")
+    return blocks
+
+
+def write_case_spec(name, blocks):
+    """把 Spec 三件套写入 cases/<name>/spec/;两个 JSON 先解析校验再规范化落盘(挡非法 JSON)。"""
+    need = ("spec/spec.md", "spec/manifest.json", "spec/acceptance.json")
+    missing = [f for f in need if f not in blocks]
+    if missing:
+        sys.exit(f"[spec_compiler] (Spec 形态)缺少必需文件:{missing}\n拿到的是:{list(blocks)}")
+    cdir = os.path.join(HARNESS_DIR, "cases", name)
+    os.makedirs(os.path.join(cdir, "spec"), exist_ok=True)
+    with open(os.path.join(cdir, "spec", "spec.md"), "w", encoding="utf-8") as f:
+        f.write(blocks["spec/spec.md"].rstrip() + "\n")
+    for rel in ("spec/manifest.json", "spec/acceptance.json"):
+        try:
+            obj = json.loads(blocks[rel])
+        except json.JSONDecodeError as e:
+            sys.exit(f"[spec_compiler] {rel} 不是合法 JSON:{e}")
+        with open(os.path.join(cdir, rel), "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+    print(f"[spec_compiler] 已写 cases/{name}/spec/(spec.md + manifest.json + acceptance.json)")
+    return cdir
+
+
+def acceptance_gate(cdir, name):
+    """Spec 形态门禁:manifest 合理 + acceptance 非退化(能真正约束生成与验收,不是橡皮图章)。"""
+    try:
+        manifest = json.load(open(os.path.join(cdir, "spec", "manifest.json"), encoding="utf-8"))
+        ac = json.load(open(os.path.join(cdir, "spec", "acceptance.json"), encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print(f"❌ [acceptance_gate] 读取 manifest/acceptance 失败:{e}")
+        return False
+    errs = []
+
+    if manifest.get("archetype") != "spec":
+        errs.append(f"manifest.archetype 必须为 'spec': {manifest.get('archetype')!r}")
+    if manifest.get("name") != name:
+        errs.append(f"manifest.name({manifest.get('name')!r}) 与 --name({name!r}) 不一致")
+    if not (manifest.get("title") or "").strip():
+        errs.append("manifest.title 缺失")
+    tech = manifest.get("tech") or {}
+    for k in ("framework", "language"):
+        if not tech.get(k):
+            errs.append(f"manifest.tech 缺 {k}")
+    req = manifest.get("required_files") or []
+    if not isinstance(req, list) or "app.py" not in req:
+        errs.append(f"manifest.required_files 必须为列表且含 app.py: {req}")
+    reqset = set(req)
+
+    acc = ac.get("acceptance") or []
+    if len(acc) < 4:
+        errs.append(f"acceptance 过少(<4),验收太弱: {len(acc)} 条")
+    if ac.get("name") != name:
+        errs.append(f"acceptance.name({ac.get('name')!r}) 与 --name 不一致")
+    rr = ac.get("ready_route", "/")
+    if not (isinstance(rr, str) and rr.startswith("/")):
+        errs.append(f"ready_route 非法: {rr!r}")
+
+    auto = 0
+    for i, tc in enumerate(acc):
+        tid = tc.get("id", f"#{i}")
+        t = tc.get("type")
+        if t not in SPEC_AC_TYPES:
+            errs.append(f"{tid}: 未知断言类型 {t!r}")
+            continue
+        for k in SPEC_AC_TYPES[t]:
+            if k not in tc:
+                errs.append(f"{tid}({t}): 缺字段 {k}")
+        f = tc.get("file") if t in ("file_exists", "text_contains", "text_absent") else \
+            (tc.get("test") if t == "unit_test" else None)
+        if f and f not in reqset:
+            errs.append(f"{tid}: 引用文件 {f} 不在 manifest.required_files(无法保证会被生成)")
+        if t != "manual":
+            auto += 1
+    if auto < 3:
+        errs.append(f"可自动判定的 TC 过少(<3),门禁形同虚设: {auto} 条")
+
+    if errs:
+        print(f"❌ [acceptance_gate] {name} 验收标准不合规:")
+        for e in errs:
+            print(f"    - {e}")
+        return False
+    print(f"✅ [acceptance_gate] {name} 合规: {len(acc)} 条 TC/AC(可自动判定 {auto} 条),"
+          f" required_files {len(req)} 个, ready_route={rr}")
+    return True
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description="Spec 编译层:自由文本 → 合规 case 契约")
@@ -278,6 +508,8 @@ def main():
     src.add_argument("--text", help="直接给一段自由文本需求")
     src.add_argument("--input", help="从文件读自由文本需求")
     ap.add_argument("--mock", action="store_true", help="离线模式:用内置领域样例自证链路,不调用 LLM")
+    ap.add_argument("--archetype", choices=("catalog", "spec"), default="catalog",
+                    help="catalog=列表/详情站(默认,原路径);spec=单页交互工具(产 spec.md+manifest+acceptance)")
     args = ap.parse_args()
 
     if not args.mock:
@@ -291,8 +523,21 @@ def main():
         free_text = ""
 
     print("=" * 64)
-    print(f"Spec 编译层 Phase 1 | name={args.name} | mode={'mock' if args.mock else 'LLM'}")
+    print(f"Spec 编译层 Phase 1 | name={args.name} | archetype={args.archetype} | mode={'mock' if args.mock else 'LLM'}")
     print("=" * 64)
+
+    # Spec 形态:产 spec.md + manifest.json + acceptance.json,过 acceptance_gate(不走 catalog 的 derive/contract_gate)
+    if args.archetype == "spec":
+        blocks = gen_spec_blocks_spec(free_text, args.name, args.mock)
+        cdir = write_case_spec(args.name, blocks)
+        ok = acceptance_gate(cdir, args.name)
+        print("-" * 64)
+        if ok:
+            print(f"🎉 编译成功(Spec 形态):cases/{args.name}/spec/ 已产出 spec.md + manifest.json + acceptance.json。")
+            print(f"   下一步生成: HARNESS_MODE=real python harness-4/tools/run_model.py {args.name} output/{args.name}")
+            sys.exit(0)
+        print("💥 编译未通过 acceptance_gate(见上)。不合规的验收标准当场被挡住。")
+        sys.exit(1)
 
     # 1) 自由文本 → spec 块
     blocks = gen_spec_blocks(free_text, args.name, args.mock)

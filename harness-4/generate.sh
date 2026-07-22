@@ -19,7 +19,7 @@ if [ -x "$ROOT/.venv/bin/python" ]; then PYTHON="$ROOT/.venv/bin/python"; elif c
 # run_cases 缺省时回退到 cases(全部已登记用例)。仅影响「实际运行」,不影响自洽检查/Schema 派生。
 CASES="${HARNESS_CASES:-$("$PYTHON" -c "import json;c=json.load(open('$HDIR/constraints.json'));print(' '.join(c.get('run_cases') or c['cases']))")}"
 TS=$(date +%Y%m%d-%H%M%S)
-echo "本次批次:$TS  模式:${HARNESS_MODE:-real}  回归用例:$CASES"
+echo "本次批次:$TS  模式:${HARNESS_MODE:-real}  验收来源:${HARNESS_VERIFY_SOURCE:-fixed}  回归用例:$CASES"
 
 # 产物代码指纹(排除元数据/缓存/报告/占位图,用于确定性比对)
 hash_out() {
@@ -41,9 +41,15 @@ for CASE in $CASES; do
     ATTEMPTS=$i
     echo "--- [$CASE] 第 $i 次生成 ---"
     "$PYTHON" "$HDIR/tools/run_model.py" "$CASE" "$OUT" $FEEDBACK
+    # 选择验收器(选项接口 HARNESS_VERIFY_SOURCE:fixed|spec|auto,见 config.env)
+    ESRC="${HARNESS_VERIFY_SOURCE:-fixed}"
+    if [ "$ESRC" = "auto" ]; then
+      if [ -f "$HDIR/cases/$CASE/spec/acceptance.json" ]; then ESRC="spec"; else ESRC="fixed"; fi
+    fi
+    if [ "$ESRC" = "spec" ]; then VERIFIER="$HDIR/tools/verify_ac.py"; else VERIFIER="$HDIR/tools/verify.py"; fi
     # 注意:verify 的退出码不能被管道末端的 tee 吞掉,用 PIPESTATUS[0] 取 verify 本身的退出码
     set +e
-    "$PYTHON" "$HDIR/tools/verify.py" "$CASE" "$OUT" 2>&1 | tee -a "$OUT/_verify.log"
+    "$PYTHON" "$VERIFIER" "$CASE" "$OUT" 2>&1 | tee -a "$OUT/_verify.log"
     VSTATUS=${PIPESTATUS[0]}
     set -e
     if [ "$VSTATUS" = "0" ]; then

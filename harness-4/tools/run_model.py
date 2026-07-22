@@ -94,6 +94,39 @@ def build_context(case, constraints):
     return "".join(parts)
 
 
+def build_context_spec(manifest, cdir, constraints):
+    """Spec 形态(交互工具等)的生成上下文:不认 catalog,围绕 manifest + spec.md + 验收标准。
+    验收标准(acceptance.json)会喂给模型,让它「照着门禁去建」——门禁仍由上游(人/step2)编写,
+    生成器只负责建到能过,不自己发明标准(裁判≠运动员)。"""
+    parts = [read(os.path.join(HARNESS_DIR, "prompt.spec.md"))]
+    parts.append(f"\n\n===== 本次任务 =====\n{manifest.get('title', manifest['name'])}")
+    parts.append("\n\n===== 全局硬约束 constraints.json(节选) =====\n"
+                 + json.dumps({k: constraints[k] for k in
+                               ("tech", "banned_deps", "banned_code_patterns", "max_inline_style")
+                               if k in constraints}, ensure_ascii=False, indent=2))
+    parts.append("\n\n===== 通用基座 rules/base =====")
+    for p in sorted(glob.glob(os.path.join(HARNESS_DIR, "rules/base", "*.md"))):
+        parts.append(f"\n### {os.path.basename(p)}\n{read(p)}")
+    spec_md = os.path.join(cdir, "spec", "spec.md")
+    if os.path.exists(spec_md):
+        parts.append("\n\n===== 需求规格 spec/spec.md =====\n" + read(spec_md))
+    ac_path = os.path.join(cdir, "spec", "acceptance.json")
+    if os.path.exists(ac_path):
+        ac = load_json(ac_path)
+        parts.append("\n\n===== 验收标准 TC/AC(你的产物将被逐条自动检查,务必全部满足) =====\n"
+                     + json.dumps(ac.get("acceptance", []), ensure_ascii=False, indent=2)
+                     + "\n说明:http_* 会真起服务访问该路由;file_exists/text_* 检查文件内容;"
+                       "unit_test 会跑对应测试文件(需真实可跑通);manual 项你无需处理。")
+    req = manifest.get("required_files", [])
+    parts.append(
+        "\n\n===== 输出格式(强制) =====\n"
+        "只输出文件,不要任何解释、不要 markdown 代码围栏。每个文件用如下格式:\n"
+        "<<<FILE: 相对路径>>>\n文件内容\n<<<ENDFILE>>>\n"
+        "必须输出以下全部文件: " + ", ".join(req)
+    )
+    return "".join(parts)
+
+
 def call_deepseek(system, user):
     """调用 DeepSeek Chat,固定 temperature 与 seed 以尽量保证确定性。"""
     if not API_KEY:
@@ -129,11 +162,11 @@ def write_files(text, out):
         print(f"[run_model] 写入 {rel}")
 
 
-def write_meta(out, case, mode):
+def write_meta(out, name, mode):
     """落地确定性日志:记录用例/模型/版本/seed/温度/模式,回填到 _verify.log 头部。"""
     meta = {
         "harness_version": harness_version(),
-        "case": case["name"],
+        "case": name,
         "mode": mode,
         "model": MODEL if mode == "real" else "sample-generator",
         "temperature": TEMPERATURE,
@@ -142,7 +175,7 @@ def write_meta(out, case, mode):
     }
     with open(os.path.join(out, "_run_meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
-    header = (f"# harness={meta['harness_version']} case={case['name']} mode={mode} "
+    header = (f"# harness={meta['harness_version']} case={name} mode={mode} "
               f"model={meta['model']} temperature={TEMPERATURE} seed={SEED} at={meta['generated_at']}\n")
     with open(os.path.join(out, "_verify.log"), "w", encoding="utf-8") as f:
         f.write(header)
@@ -197,24 +230,46 @@ def main():
         sys.exit("用法: python harness-4/tools/run_model.py <case> <产物目录> [反馈日志]")
     case_name, out = sys.argv[1], sys.argv[2]
     constraints = load_json(os.path.join(HARNESS_DIR, "constraints.json"))
-    case = load_json(os.path.join(HARNESS_DIR, "cases", case_name, "case.json"))
+    cdir = os.path.join(HARNESS_DIR, "cases", case_name)
+    case_path = os.path.join(cdir, "case.json")
+    manifest_path = os.path.join(cdir, "spec", "manifest.json")
+    feedback = sys.argv[3] if len(sys.argv) >= 4 and os.path.exists(sys.argv[3]) else None
 
-    if MODE == "sample":
-        print(f"[run_model] 用例={case_name} 离线参考生成器 -> {out}")
-        sample_generator.generate(case, constraints, out)
-        write_meta(out, case, "sample")
-        print("[run_model] 生成完成(sample)")
+    # 形态判定:有 case.json 走 catalog(原路径,行为不变);否则有 spec/manifest.json 走 Spec 形态。
+    if os.path.exists(case_path):
+        case = load_json(case_path)
+        if MODE == "sample":
+            print(f"[run_model] 用例={case_name} 离线参考生成器 -> {out}")
+            sample_generator.generate(case, constraints, out)
+            write_meta(out, case_name, "sample")
+            print("[run_model] 生成完成(sample)")
+            return
+        user = "请依据以上约束与规格,生成全部文件。"
+        if feedback:
+            user += "\n\n上一轮验收失败,以下是失败日志,只需修复失败项并重新输出全部文件:\n" + read(feedback)
+        print(f"[run_model] 用例={case_name} 调用 {MODEL} (temp={TEMPERATURE}, seed={SEED}) 生成到 {out} ...")
+        text = call_deepseek(build_context(case, constraints), user)
+        write_files(text, out)
+        ensure_images(out, case)
+        write_meta(out, case_name, "real")
+        print("[run_model] 生成完成(real)")
         return
 
-    user = "请依据以上约束与规格,生成全部文件。"
-    if len(sys.argv) >= 4 and os.path.exists(sys.argv[3]):
-        user += "\n\n上一轮验收失败,以下是失败日志,只需修复失败项并重新输出全部文件:\n" + read(sys.argv[3])
-    print(f"[run_model] 用例={case_name} 调用 {MODEL} (temp={TEMPERATURE}, seed={SEED}) 生成到 {out} ...")
-    text = call_deepseek(build_context(case, constraints), user)
-    write_files(text, out)
-    ensure_images(out, case)
-    write_meta(out, case, "real")
-    print("[run_model] 生成完成(real)")
+    if os.path.exists(manifest_path):
+        manifest = load_json(manifest_path)
+        if MODE == "sample":
+            sys.exit("[run_model] Spec 形态暂不支持 sample 离线模式(交互产物无法模板化确定性生成),请用 HARNESS_MODE=real")
+        user = "请依据以上规格与验收标准,生成全部文件。"
+        if feedback:
+            user += "\n\n上一轮验收失败,以下是失败日志,只需修复失败项并重新输出全部文件:\n" + read(feedback)
+        print(f"[run_model] 用例={case_name}(Spec 形态)调用 {MODEL} (temp={TEMPERATURE}, seed={SEED}) 生成到 {out} ...")
+        text = call_deepseek(build_context_spec(manifest, cdir, constraints), user)
+        write_files(text, out)
+        write_meta(out, case_name, "real")
+        print("[run_model] 生成完成(real, spec)")
+        return
+
+    sys.exit(f"[run_model] 用例 {case_name} 既无 case.json 也无 spec/manifest.json,无法生成")
 
 
 if __name__ == "__main__":

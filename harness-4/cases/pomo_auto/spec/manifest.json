@@ -1,0 +1,20 @@
+{
+  "archetype": "spec",
+  "name": "pomo_auto",
+  "title": "番茄钟计时器",
+  "tech": {
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/index.html",
+    "static/js/pomo.js",
+    "static/css/style.css",
+    "pomo_core.py",
+    "tests/test_pomo.py"
+  ]
+}
