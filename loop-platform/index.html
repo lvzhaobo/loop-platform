@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loop Platform · 自主交付应用平台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f4f6fa; --bg-2:#eef1f6; --card:#ffffff; --card-2:#f7f9fc;
+  --border:#e3e8ef; --border-2:#eef1f6;
+  --text:#1f2b3d; --text-sec:#51617a; --muted:#8a97a8;
+  --blue:#1e88e5; --blue-deep:#1565c0; --blue-soft:#e8f2fe; --blue-ghost:#f2f8ff;
+  --green:#2e9e5b; --green-soft:#e6f6ec; --orange:#f59e0b; --orange-soft:#fff4e0;
+  --red:#e5484d; --red-soft:#fdeaea; --purple:#8e5cd9; --purple-soft:#f1e9fb;
+  --q-ffc:#1e88e5; --q-fbc:#2e9e5b; --q-ffr:#8e5cd9; --q-fbr:#f59e0b;
+  --shadow-sm:0 1px 3px rgba(16,32,64,.08); --shadow-md:0 6px 24px rgba(16,32,64,.12);
+  --header-h:58px; --nav-w:242px; --nav-w-collapsed:66px;
+}
+html.dark{
+  --bg:#0d1526; --bg-2:#0f1729; --card:#151f36; --card-2:#1a2743;
+  --border:#26324c; --border-2:#1e2a44;
+  --text:#e8edf6; --text-sec:#a9b6cc; --muted:#71809a;
+  --blue:#4c9df0; --blue-deep:#1565c0; --blue-soft:#16263f; --blue-ghost:#132135;
+  --green-soft:#123024; --orange-soft:#33260f; --red-soft:#331a1c; --purple-soft:#241a38;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.35); --shadow-md:0 8px 28px rgba(0,0,0,.5);
+}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  background:var(--bg);color:var(--text);height:100vh;overflow:hidden;
+  transition:background .25s,color .25s;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+svg{display:block}
+.icon{width:20px;height:20px;flex-shrink:0}
+.icon-sm{width:16px;height:16px;flex-shrink:0}
+
+/* ============ Header ============ */
+.header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--card);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;
+  padding:0 18px;z-index:60;box-shadow:var(--shadow-sm)}
+.brand{display:flex;align-items:center;gap:11px;min-width:calc(var(--nav-w) - 34px)}
+.brand-logo{width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,#2b98f0,#1565c0);display:flex;align-items:center;justify-content:center;
+  color:#fff;box-shadow:0 3px 10px rgba(30,136,229,.35)}
+.brand-txt{display:flex;flex-direction:column;line-height:1.15}
+.brand-name{font-size:15.5px;font-weight:800;letter-spacing:.2px}
+.brand-sub{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.5px}
+.nav-toggle{width:34px;height:34px;border-radius:8px;border:none;background:transparent;
+  color:var(--text-sec);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.nav-toggle:hover{background:var(--blue-soft);color:var(--blue)}
+.crumb{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text-sec);font-weight:600}
+.crumb .crumb-cur{color:var(--text);font-weight:700}
+.crumb svg{color:var(--muted)}
+.header-spacer{flex:1}
+.h-search{display:flex;align-items:center;gap:8px;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:9px;padding:7px 12px;width:230px;color:var(--muted);transition:.15s}
+.h-search:focus-within{border-color:var(--blue);background:var(--card)}
+.h-search input{border:none;background:transparent;outline:none;color:var(--text);font-size:13px;width:100%}
+.h-search input::placeholder{color:var(--muted)}
+.h-btn{width:38px;height:38px;border-radius:9px;border:1px solid var(--border);background:var(--card);
+  color:var(--text-sec);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  position:relative;transition:.15s}
+.h-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+.h-badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  background:var(--red);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)}
+.h-user{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 6px;border-radius:10px;
+  border:1px solid var(--border);background:var(--card);cursor:pointer;transition:.15s}
+.h-user:hover{border-color:var(--blue)}
+.h-avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#5eb0f4,#1e88e5);
+  color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.h-user-name{font-size:13px;font-weight:700}
+.h-user-role{font-size:10.5px;color:var(--muted)}
+
+/* ============ Sidebar ============ */
+.sidebar{position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--nav-w);background:var(--card);
+  border-right:1px solid var(--border);z-index:55;display:flex;flex-direction:column;
+  transition:width .22s ease;overflow:hidden}
+.app.collapsed .sidebar{width:var(--nav-w-collapsed)}
+.nav-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 12px 8px}
+.nav-group-label{font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);
+  text-transform:uppercase;padding:14px 10px 6px}
+.app.collapsed .nav-group-label{opacity:0;height:8px;padding:6px 0;overflow:hidden}
+.nav-item{display:flex;align-items:center;gap:13px;padding:11px 12px;border-radius:10px;
+  cursor:pointer;color:var(--text-sec);font-size:14px;font-weight:600;margin-bottom:3px;
+  position:relative;transition:.14s;white-space:nowrap}
+.nav-item:hover{background:var(--blue-soft);color:var(--blue)}
+.nav-item.active{background:var(--blue);color:#fff;box-shadow:0 4px 12px rgba(30,136,229,.32)}
+.nav-item.active .nav-idx{color:#fff;opacity:.85}
+.nav-item .nav-ico{width:22px;height:22px;flex-shrink:0}
+.nav-item .nav-txt{flex:1;overflow:hidden;text-overflow:ellipsis}
+.nav-idx{font-size:11px;font-weight:700;color:var(--muted);opacity:.75}
+.app.collapsed .nav-txt,.app.collapsed .nav-idx{display:none}
+.app.collapsed .nav-item{justify-content:center;padding:11px 0}
+.app.collapsed .nav-item .nav-tip{position:absolute;left:calc(100% + 10px);background:var(--text);color:var(--card);
+  padding:6px 10px;border-radius:7px;font-size:12.5px;font-weight:600;white-space:nowrap;opacity:0;
+  pointer-events:none;transition:.15s;z-index:80;box-shadow:var(--shadow-md)}
+.nav-tip{display:none}
+.app.collapsed .nav-item:hover .nav-tip{display:block;opacity:1}
+.nav-footer{border-top:1px solid var(--border);padding:12px}
+.nav-mini{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);padding:4px 8px}
+.app.collapsed .nav-footer .nav-mini span{display:none}
+
+/* ============ Main ============ */
+.main{position:fixed;top:var(--header-h);left:var(--nav-w);right:0;bottom:0;overflow-y:auto;
+  transition:left .22s ease;background:var(--bg)}
+.app.collapsed .main{left:var(--nav-w-collapsed)}
+.page{display:none;padding:26px 30px;max-width:1320px;margin:0 auto}
+.page.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-head{margin-bottom:22px}
+.page-title{font-size:22px;font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:11px}
+.page-title .pt-ico{width:26px;height:26px;color:var(--blue)}
+.page-desc{font-size:13.5px;color:var(--text-sec);margin-top:6px;line-height:1.6}
+.page-full{padding:0;max-width:none;height:100%}
+
+/* ============ Common components ============ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:9px;border:1px solid var(--border);
+  background:var(--card);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;transition:.14s;white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.primary:hover{background:var(--blue-deep);color:#fff}
+.btn.sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:7px;font-size:12px;font-weight:700}
+.badge.blue{background:var(--blue-soft);color:var(--blue)}
+.badge.green{background:var(--green-soft);color:var(--green)}
+.badge.orange{background:var(--orange-soft);color:var(--orange)}
+.badge.red{background:var(--red-soft);color:var(--red)}
+.badge.purple{background:var(--purple-soft);color:var(--purple)}
+.badge.gray{background:var(--bg-2);color:var(--text-sec)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--green)}.dot.red{background:var(--red)}.dot.orange{background:var(--orange)}
+
+.toolbar-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.toolbar-row .spacer{flex:1}
+.seg{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:none;background:transparent;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;
+  color:var(--text-sec);cursor:pointer;transition:.14s}
+.seg button.active{background:var(--card);color:var(--blue);box-shadow:var(--shadow-sm)}
+.mini-search{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:8px 12px;color:var(--muted);min-width:200px}
+.mini-search input{border:none;background:transparent;outline:none;color:var(--text);font-size:13px;width:100%}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.kpi{padding:18px 20px;display:flex;flex-direction:column;gap:8px}
+.kpi-top{display:flex;align-items:center;justify-content:space-between}
+.kpi-ico{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.kpi-ico.b{background:var(--blue-soft);color:var(--blue)}
+.kpi-ico.g{background:var(--green-soft);color:var(--green)}
+.kpi-ico.o{background:var(--orange-soft);color:var(--orange)}
+.kpi-ico.p{background:var(--purple-soft);color:var(--purple)}
+.kpi-val{font-size:30px;font-weight:800;letter-spacing:-.5px}
+.kpi-label{font-size:13px;color:var(--text-sec);font-weight:600}
+.kpi-trend{font-size:12px;font-weight:700}
+.kpi-trend.up{color:var(--green)}.kpi-trend.down{color:var(--red)}
+.grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:20px}
+.panel{padding:18px 20px}
+.panel-title{font-size:15px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel-title .spacer{flex:1}
+
+/* Table */
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tbl th{text-align:left;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;padding:10px 12px;border-bottom:1px solid var(--border)}
+table.tbl td{padding:12px;border-bottom:1px solid var(--border-2);color:var(--text-sec)}
+table.tbl tr:hover td{background:var(--card-2)}
+table.tbl td .lnk{color:var(--blue);font-weight:600}
+
+/* Requirement list */
+.req-card{padding:16px 18px;margin-bottom:12px;display:flex;align-items:center;gap:16px;transition:.15s}
+.req-card:hover{border-color:var(--blue);box-shadow:var(--shadow-md)}
+.req-id{font-size:12.5px;font-weight:800;color:var(--blue);background:var(--blue-soft);padding:5px 10px;border-radius:8px;flex-shrink:0}
+.req-main{flex:1;min-width:0}
+.req-title{font-size:15px;font-weight:700;margin-bottom:5px}
+.req-meta{display:flex;gap:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.req-meta b{color:var(--text-sec);font-weight:600}
+.req-actions{display:flex;gap:7px;flex-shrink:0}
+
+/* Quadrant */
+.quad-wrap{padding:20px;margin-bottom:20px}
+.quad-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.quad-grid{position:relative;display:grid;grid-template-columns:64px 1fr 1fr;grid-template-rows:34px 1fr 1fr;
+  gap:0;min-height:340px}
+.quad-axis-y{grid-row:2 / 4;grid-column:1;display:flex;align-items:center;justify-content:center}
+.quad-axis-y span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12.5px;font-weight:700;color:var(--muted)}
+.quad-col-head{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text-sec);gap:6px}
+.quad-cell{border:1.5px dashed var(--border);margin:6px;border-radius:12px;padding:14px 15px;display:flex;flex-direction:column;gap:9px}
+.quad-cell .qc-title{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:800}
+.quad-cell .qc-tag{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px}
+.quad-cell .qc-items{display:flex;flex-wrap:wrap;gap:6px}
+.qc-chip{font-size:12px;font-weight:600;padding:4px 9px;border-radius:7px;background:var(--bg-2);color:var(--text-sec);cursor:default}
+.quad-cell.ffc{border-color:var(--q-ffc)}.quad-cell.ffc .qc-title{color:var(--q-ffc)}.quad-cell.ffc .qc-tag{background:var(--blue-soft);color:var(--q-ffc)}
+.quad-cell.fbc{border-color:var(--q-fbc)}.quad-cell.fbc .qc-title{color:var(--q-fbc)}.quad-cell.fbc .qc-tag{background:var(--green-soft);color:var(--q-fbc)}
+.quad-cell.ffr{border-color:var(--q-ffr)}.quad-cell.ffr .qc-title{color:var(--q-ffr)}.quad-cell.ffr .qc-tag{background:var(--purple-soft);color:var(--q-ffr)}
+.quad-cell.fbr{border-color:var(--q-fbr)}.quad-cell.fbr .qc-title{color:var(--q-fbr)}.quad-cell.fbr .qc-tag{background:var(--orange-soft);color:var(--q-fbr)}
+.quad-note{margin-top:14px;font-size:12.5px;color:var(--text-sec);background:var(--blue-ghost);
+  border-left:3px solid var(--blue);padding:10px 14px;border-radius:0 8px 8px 0;line-height:1.6}
+
+/* File list rows */
+.file-row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--border-2);cursor:pointer;transition:.14s}
+.file-row:hover{background:var(--card-2)}
+.file-row:last-child{border-bottom:none}
+.file-ico{width:38px;height:38px;border-radius:10px;background:var(--blue-soft);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.file-main{flex:1;min-width:0}
+.file-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:9px}
+.file-path{font-size:12px;color:var(--muted);margin-top:3px;font-family:ui-monospace,Menlo,monospace}
+.file-tags{display:flex;gap:7px;align-items:center;flex-shrink:0}
+
+/* Right drawer */
+.drawer{position:fixed;top:var(--header-h);right:0;bottom:0;width:520px;background:var(--card);
+  border-left:1px solid var(--border);z-index:58;transform:translateX(100%);transition:transform .26s ease;
+  box-shadow:var(--shadow-md);display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.drawer-head .dh-title{flex:1;font-size:16px;font-weight:800}
+.drawer-close{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--card);
+  cursor:pointer;color:var(--text-sec);display:flex;align-items:center;justify-content:center}
+.drawer-close:hover{color:var(--red);border-color:var(--red)}
+.drawer-body{flex:1;overflow-y:auto;padding:20px}
+.drawer-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.code-box{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:16px;
+  font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:var(--text-sec);
+  white-space:pre-wrap;overflow-x:auto}
+textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px solid var(--blue);border-radius:10px;
+  padding:16px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7;color:var(--text);resize:vertical;outline:none}
+
+/* App cards */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.app-card{padding:18px;display:flex;flex-direction:column;gap:12px;transition:.15s}
+.app-card:hover{border-color:var(--blue);box-shadow:var(--shadow-md)}
+.app-card-top{display:flex;align-items:center;gap:12px}
+.app-thumb{width:46px;height:46px;border-radius:11px;background:linear-gradient(135deg,#5eb0f4,#1565c0);
+  color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.app-url{font-size:12.5px;color:var(--blue);font-family:ui-monospace,Menlo,monospace;
+  background:var(--blue-ghost);padding:7px 11px;border-radius:8px;display:flex;align-items:center;gap:7px;justify-content:space-between}
+.app-foot{display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:12px}
+
+/* Deploy channel */
+.chan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.chan-card{padding:18px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;transition:.15s}
+.chan-card:hover{border-color:var(--blue);box-shadow:var(--shadow-md)}
+.chan-ico{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.chan-ico.gh{background:#1f2b3d;color:#fff}
+.chan-ico.ali{background:#fff0e6;color:#ff6a00}
+.chan-ico.cf{background:#fef1e6;color:#f38020}
+.chan-desc{font-size:12.5px;color:var(--text-sec);line-height:1.5;flex:1}
+
+/* Test cards */
+.form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-row label{font-size:13px;font-weight:600;color:var(--text-sec)}
+.form-row input,.form-row select,.form-row textarea{padding:9px 12px;border:1px solid var(--border);border-radius:9px;
+  background:var(--card);color:var(--text);font-size:13.5px;font-family:inherit;outline:none;transition:.14s}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--blue)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* Loop engine flow */
+.flow{display:flex;flex-direction:column;gap:0}
+.flow-node{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1.5px solid var(--border);
+  border-radius:12px;background:var(--card-2)}
+.flow-node .fn-ico{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fn-ico.maker{background:var(--blue-soft);color:var(--blue)}
+.fn-ico.checker{background:var(--green-soft);color:var(--green)}
+.fn-ico.loop{background:var(--purple-soft);color:var(--purple)}
+.fn-ico.guard{background:var(--orange-soft);color:var(--orange)}
+.flow-node .fn-body{flex:1}
+.flow-node .fn-title{font-size:14.5px;font-weight:800}
+.flow-node .fn-desc{font-size:12.5px;color:var(--text-sec);margin-top:3px;line-height:1.5}
+.flow-arrow{align-self:center;color:var(--muted);padding:6px 0}
+
+/* Timeline / trace */
+.timeline{position:relative;padding-left:26px}
+.timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 20px 14px}
+.tl-item::before{content:'';position:absolute;left:-22px;top:3px;width:12px;height:12px;border-radius:50%;
+  border:2px solid var(--card);background:var(--blue)}
+.tl-item.warn::before{background:var(--orange)}.tl-item.err::before{background:var(--red)}
+.tl-time{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+.tl-msg{font-size:13.5px;font-weight:600;margin-top:3px}
+.tl-sub{font-size:12.5px;color:var(--text-sec);margin-top:2px}
+
+/* Log console */
+.log-console{background:#0d1526;border-radius:12px;padding:16px;font-family:ui-monospace,Menlo,monospace;
+  font-size:12.5px;line-height:1.8;color:#a9b6cc;height:420px;overflow-y:auto}
+.log-console .lg-time{color:#5b6b82}
+.log-console .lg-info{color:#4c9df0}.log-console .lg-ok{color:#4caf7d}
+.log-console .lg-warn{color:#f0b34a}.log-console .lg-err{color:#ec6b6f}
+
+/* ===== Loop 引擎 v2:控制台 + 回放（Graph 视图） ===== */
+.lp-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.lp-tab{padding:11px 18px;font-size:13.5px;font-weight:700;color:var(--text-sec);cursor:pointer;border-bottom:2px solid transparent;transition:.14s}
+.lp-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.lp-view{display:none}.lp-view.active{display:block}
+.trigbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.trigbar .tb-field{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-sec);font-weight:600}
+.trigbar select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card-2);color:var(--text);font-size:13px}
+.trigbar .spacer{flex:1}
+.run-state{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:20px}
+.run-state .dot{width:8px;height:8px;border-radius:50%}
+.run-state.idle{background:var(--bg-2);color:var(--muted)}.run-state.idle .dot{background:var(--muted)}
+.run-state.running{background:var(--blue-soft);color:var(--blue)}.run-state.running .dot{background:var(--blue);animation:lp-pulse 1s infinite}
+.run-state.pass{background:var(--green-soft);color:var(--green)}.run-state.pass .dot{background:var(--green)}
+.run-state.fail{background:var(--red-soft);color:var(--red)}.run-state.fail .dot{background:var(--red)}
+@keyframes lp-pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.lg-graph{position:relative;padding:20px 10px 76px;background:var(--card-2);border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
+.lg-nodes{display:flex;align-items:flex-start}
+.lg-node{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:4px 6px}
+.lg-ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--card);border:1.5px solid var(--border);color:var(--muted);transition:.2s}
+.lg-ico svg{width:24px;height:24px}
+.lg-node .lg-nm{font-size:13.5px;font-weight:800}
+.lg-node .lg-sub{font-size:11px;color:var(--text-sec);line-height:1.4;font-family:ui-monospace,Menlo,monospace}
+.lg-node.run .lg-ico{border-color:var(--blue);color:var(--blue);background:var(--blue-soft);animation:lp-pulse 1s infinite}
+.lg-node.pass .lg-ico{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+.lg-node.fail .lg-ico{border-color:var(--red);color:var(--red);background:var(--red-soft)}
+.lg-arrow{flex:0 0 30px;display:flex;align-items:center;justify-content:center;color:var(--muted);margin-top:14px}
+.lg-arrow svg{width:22px;height:22px}
+.lg-backedge{position:absolute;left:37.5%;width:25%;bottom:24px;height:40px;border:2px dashed var(--purple);border-top:none;border-radius:0 0 14px 14px;opacity:.9}
+.lg-backedge::before{content:'';position:absolute;left:-6px;top:-2px;border:6px solid transparent;border-bottom-color:var(--purple)}
+.lg-backedge.hide{display:none}
+.lg-backlabel{position:absolute;left:50%;transform:translateX(-50%);bottom:-12px;background:var(--purple-soft);color:var(--purple);font-size:11.5px;font-weight:800;padding:3px 11px;border-radius:20px;white-space:nowrap;border:1px solid var(--purple)}
+.rnd-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.rnd-tab{padding:6px 14px;font-size:12.5px;font-weight:700;border:1px solid var(--border);border-radius:20px;cursor:pointer;color:var(--text-sec);background:var(--card)}
+.rnd-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.rnd-tab .rt-badge{margin-left:6px}
+.gate-group{margin-bottom:14px}
+.gate-gh{font-size:11.5px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin:0 0 8px}
+.gate-row{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;background:var(--card)}
+.gate-row.ok{border-left:3px solid var(--green)}
+.gate-row.bad{border-left:3px solid var(--red);background:var(--red-soft)}
+.gate-mk{flex:0 0 auto;font-weight:800;font-size:13px;line-height:1.5}
+.gate-row.ok .gate-mk{color:var(--green)}.gate-row.bad .gate-mk{color:var(--red)}
+.gate-main{flex:1}
+.gate-nm{font-size:13px;font-weight:700}
+.gate-dt{font-size:11.5px;color:var(--text-sec);margin-top:2px;font-family:ui-monospace,Menlo,monospace}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-size:12.5px;margin:0}
+.kv dt{color:var(--muted);font-weight:600}
+.kv dd{color:var(--text);font-weight:700;font-family:ui-monospace,Menlo,monospace;margin:0}
+.runs-tb{width:100%;border-collapse:collapse;font-size:12px}
+.runs-tb th{text-align:left;color:var(--muted);font-weight:700;padding:8px 8px;border-bottom:1px solid var(--border)}
+.runs-tb td{padding:8px 8px;border-bottom:1px solid var(--border-2);font-family:ui-monospace,Menlo,monospace}
+.runs-tb tbody tr{cursor:pointer}.runs-tb tbody tr:hover td{background:var(--card-2)}
+.runs-tb tbody tr.sel td{background:var(--blue-ghost)}
+
+/* 数据源徽标（实时接后端 / Mock 回退） + 结构化配置表单 */
+.src-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+  font-size:12px;font-weight:700;border:1px solid var(--border);cursor:pointer;user-select:none}
+.src-badge .dot{width:7px;height:7px;border-radius:50%}
+.src-badge.live{color:#0a7d3c;background:rgba(46,160,67,.1);border-color:rgba(46,160,67,.35)}
+.src-badge.live .dot{background:#2ea043;box-shadow:0 0 0 3px rgba(46,160,67,.18)}
+.src-badge.mock{color:#9a6700;background:rgba(210,153,34,.1);border-color:rgba(210,153,34,.35)}
+.src-badge.mock .dot{background:#d29922}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px}
+.cfg-field{display:flex;flex-direction:column;gap:6px}
+.cfg-field label{font-size:12.5px;font-weight:700;color:var(--text-sec)}
+.cfg-field input{border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13.5px;
+  background:var(--card-2);color:var(--text);outline:none}
+.cfg-field input:focus{border-color:var(--blue);background:var(--card)}
+.cfg-block{margin-top:16px}
+.cfg-block>.cfg-bt{font-size:12.5px;font-weight:700;color:var(--text-sec);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 11px;border-radius:8px;
+  font-size:12.5px;font-weight:700;font-family:ui-monospace,Menlo,monospace;
+  background:var(--blue-ghost);color:var(--blue);border:1px solid var(--border)}
+.chip.danger{background:rgba(224,49,49,.08);color:var(--red);border-color:rgba(224,49,49,.3)}
+.chip .chip-x{cursor:pointer;font-weight:900;opacity:.6;line-height:1}
+.chip .chip-x:hover{opacity:1}
+.chip-add{border:1px dashed var(--border);border-radius:8px;padding:4px 10px;font-size:12.5px;
+  font-weight:700;color:var(--text-sec);background:transparent;cursor:pointer}
+.chip-add:hover{border-color:var(--blue);color:var(--blue)}
+.cfg-result{margin-top:14px;font-size:12.5px}
+.cfg-check{margin-top:12px;background:#0d1117;color:#c9d1d9;border-radius:8px;padding:12px 14px;
+  font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;max-height:260px;overflow:auto}
+.rt-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+  color:var(--text-sec);cursor:pointer;user-select:none;margin-right:4px}
+.rt-toggle input{accent-color:var(--red)}
+
+/* Setting tabs */
+.set-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.set-tab{padding:11px 18px;font-size:13.5px;font-weight:700;color:var(--text-sec);cursor:pointer;
+  border-bottom:2px solid transparent;transition:.14s}
+.set-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.set-block{display:none}.set-block.active{display:block}
+.set-section{margin-bottom:24px}
+.set-section h4{font-size:14px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* Switch */
+.switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.switch input{display:none}
+.switch .track{position:absolute;inset:0;background:var(--border);border-radius:12px;transition:.2s;cursor:pointer}
+.switch .track::before{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch input:checked + .track{background:var(--blue)}
+.switch input:checked + .track::before{transform:translateX(20px)}
+
+/* ============ Login ============ */
+.login-mask{position:fixed;inset:0;z-index:200;background:linear-gradient(135deg,#1565c0,#0d1526);
+  display:flex;align-items:center;justify-content:center;transition:opacity .35s}
+.login-mask.hide{opacity:0;pointer-events:none}
+.login-bg{position:absolute;inset:0;opacity:.16;background-image:radial-gradient(circle at 20% 30%,#fff 1px,transparent 1px),radial-gradient(circle at 70% 60%,#fff 1px,transparent 1px);background-size:46px 46px}
+.login-card{position:relative;width:392px;background:var(--card);border-radius:20px;padding:36px 34px;
+  box-shadow:0 24px 70px rgba(0,0,0,.4)}
+.login-logo{width:56px;height:56px;border-radius:15px;background:linear-gradient(135deg,#2b98f0,#1565c0);
+  display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:18px;box-shadow:0 8px 20px rgba(30,136,229,.4)}
+.login-title{font-size:22px;font-weight:800}
+.login-sub{font-size:13.5px;color:var(--text-sec);margin-top:6px;margin-bottom:26px}
+.login-field{margin-bottom:16px}
+.login-field label{font-size:13px;font-weight:600;color:var(--text-sec);display:block;margin-bottom:7px}
+.login-input{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:11px;
+  padding:12px 14px;background:var(--bg-2);transition:.15s}
+.login-input:focus-within{border-color:var(--blue);background:var(--card)}
+.login-input svg{color:var(--muted)}
+.login-input input{border:none;background:transparent;outline:none;color:var(--text);font-size:14.5px;width:100%}
+.login-btn{width:100%;padding:13px;border:none;border-radius:11px;background:linear-gradient(135deg,#2b98f0,#1565c0);
+  color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;transition:.15s;box-shadow:0 6px 18px rgba(30,136,229,.35)}
+.login-btn:hover{filter:brightness(1.06)}
+.login-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--text-sec);margin-bottom:8px}
+.login-tip{margin-top:20px;background:var(--blue-ghost);border:1px dashed var(--blue);border-radius:11px;
+  padding:12px 14px;font-size:12.5px;color:var(--text-sec);line-height:1.7}
+.login-tip b{color:var(--blue)}
+.login-tip .fill-btn{color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline}
+.login-err{color:var(--red);font-size:12.5px;margin-top:8px;display:none;font-weight:600}
+
+/* ============ Modal ============ */
+.modal-mask{position:fixed;inset:0;z-index:120;background:rgba(15,23,41,.5);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center}
+.modal-mask.open{display:flex}
+.modal{width:520px;max-width:92vw;max-height:88vh;overflow-y:auto;background:var(--card);border-radius:16px;
+  box-shadow:var(--shadow-md);animation:fade .2s ease}
+.modal-head{padding:20px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.modal-head .mh-title{flex:1;font-size:16.5px;font-weight:800}
+.modal-body{padding:22px}
+.modal-foot{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.tab-row{display:flex;gap:4px;background:var(--bg-2);border-radius:10px;padding:4px;margin-bottom:18px}
+.tab-row button{flex:1;border:none;background:transparent;padding:9px;border-radius:7px;font-size:13.5px;font-weight:700;
+  color:var(--text-sec);cursor:pointer;transition:.14s}
+.tab-row button.active{background:var(--card);color:var(--blue);box-shadow:var(--shadow-sm)}
+
+/* Toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);z-index:300;
+  background:var(--text);color:var(--card);padding:12px 22px;border-radius:11px;font-size:13.5px;font-weight:600;
+  box-shadow:var(--shadow-md);opacity:0;pointer-events:none;transition:.25s;display:flex;align-items:center;gap:9px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* iframe spec */
+.spec-frame-wrap{position:absolute;top:52px;left:0;right:0;bottom:0}
+.spec-frame-wrap iframe{width:100%;height:100%;border:none;background:var(--card)}
+.spec-topbar{position:absolute;top:0;left:0;right:0;height:52px;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;padding:0 24px;z-index:5}
+.spec-select{padding:8px 14px;border:1px solid var(--border);border-radius:9px;background:var(--card);
+  color:var(--text);font-size:13.5px;font-weight:700;outline:none;cursor:pointer;min-width:260px}
+.doc-pills{display:flex;flex-wrap:wrap;gap:7px}
+.doc-pill{font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;background:var(--bg-2);color:var(--text-sec)}
+.doc-pill .dp-dot{width:7px;height:7px;border-radius:2px;display:inline-block;margin-right:5px}
+
+.hint{font-size:12.5px;color:var(--muted);line-height:1.7}
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty svg{margin:0 auto 14px;color:var(--border)}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<!-- 客户端演示登录默认隐藏:外层已由 studio token 门禁保护(同源),避免双重登录。如需单独演示可移除 hide。 -->
+<div class="login-mask hide" id="loginMask">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <svg class="icon" style="width:30px;height:30px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.5 5.8"/><polyline points="4 20 4 14 10 14"/></svg>
+    </div>
+    <div class="login-title">Loop Platform</div>
+    <div class="login-sub">自主交付应用平台 · 登录以继续</div>
+    <div class="login-field">
+      <label>账号</label>
+      <div class="login-input">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <input id="loginUser" type="text" placeholder="请输入账号" autocomplete="username">
+      </div>
+    </div>
+    <div class="login-field">
+      <label>密码</label>
+      <div class="login-input">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <input id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="login-row"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" checked> 记住我</label><span style="color:var(--blue);cursor:pointer">忘记密码?</span></div>
+    <div class="login-err" id="loginErr">账号或密码错误，请重试</div>
+    <button class="login-btn" onclick="doLogin()">登 录</button>
+    <div class="login-tip">演示账号：<b>admin</b> / <b>loop123</b> · <span class="fill-btn" onclick="fillDemo()">一键填入</span></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+
+<!-- ============ HEADER ============ -->
+<header class="header">
+  <div class="brand">
+    <button class="nav-toggle" onclick="toggleNav()" title="折叠菜单">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+    </button>
+    <div class="brand-logo">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.5 5.8"/><polyline points="4 20 4 14 10 14"/></svg>
+    </div>
+    <div class="brand-txt">
+      <span class="brand-name">Loop Platform</span>
+      <span class="brand-sub">自主交付控制台</span>
+    </div>
+  </div>
+  <div class="crumb">
+    <span>控制台</span>
+    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    <span class="crumb-cur" id="crumbCur">Dashboard</span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="src-badge mock" id="srcBadge" onclick="probeLive(true)" title="数据源：实时接 studio后端(5100) / Mock。点击重试连接"><span class="dot"></span><span id="srcTxt">Mock</span></div>
+  <div class="h-search">
+    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+    <input type="text" placeholder="搜索需求 / 应用 / 约束…">
+  </div>
+  <button class="h-btn" onclick="toggleTheme()" title="切换主题" id="themeBtn">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4" y1="12" x2="2" y2="12"/><line x1="22" y1="12" x2="20" y2="12"/><line x1="5.6" y1="5.6" x2="4.2" y2="4.2"/><line x1="19.8" y1="19.8" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/></svg>
+  </button>
+  <button class="h-btn" title="通知">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 7 2 7H4s2-2 2-7"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+    <span class="h-badge">3</span>
+  </button>
+  <button class="h-btn" title="帮助">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+  </button>
+  <div class="h-user" onclick="logout()" title="点击退出登录">
+    <div class="h-avatar">A</div>
+    <div><div class="h-user-name">Admin</div><div class="h-user-role">平台管理员</div></div>
+  </div>
+</header>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <nav class="nav-scroll">
+    <div class="nav-group-label">总览</div>
+    <div class="nav-item active" data-page="dashboard" data-title="Dashboard" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      <span class="nav-idx">00</span><span class="nav-txt">Dashboard</span><span class="nav-tip">Dashboard</span>
+    </div>
+    <div class="nav-group-label">交付流水线</div>
+    <div class="nav-item" data-page="reqs" data-title="需求列表" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg>
+      <span class="nav-idx">01</span><span class="nav-txt">需求列表</span><span class="nav-tip">需求列表</span>
+    </div>
+    <div class="nav-item" data-page="spec" data-title="Spec 详情" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="13 3 13 8 18 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+      <span class="nav-idx">02</span><span class="nav-txt">Spec 详情</span><span class="nav-tip">Spec 详情</span>
+    </div>
+    <div class="nav-item" data-page="harness" data-title="Harness 约束" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-idx">03</span><span class="nav-txt">Harness 约束</span><span class="nav-tip">Harness 约束</span>
+    </div>
+    <div class="nav-item" data-page="loop" data-title="Loop 引擎" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg>
+      <span class="nav-idx">04</span><span class="nav-txt">Loop 引擎</span><span class="nav-tip">Loop 引擎</span>
+    </div>
+    <div class="nav-item" data-page="makers" data-title="Maker 配置" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M5 8l2 2M19 8l-2 2M4 15h16M6 15l1.5 5h9L18 15"/></svg>
+      <span class="nav-idx">05</span><span class="nav-txt">Maker 配置</span><span class="nav-tip">Maker 配置</span>
+    </div>
+    <div class="nav-group-label">应用与运维</div>
+    <div class="nav-item" data-page="apps" data-title="APP List" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="nav-idx">06</span><span class="nav-txt">APP List</span><span class="nav-tip">APP List</span>
+    </div>
+    <div class="nav-item" data-page="deploy" data-title="Deploy" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 1 5 4 5 8l-1.5 4h-7L7 11c0-4 2-7 5-8z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 18c-1 1-1.5 2.5-1.5 3.5C8.5 21 10 20.5 11 19.5"/><path d="M15 18c1 1 1.5 2.5 1.5 3.5C15.5 21 14 20.5 13 19.5"/></svg>
+      <span class="nav-idx">07</span><span class="nav-txt">Deploy</span><span class="nav-tip">Deploy</span>
+    </div>
+    <div class="nav-item" data-page="test" data-title="Test" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><line x1="8" y1="15" x2="16" y2="15"/></svg>
+      <span class="nav-idx">08</span><span class="nav-txt">Test</span><span class="nav-tip">Test</span>
+    </div>
+    <div class="nav-group-label">可观测与设置</div>
+    <div class="nav-item" data-page="trace" data-title="Trace" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>
+      <span class="nav-idx">09</span><span class="nav-txt">Trace</span><span class="nav-tip">Trace</span>
+    </div>
+    <div class="nav-item" data-page="setting" data-title="Log & Setting" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.15-1.4l1.8-1.4-1.9-3.3-2.1.9a7 7 0 0 0-2.4-1.4L13.9 2h-3.8l-.35 2.3a7 7 0 0 0-2.4 1.4l-2.1-.9-1.9 3.3 1.8 1.4A7 7 0 0 0 5 12a7 7 0 0 0 .15 1.4l-1.8 1.4 1.9 3.3 2.1-.9a7 7 0 0 0 2.4 1.4l.35 2.4h3.8l.35-2.3a7 7 0 0 0 2.4-1.4l2.1.9 1.9-3.3-1.8-1.4A7 7 0 0 0 19 12z"/></svg>
+      <span class="nav-idx">10</span><span class="nav-txt">Log &amp; Setting</span><span class="nav-tip">Log &amp; Setting</span>
+    </div>
+    <div class="nav-group-label">概念</div>
+    <div class="nav-item" data-page="mc" data-title="Maker / Checker" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l-3 4 3 4"/><path d="M17 8l3 4-3 4"/><line x1="13.5" y1="5" x2="10.5" y2="19"/></svg>
+      <span class="nav-idx">+</span><span class="nav-txt">Maker / Checker</span><span class="nav-tip">Maker / Checker</span>
+    </div>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-mini">
+      <span class="dot green"></span><span>引擎在线 · v4.0.0</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main class="main" id="main">
+<!-- ===== PAGE: Dashboard ===== -->
+<section class="page active" id="page-dashboard">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</div>
+    <div class="page-desc">平台总览 · 从需求到上线的全链路关键指标（需求类指标接 studio 真实需求池）。</div>
+  </div>
+  <div class="kpi-grid">
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico b"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg></div><span class="kpi-trend up">↗ 12%</span></div><div class="kpi-val" id="kpiTotal">18</div><div class="kpi-label">需求总数</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico g"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div><span class="kpi-trend up">↗ 8%</span></div><div class="kpi-val" id="kpiDone">14</div><div class="kpi-label">已交付</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico o"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></div><span class="kpi-trend up">↗ 2</span></div><div class="kpi-val">6</div><div class="kpi-label">在线应用</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico p"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg></div><span class="kpi-trend down">↘ 3%</span></div><div class="kpi-val">37</div><div class="kpi-label">今日运行次数</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card panel">
+      <div class="panel-title">交付趋势（30 天）<span class="spacer"></span><span class="badge blue">占位</span></div>
+      <svg viewBox="0 0 560 200" style="width:100%;height:200px">
+        <polyline fill="none" stroke="var(--blue)" stroke-width="2.5" points="0,160 60,140 120,150 180,110 240,120 300,80 360,90 420,50 480,60 540,30"/>
+        <polyline fill="var(--blue-soft)" stroke="none" opacity=".5" points="0,160 60,140 120,150 180,110 240,120 300,80 360,90 420,50 480,60 540,30 540,200 0,200"/>
+        <polyline fill="none" stroke="var(--green)" stroke-width="2.5" stroke-dasharray="5 4" points="0,180 60,175 120,160 180,165 240,140 300,130 360,120 420,100 480,95 540,80"/>
+      </svg>
+      <div style="display:flex;gap:18px;font-size:12.5px;color:var(--text-sec);margin-top:6px"><span><span class="dot" style="background:var(--blue)"></span> 生成次数</span><span><span class="dot" style="background:var(--green)"></span> 交付成功</span></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-title">需求状态分布</div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <svg viewBox="0 0 120 120" style="width:130px;height:130px">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--border)" stroke-width="16"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--green)" stroke-width="16" stroke-dasharray="170 302" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--orange)" stroke-width="16" stroke-dasharray="75 302" stroke-dashoffset="-170" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--red)" stroke-width="16" stroke-dasharray="30 302" stroke-dashoffset="-245" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div style="font-size:13px;line-height:2.1">
+          <div><span class="dot green"></span> 已完成 <b id="pieDone">14</b></div>
+          <div><span class="dot orange"></span> 待处理 <b id="piePending">3</b></div>
+          <div><span class="dot red"></span> 失败 <b id="pieFailed">1</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card panel">
+    <div class="panel-title">最近运行<span class="spacer"></span><span class="src-badge mock" id="dashSrc"><span class="dot"></span><span id="dashSrcTxt">Mock</span></span></div>
+    <table class="tbl">
+      <thead><tr><th>需求</th><th>用例</th><th>状态</th><th>产物 URL</th><th>尝试</th></tr></thead>
+      <tbody id="dashRuns">
+        <tr><td>FS-002 课程商城</td><td>education</td><td><span class="badge green">✔ 通过</span></td><td><a class="lnk" href="http://47.76.211.100:5001" target="_blank">47.76.211.100:5001</a></td><td>42s</td></tr>
+        <tr><td>FS-001 博客站</td><td>blog</td><td><span class="badge green">✔ 通过</span></td><td><a class="lnk" href="http://47.76.211.100:5002" target="_blank">47.76.211.100:5002</a></td><td>38s</td></tr>
+        <tr><td>FS-003 招聘板</td><td>jobs</td><td><span class="badge orange">● 进行中</span></td><td>—</td><td>—</td></tr>
+        <tr><td>FS-004 食谱站</td><td>recipe</td><td><span class="badge red">✘ 失败</span></td><td>—</td><td>16s</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== PAGE: 需求列表 ===== -->
+<section class="page" id="page-reqs">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg>需求列表</div>
+    <div class="page-desc">需求池 Backlog——支持直接填写文字需求，或粘贴飞书云文档链接自动解析入池。</div>
+  </div>
+  <div class="toolbar-row">
+    <button class="btn primary" onclick="openModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加需求</button>
+    <div class="seg"><button class="active">全部</button><button>待处理</button><button>已完成</button><button>失败</button></div>
+    <div class="spacer"></div>
+    <div class="mini-search"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input placeholder="搜索需求…"></div>
+  </div>
+  <div id="reqList">
+    <div class="card req-card"><div class="req-id">FS-002</div><div class="req-main"><div class="req-title">课程商城：课程列表 + 详情 + 报名</div><div class="req-meta"><span>来源 <b>飞书文档</b></span><span>优先级 <b>P1</b></span><span>发布 <b>sample3:5001</b></span><span>尝试 <b>1 次</b></span></div></div><span class="badge green">✔ done</span><div class="req-actions"><button class="btn sm" onclick="go(document.querySelector('[data-page=spec]'))">查看 Spec</button><button class="btn sm" onclick="toast('已重新入队，下次交付将重跑')">重跑</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-001</div><div class="req-main"><div class="req-title">博客站：文章列表 + 详情页</div><div class="req-meta"><span>来源 <b>文字需求</b></span><span>优先级 <b>P2</b></span><span>发布 <b>sample2:5002</b></span><span>尝试 <b>1 次</b></span></div></div><span class="badge green">✔ done</span><div class="req-actions"><button class="btn sm">查看 Spec</button><button class="btn sm">重跑</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-003</div><div class="req-main"><div class="req-title">招聘板：岗位列表 + 详情</div><div class="req-meta"><span>来源 <b>飞书文档</b></span><span>优先级 <b>P1</b></span><span>发布 <b>—</b></span><span>尝试 <b>2 次</b></span></div></div><span class="badge orange">● pending</span><div class="req-actions"><button class="btn sm">查看 Spec</button><button class="btn sm">移除</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-004</div><div class="req-main"><div class="req-title">食谱站：菜谱列表 + 步骤详情</div><div class="req-meta"><span>来源 <b>文字需求</b></span><span>优先级 <b>P3</b></span><span>发布 <b>—</b></span><span>尝试 <b>3 次</b></span></div></div><span class="badge red">✘ failed</span><div class="req-actions"><button class="btn sm">查看日志</button><button class="btn sm">重跑</button></div></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Spec 详情 ===== -->
+<section class="page page-full" id="page-spec">
+  <div class="spec-topbar">
+    <span style="font-size:14px;font-weight:800">Spec 详情</span>
+    <span style="font-size:13px;color:var(--text-sec)">当前需求：</span>
+    <select class="spec-select" id="specSelect" onchange="toast('已切换到 '+this.value+'（各需求各一套 14 文档）')">
+      <option>FS-002 · 课程商城</option>
+      <option>FS-001 · 博客站</option>
+      <option>FS-003 · 招聘板</option>
+      <option>FS-004 · 食谱站</option>
+    </select>
+    <div class="doc-pills">
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--phase-meta,#78909c)"></span>Meta×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:#5c6bc0"></span>Proposal×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--green)"></span>Spec×3</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--blue)"></span>Design×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--orange)"></span>Plan×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--red)"></span>Test×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--purple)"></span>Trace×1</span>
+    </div>
+    <div class="spacer" style="flex:1"></div>
+    <button class="btn sm" onclick="document.getElementById('specFrame').src=document.getElementById('specFrame').src">刷新</button>
+    <a class="btn sm" href="spec-console-bl-v4.html" target="_blank">新窗打开</a>
+  </div>
+  <div class="spec-frame-wrap">
+    <iframe id="specFrame" src="spec-console-bl-v4.html" title="MumuSpec 14文档三环追溯"></iframe>
+  </div>
+</section>
+<!-- ===== PAGE: Harness 约束 ===== -->
+<section class="page" id="page-harness">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Harness 约束</div>
+    <div class="page-desc">用确定性的脚手架约束非确定性的模型输出。下方按“前馈 / 反馈 × 计算型 / 推理型”四象限组织。</div>
+  </div>
+  <!-- 全局约束 constraints.json：可编辑表单，直写仓库文件（config = file = repo） -->
+  <div class="card panel" id="cfgCard" style="margin-bottom:20px">
+    <div class="panel-title">
+      <svg class="icon-sm" style="color:var(--blue)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2"/></svg>
+      全局约束 · constraints.json
+      <span class="hint" style="margin-left:8px">直写仓库文件 harness-4/constraints.json</span>
+      <span class="spacer"></span>
+      <span class="src-badge mock" id="cfgSrc"><span class="dot"></span><span id="cfgSrcTxt">Mock</span></span>
+      <button class="btn sm" onclick="loadConstraints(true)" style="margin-left:8px">↺ 重新拉取</button>
+    </div>
+    <div id="cfgBody"><div class="hint" style="padding:8px 2px">加载中…</div></div>
+    <div class="cfg-result" id="cfgResult"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn primary" onclick="saveConstraintsForm()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h7"/></svg> 保存到 constraints.json</button>
+      <span class="hint" style="align-self:center">保存时 POST /api/constraints，后端真写磁盘并自动对齐登记的用例目录。</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:14px">
+      <button class="btn" id="gateBtn" onclick="runConsistencyGate()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg> 运行自洽性检查</button>
+      <span class="hint" style="align-self:center">POST /api/gate/consistency，真跑 tools/compile_spec.py --check（校验 spec→case 派生忠实），无需 API 额度。</span>
+    </div>
+    <pre class="cfg-check" id="gateCheckResult" style="display:none"></pre>
+  </div>
+  <!-- 象限图 -->
+  <div class="card quad-wrap">
+    <div class="quad-head"><svg class="icon" style="color:var(--blue)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg><span style="font-size:16px;font-weight:800">约束四象限</span><span class="hint" style="margin-left:8px">两条正交的轴：计算型/推理型 × 前馈/反馈</span></div>
+    <div class="quad-grid">
+      <div class="quad-col-head" style="grid-column:2"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 12h14M13 6l6 6-6 6"/></svg>前馈（生成前注入）</div>
+      <div class="quad-col-head" style="grid-column:3"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>反馈（生成后回喂）</div>
+      <div class="quad-axis-y" style="grid-row:2"><span>计算型 / 确定性</span></div>
+      <div class="quad-cell ffc" style="grid-row:2;grid-column:2"><div class="qc-title">前馈·计算型<span class="qc-tag">机械确定</span></div><div class="qc-items"><span class="qc-chip">rules</span><span class="qc-chip">AGENTS.md</span><span class="qc-chip">spec</span><span class="qc-chip">facts</span><span class="qc-chip">JSON Schema</span><span class="qc-chip">模板</span></div></div>
+      <div class="quad-cell fbc" style="grid-row:2;grid-column:3"><div class="qc-title">反馈·计算型<span class="qc-tag">客观可复现</span></div><div class="qc-items"><span class="qc-chip">lint</span><span class="qc-chip">单测</span><span class="qc-chip">类型</span><span class="qc-chip">Schema校验</span><span class="qc-chip">字段规则</span><span class="qc-chip">路由连通</span><span class="qc-chip">行数</span><span class="qc-chip">哈希</span></div></div>
+      <div class="quad-axis-y" style="grid-row:3"><span>推理型 / 裁判型</span></div>
+      <div class="quad-cell ffr" style="grid-row:3;grid-column:2"><div class="qc-title">前馈·推理型<span class="qc-tag">少见·不可控</span></div><div class="qc-items"><span class="qc-chip">让模型读需求自行推断风格</span></div></div>
+      <div class="quad-cell fbr" style="grid-row:3;grid-column:3"><div class="qc-title">反馈·推理型<span class="qc-tag">主观·有噪声</span></div><div class="qc-items"><span class="qc-chip">LLM-as-Judge</span><span class="qc-chip">代码评审</span><span class="qc-chip">意图·可读性</span><span class="qc-chip">UI 还原度</span></div></div>
+    </div>
+    <div class="quad-note"><b>理念：</b>前馈抬高正确概率，反馈焊死质量下限。能用计算型就不用推理型——推理型只补计算型覆盖不到的“意图/质量”维度。</div>
+  </div>
+  <!-- 筛选 + 列表 -->
+  <div class="toolbar-row">
+    <div class="seg" id="harnessLevelSeg"><button class="active" onclick="filterHarness(this,'all')">全部</button><button onclick="filterHarness(this,'system')">🛡 系统级</button><button onclick="filterHarness(this,'project')">📦 项目级</button></div>
+    <div class="spacer"></div>
+    <div class="mini-search"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input placeholder="搜索约束文件…"></div>
+  </div>
+  <div class="card" id="harnessList">
+    <div class="file-row" data-level="system" onclick='openConstraint("security.md","system","前馈·计算型","rules/base/security.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></div><div class="file-main"><div class="file-name">security.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/security.md · 禁用危险调用、密钥不入代码</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("error-and-logging.md","system","前馈·计算型","rules/base/error-and-logging.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 8v5M12 16h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><div class="file-main"><div class="file-name">error-and-logging.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/error-and-logging.md · 统一错误处理与日志规范</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("testing.md","system","前馈·计算型","rules/base/testing.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/></svg></div><div class="file-main"><div class="file-name">testing.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/testing.md · 测试策略与覆盖要求</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("constraints.json","system","反馈·计算型","constraints.json")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2"/></svg></div><div class="file-main"><div class="file-name">constraints.json <span class="badge green">反馈·计算型</span></div><div class="file-path">constraints.json · 全局技术栈 / 骨架 / 禁用依赖 / 危险模式</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("tech-stack.md","project","前馈·计算型","rules/task/tech-stack.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="file-main"><div class="file-name">tech-stack.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/tech-stack.md · Flask + Jinja + JSON 文件，锁定技术栈</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("structure.md","project","前馈·计算型","rules/task/structure.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="file-main"><div class="file-name">structure.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/structure.md · 目录骨架与必备文件</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("conventions.md","project","前馈·计算型","rules/task/conventions.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div class="file-main"><div class="file-name">conventions.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/conventions.md · 命名 / 代码风格约定</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("case.json","project","反馈·计算型","cases/education/case.json")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2"/></svg></div><div class="file-main"><div class="file-name">case.json <span class="badge green">反馈·计算型</span></div><div class="file-path">cases/education/case.json · 用例专属：字段 / 量化约束 / 路由 / 配色</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Loop Engine ===== -->
+<section class="page" id="page-loop">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg>Loop 引擎</div>
+    <div class="page-desc">用 <b>Graph 视图</b>展开 Loop：Maker 生成 → Checker 逐条验收 → 失败沿<b>回边</b>回喂 Maker → 重试到通过。<b>控制台</b>看实时，<b>回放</b>看逐轮。</div>
+  </div>
+
+  <div class="lp-tabs">
+    <div class="lp-tab active" onclick="lpTab(this,'console')">▶ 控制台 · 实时</div>
+    <div class="lp-tab" onclick="lpTab(this,'replay')">⟲ 回放 · 逐轮</div>
+  </div>
+
+  <!-- 控制台 -->
+  <div class="lp-view active" id="lpv-console">
+    <div class="trigbar">
+      <span class="tb-field">需求
+        <select id="trigReq"><option value="">整池（全部待处理）</option></select>
+      </span>
+      <span class="tb-field">用例
+        <select id="trigCase" title="仅影响演示动画；真实交付时用例由飞书 Spec 自动编译得出"><option>education</option><option>blog</option><option>ecommerce</option></select>
+      </span>
+      <span class="tb-field">模式
+        <select id="trigMode"><option value="real">real · DeepSeek</option><option value="sample">sample · 零密钥</option></select>
+      </span>
+      <span class="spacer"></span>
+      <label class="rt-toggle" title="勾选后点「开始交付」将真实运行 run_backlog.sh：飞书→生成→验收→推 GitHub。仅实时连通时可用，且需二次确认。"><input type="checkbox" id="trigReal"> 真实交付（推 GitHub）</label>
+      <span class="run-state idle" id="runState"><span class="dot"></span>就绪</span>
+      <button class="btn primary" id="trigBtn" onclick="lpRun()">▶ 开始交付</button>
+    </div>
+    <div class="lg-graph" id="lgConsole"></div>
+    <div class="card panel">
+      <div class="panel-title">实时日志<span class="spacer"></span><span class="badge gray">/api/trigger/status · 流式（Mock）</span></div>
+      <div class="log-console" id="liveLog"><span class="lg-time">就绪。点击「开始交付」触发一次 Loop。</span></div>
+    </div>
+  </div>
+
+  <!-- 回放 -->
+  <div class="lp-view" id="lpv-replay">
+    <div class="grid-2">
+      <div>
+        <div class="lg-graph" id="lgReplay"></div>
+        <div class="card panel">
+          <div class="panel-title">逐轮验收 · 20 项门禁<span class="spacer"></span><span class="badge gray">verify-report.json</span></div>
+          <div class="rnd-tabs" id="rndTabs"></div>
+          <div id="gateList"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card panel" style="margin-bottom:16px">
+          <div class="panel-title">本次生成参数<span class="spacer"></span><span class="badge gray">_run_meta.json</span></div>
+          <dl class="kv" id="metaKv"></dl>
+        </div>
+        <div class="card panel" style="margin-bottom:16px">
+          <div class="panel-title">确定性复跑<span class="spacer"></span><span class="badge gray">hash 比对</span></div>
+          <div id="detBox"></div>
+        </div>
+        <div class="card panel">
+          <div class="panel-title">运行历史<span class="spacer"></span><span class="badge gray">output/runs.jsonl</span></div>
+          <table class="runs-tb"><thead><tr><th>时间</th><th>用例</th><th>模式</th><th>轮次</th><th>结果</th><th>确定性</th></tr></thead><tbody id="runsBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===== PAGE: Maker 配置 ===== -->
+<section class="page" id="page-makers">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M5 8l2 2M19 8l-2 2M4 15h16M6 15l1.5 5h9L18 15"/></svg>Maker 配置</div>
+    <div class="page-desc">配置“谁来生成代码”的运行器（Maker）。生成端可插拔，验收端（Checker）不变——不管用哪个 Maker，产物统一过门禁。</div>
+  </div>
+  <div class="panel-title" style="padding:0 2px">支持的运行器类型</div>
+  <div class="chan-grid" style="margin-bottom:24px">
+    <div class="card chan-card"><div class="chan-ico" style="background:linear-gradient(135deg,#5eb0f4,#1e88e5)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div><div style="font-size:15px;font-weight:800">API 型</div><div class="chan-desc">一发一收文本，平台落盘。对接 DeepSeek / OpenAI / Claude 等 Chat API，支持 temperature+seed 确定性。</div><button class="btn primary sm" onclick="openMaker('api')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加</button></div>
+    <div class="card chan-card"><div class="chan-ico" style="background:linear-gradient(135deg,#a98be6,#8e5cd9)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 9 12 4 17"/><line x1="12" y1="17" x2="20" y2="17"/></svg></div><div style="font-size:15px;font-weight:800">CLI Agent 型</div><div class="chan-desc">交出工作目录 + prompt，外部 agent 自己读写文件迭代。对接 claude-code / qoder-cli / copilot-cli / cursor-agent。</div><button class="btn primary sm" onclick="openMaker('cli')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加</button></div>
+  </div>
+  <div class="panel-title" style="padding:0 2px">已配置 Maker Profile</div>
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th>名称</th><th>类型</th><th>模型 / 命令</th><th>密钥</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr><td><b>DeepSeek</b> <span class="badge blue" style="margin-left:4px">默认</span></td><td><span class="badge gray">API</span></td><td>deepseek-chat</td><td><span class="badge green">已设置</span></td><td><span class="badge green"><span class="dot green"></span> 可用</span></td><td><button class="btn sm" onclick="toast('编辑 DeepSeek（Mock）')">编辑</button></td></tr>
+        <tr><td><b>Claude Code CLI</b></td><td><span class="badge purple">CLI</span></td><td>claude-code</td><td><span class="badge green">已设置</span></td><td><span class="badge green"><span class="dot green"></span> 可用</span></td><td><button class="btn sm" onclick="toast('已设为默认（Mock）')">设默认</button> <button class="btn sm">编辑</button> <button class="btn sm">删除</button></td></tr>
+        <tr><td><b>Qoder CLI</b></td><td><span class="badge purple">CLI</span></td><td>qoder-cli</td><td><span class="badge gray">未设置</span></td><td><span class="badge orange"><span class="dot orange"></span> 待配</span></td><td><button class="btn sm">设默认</button> <button class="btn sm">编辑</button> <button class="btn sm">删除</button></td></tr>
+        <tr><td><b>Copilot CLI</b></td><td><span class="badge purple">CLI</span></td><td>copilot-cli</td><td><span class="badge gray">未设置</span></td><td><span class="badge orange"><span class="dot orange"></span> 待配</span></td><td><button class="btn sm">设默认</button> <button class="btn sm">编辑</button> <button class="btn sm">删除</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card quad-note" style="margin-top:16px"><b>⚠ 边界：</b>不管选哪个 Maker，产物都必须通过同一套 Checker 门禁（真起服务 / 真打路由 / 逐条 PASS·FAIL）。生成端可换，验收端焊死——这是平台的价值锚点。</div>
+</section>
+
+<!-- ===== PAGE: APP List ===== -->
+<section class="page" id="page-apps">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>APP List</div>
+    <div class="page-desc">已发布到 ECS 等位置的各应用。实时探活状态、产物 URL、部署渠道。</div>
+  </div>
+  <div class="toolbar-row">
+    <div class="seg"><button class="active">卡片</button><button>列表</button></div>
+    <div class="spacer"></div>
+    <span class="hint">共 6 个应用 · 5 在线 · 1 离线</span>
+  </div>
+  <div class="card-grid">
+    <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/><circle cx="6.5" cy="7" r=".6"/></svg></div><div><div style="font-size:15px;font-weight:800">课程商城</div><div class="hint">FS-002 · education</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5001 <a class="lnk" href="http://47.76.211.100:5001" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 2h 前</span><button class="btn sm" onclick="toast('已重启（Mock）')">重启</button></div></div>
+    <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div><div><div style="font-size:15px;font-weight:800">博客站</div><div class="hint">FS-001 · blog</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5002 <a class="lnk" href="http://47.76.211.100:5002" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 5h 前</span><button class="btn sm">重启</button></div></div>
+    <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div><div><div style="font-size:15px;font-weight:800">新闻站</div><div class="hint">FS-005 · news</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5003 <a class="lnk" href="http://47.76.211.100:5003" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 1d 前</span><button class="btn sm">重启</button></div></div>
+    <div class="card app-card"><div class="app-card-top"><div class="app-thumb" style="background:linear-gradient(135deg,#9aa7bd,#5b6b82)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div><div><div style="font-size:15px;font-weight:800">图库站</div><div class="hint">FS-006 · gallery</div></div><span class="badge red" style="margin-left:auto"><span class="dot red"></span> 离线</span></div><div class="app-url">http://47.76.211.100:5004 <a class="lnk" href="http://47.76.211.100:5004" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 3d 前</span><button class="btn sm">重启</button></div></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Deploy ===== -->
+<section class="page" id="page-deploy">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 1 5 4 5 8l-1.5 4h-7L7 11c0-4 2-7 5-8z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 18c-1 1-1.5 2.5-1.5 3.5C8.5 21 10 20.5 11 19.5"/><path d="M15 18c1 1 1.5 2.5 1.5 3.5C15.5 21 14 20.5 13 19.5"/></svg>Deploy</div>
+    <div class="page-desc">支持的部署渠道。点击“添加”配置渠道，已配置渠道在下方列表。</div>
+  </div>
+  <div class="panel-title" style="padding:0 2px">支持的部署渠道</div>
+  <div class="chan-grid" style="margin-bottom:24px">
+    <div class="card chan-card"><div class="chan-ico gh"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-4 1.5-4-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.6 11.6 0 0 0-6 0C6.3 3.3 5.3 3.6 5.3 3.6a4.3 4.3 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 10c0 4.6 2.7 5.7 5.5 6-.4.4-.4.8-.5 1.5V21"/></svg></div><div style="font-size:15px;font-weight:800">GitHub</div><div class="chan-desc">通过子目录/分支发布产物到仓库，可触发 Actions 部署。</div><button class="btn primary sm" onclick="openDeploy('GitHub')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加</button></div>
+    <div class="card chan-card"><div class="chan-ico ali"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 12h3M14 12h3"/></svg></div><div style="font-size:15px;font-weight:800">阿里云 ECS</div><div class="chan-desc">SSH 拉取式部署到 ECS 实例，启动 Flask 服务并探活。</div><button class="btn primary sm" onclick="openDeploy('阿里云 ECS')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加</button></div>
+    <div class="card chan-card"><div class="chan-ico cf"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16a4 4 0 0 1 .8-7.9A5.5 5.5 0 0 1 18 8.5a3.5 3.5 0 0 1-.5 7z"/></svg></div><div style="font-size:15px;font-weight:800">CloudFront</div><div class="chan-desc">静态产物分发到 CDN，配置分发 ID 与域名。</div><button class="btn primary sm" onclick="openDeploy('CloudFront')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加</button></div>
+  </div>
+  <div class="panel-title" style="padding:0 2px">已配置渠道</div>
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th>渠道</th><th>目标</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge gray">GitHub</span></td><td>github.com/lvzhaobo/loop-sample.git · main</td><td><span class="badge green">已连接</span></td><td><button class="btn sm">编辑</button> <button class="btn sm">删除</button></td></tr>
+        <tr><td><span class="badge orange">阿里云 ECS</span></td><td>47.76.211.100 · :22 · root</td><td><span class="badge green">已连接</span></td><td><button class="btn sm">编辑</button> <button class="btn sm">删除</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== PAGE: Test ===== -->
+<section class="page" id="page-test">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><line x1="8" y1="15" x2="16" y2="15"/></svg>Test</div>
+    <div class="page-desc">配置多种测试：E2E 端到端、压力测试、冒烟、契约测试。</div>
+  </div>
+  <div class="card-grid">
+    <div class="card panel"><div class="panel-title"><svg class="icon-sm" style="color:var(--blue)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 6h16v12H4zM4 10h16"/></svg>E2E 测试<span class="spacer"></span><span class="badge green">上次 96%</span></div><div class="form-row"><label>目标应用</label><select><option>课程商城 (5001)</option><option>博客站 (5002)</option></select></div><div class="form-row"><label>用例集（Playwright）</label><input value="list → detail → 404"></div><button class="btn primary" onclick="toast('E2E 测试已启动（Mock）')">▶ 运行测试</button></div>
+    <div class="card panel"><div class="panel-title"><svg class="icon-sm" style="color:var(--orange)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 18 9 8l4 6 3-4 4 8"/></svg>压力测试<span class="spacer"></span><span class="badge gray">未运行</span></div><div class="form-grid"><div class="form-row"><label>并发数</label><input type="number" value="100"></div><div class="form-row"><label>持续时长(s)</label><input type="number" value="60"></div></div><div class="form-row"><label>目标 QPS</label><input type="number" value="500"></div><button class="btn primary" onclick="toast('压测已启动（Mock）')">▶ 运行压测</button></div>
+    <div class="card panel"><div class="panel-title"><svg class="icon-sm" style="color:var(--green)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 6 9 17l-5-5"/></svg>冒烟测试<span class="spacer"></span><span class="badge green">上次 ✔</span></div><div class="chan-desc" style="margin-bottom:12px">快速验证关键路径可达：首页 200 / 列表非空 / 详情可打开 / 404 正确。</div><button class="btn primary" onclick="toast('冒烟测试已启动（Mock）')">▶ 运行冒烟</button></div>
+    <div class="card panel"><div class="panel-title"><svg class="icon-sm" style="color:var(--purple)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2M9 3h6v3H9z"/></svg>契约测试<span class="spacer"></span><span class="badge gray">未运行</span></div><div class="chan-desc" style="margin-bottom:12px">校验产物与 Schema / API 契约一致（字段 / 类型 / 路由）。</div><button class="btn primary" onclick="toast('契约测试已启动（Mock）')">▶ 运行契约</button></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Trace ===== -->
+<section class="page" id="page-trace">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>Trace</div>
+    <div class="page-desc">全链路运行记录与追溯（生成 / 验证 / 发布 / 部署）。</div>
+  </div>
+  <div class="toolbar-row">
+    <div class="seg"><button class="active">全部</button><button>info</button><button>warn</button><button>error</button></div>
+    <div class="spacer"></div>
+    <select class="spec-select" style="min-width:180px"><option>全部需求</option><option>FS-002</option><option>FS-001</option></select>
+  </div>
+  <div class="card panel">
+    <div class="panel-title">交付记录<span class="spacer"></span><span class="src-badge mock" id="traceSrc"><span class="dot"></span><span id="traceSrcTxt">Mock</span></span></div>
+    <div class="timeline" id="traceTimeline">
+      <div class="tl-item"><div class="tl-time">2026-07-21 10:02:45</div><div class="tl-msg">FS-002 交付完成，部署至 47.76.211.100:5001</div><div class="tl-sub">阶段 部署 · 耗时 42s · 哈希 identical</div></div>
+      <div class="tl-item"><div class="tl-time">2026-07-21 10:02:44</div><div class="tl-msg">Checker 全部门禁通过（ROUND 2）</div><div class="tl-sub">阶段 验证 · 自洽/Schema/路由/字段 均 PASS</div></div>
+      <div class="tl-item warn"><div class="tl-time">2026-07-21 10:02:22</div><div class="tl-msg">字段规则未达标：课程数 7 < 8</div><div class="tl-sub">阶段 验证 · 失败报告已回喂 Maker</div></div>
+      <div class="tl-item"><div class="tl-time">2026-07-21 10:02:11</div><div class="tl-msg">FS-002 开始生成（模式 sample）</div><div class="tl-sub">阶段 生成 · Maker 产出 9 个文件</div></div>
+      <div class="tl-item err"><div class="tl-time">2026-07-21 09:48:16</div><div class="tl-msg">FS-004 食谱站达到迭代上限，标记 failed</div><div class="tl-sub">阶段 护栏 · 3 轮后仍未通过字段门禁</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Log & Setting ===== -->
+<section class="page" id="page-setting">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.15-1.4l1.8-1.4-1.9-3.3-2.1.9a7 7 0 0 0-2.4-1.4L13.9 2h-3.8l-.35 2.3a7 7 0 0 0-2.4 1.4l-2.1-.9-1.9 3.3 1.8 1.4A7 7 0 0 0 5 12a7 7 0 0 0 .15 1.4l-1.8 1.4 1.9 3.3 2.1-.9a7 7 0 0 0 2.4 1.4l.35 2.4h3.8l.35-2.3a7 7 0 0 0 2.4-1.4l2.1.9 1.9-3.3-1.8-1.4A7 7 0 0 0 19 12z"/></svg>Log &amp; Setting</div>
+    <div class="page-desc">系统日志与平台设置（含密钥安全输入：只写不回显）。</div>
+  </div>
+  <div class="set-tabs"><div class="set-tab active" onclick="setTab(this,'log')">系统日志</div><div class="set-tab" onclick="setTab(this,'cfg')">平台设置</div></div>
+  <div class="set-block active" id="set-log">
+    <div class="hint" style="margin-bottom:10px">⚠ 系统日志暂为 Mock：studio 后端尚未暴露 <b>/api/logs</b> 端点（仅有 /api/trigger/status 的单次交付日志）。接真需后端新增日志流端点。</div>
+    <div class="card" style="padding:16px"><div class="log-console">
+<span class="lg-time">[10:02:45]</span> <span class="lg-ok">INFO </span> orchestrator: FS-002 done → deployed :5001
+<span class="lg-time">[10:02:22]</span> <span class="lg-warn">WARN </span> verify: field_rule course_count 7<8
+<span class="lg-time">[10:00:03]</span> <span class="lg-info">INFO </span> poll: 1 pending task picked (FS-002)
+<span class="lg-time">[09:48:16]</span> <span class="lg-err">ERROR</span> guard: FS-004 max_iter reached, mark failed
+<span class="lg-time">[09:30:00]</span> <span class="lg-info">INFO </span> platform: config.env loaded, mode=sample
+    </div></div>
+  </div>
+  <div class="set-block" id="set-cfg">
+    <div class="card panel">
+      <div class="set-section"><h4><svg class="icon-sm" style="color:var(--blue)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/></svg>通用</h4>
+        <div class="form-grid"><div class="form-row"><label>默认应用端口</label><input value="5001"></div><div class="form-row"><label>生成模式</label><select><option>sample（离线）</option><option>real（调 DeepSeek）</option></select></div></div>
+      </div>
+      <div class="set-section"><h4><svg class="icon-sm" style="color:var(--orange)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>触发器</h4>
+        <div class="form-row"><label>触发方式</label><select><option>轮询（每 300 秒）</option><option>手动</option><option>Webhook</option></select></div>
+      </div>
+      <div class="set-section"><h4><svg class="icon-sm" style="color:var(--red)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>密钥（写入 .env，不回显）</h4>
+        <div class="form-row"><label>GITHUB_TOKEN <span class="badge green" style="margin-left:6px">已设置</span></label><input type="password" placeholder="输入新值以覆盖，留空不变"></div>
+        <div class="form-row"><label>FEISHU_SECRET <span class="badge green" style="margin-left:6px">已设置</span></label><input type="password" placeholder="输入新值以覆盖，留空不变"></div>
+        <div class="form-row"><label>ECS 密码 <span class="badge gray" style="margin-left:6px">未设置</span></label><input type="password" placeholder="用于 SSH 部署，只写不回显"></div>
+      </div>
+      <button class="btn primary" onclick="toast('配置已保存（Mock，未落盘）')">保存配置</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Maker / Checker ===== -->
+<section class="page" id="page-mc">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l-3 4 3 4"/><path d="M17 8l3 4-3 4"/><line x1="13.5" y1="5" x2="10.5" y2="19"/></svg>Maker / Checker</div>
+    <div class="page-desc">两大可复用部件：谁生成、谁验收。换任务只换 spec/facts/constraints，部件不动。</div>
+  </div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-title"><span class="kpi-ico b" style="width:32px;height:32px"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3v3M5 8l2 2M19 8l-2 2M4 15h16M6 15l1.5 5h9L18 15"/></svg></span>Maker·生成器</div><div class="chan-desc">职责：拿上下文 → 拿产物 → 落盘。<b>不做判断</b>。对应 lib/model.py。</div><ul style="font-size:13px;color:var(--text-sec);line-height:2;margin:10px 0 0 18px"><li>输入：前馈约束 + Spec + facts</li><li>输出：代码/文档产物</li><li>模式：real（DeepSeek）/ sample（离线参考）</li></ul></div>
+    <div class="card panel"><div class="panel-title"><span class="kpi-ico g" style="width:32px;height:32px"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg></span>Checker·验收器</div><div class="chan-desc">职责：产物 → 逐条 PASS/FAIL + 报告。对应 lib/gates.py。</div><ul style="font-size:13px;color:var(--text-sec);line-height:2;margin:10px 0 0 18px"><li>真起 Flask、真打路由、真跑单测</li><li>判据来自 constraints/spec/facts</li><li>输出：verify-report.json + summary.md</li></ul></div>
+  </div>
+  <div class="card quad-note" style="margin-top:4px"><b>⚠ 边界：</b>Harness 不是第三个文件，它 = Checker + 它所依赖的 constraints/spec/facts。Checker 是“执行检查的手”，判据来自约束与契约。</div>
+</section>
+<!-- PAGES -->
+</main>
+
+<!-- ============ DRAWER: Harness 详情 ============ -->
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M7 3h7l5 5v13H7z"/><polyline points="13 3 13 8 18 8"/></svg></div>
+    <div style="flex:1"><div class="dh-title" id="dwName">security.md</div><div class="file-path" id="dwPath">rules/base/security.md</div></div>
+    <button class="drawer-close" onclick="closeDrawer()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+  </div>
+  <div class="drawer-body">
+    <div style="display:flex;gap:8px;margin-bottom:14px"><span class="badge blue" id="dwQuad">前馈·计算型</span><span class="badge gray" id="dwLevel">🛡 系统级</span></div>
+    <div id="dwView"><div class="code-box" id="dwCode"></div></div>
+    <textarea class="code-edit" id="dwEdit" style="display:none"></textarea>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn" id="dwEditBtn" onclick="editConstraint()">编辑</button>
+    <button class="btn primary" id="dwSaveBtn" onclick="saveConstraint()" style="display:none">保存</button>
+    <button class="btn" id="dwCancelBtn" onclick="cancelEdit()" style="display:none">取消</button>
+  </div>
+</div>
+
+<!-- ============ MODAL: 添加需求 ============ -->
+<div class="modal-mask" id="reqModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title">添加需求</div><button class="drawer-close" onclick="closeModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="tab-row"><button class="active" onclick="reqTab(this,'txt')">文字需求</button><button onclick="reqTab(this,'fs')">飞书云文档</button></div>
+      <div id="reqtab-txt">
+        <div class="form-row"><label>标题</label><input placeholder="例：课程商城：课程列表 + 详情"></div>
+        <div class="form-row"><label>需求描述</label><textarea rows="5" placeholder="描述页面形态、字段、量化要求…"></textarea></div>
+        <div class="form-grid"><div class="form-row"><label>优先级</label><select><option>P1</option><option>P2</option><option>P3</option></select></div><div class="form-row"><label>目标用例</label><select><option>education</option><option>blog</option><option>ecommerce</option></select></div></div>
+      </div>
+      <div id="reqtab-fs" style="display:none">
+        <div class="form-row"><label>标题（可选）</label><input id="fsTitle" placeholder="留空则取文档标题"></div>
+        <div class="form-row"><label>飞书文档链接</label><input id="fsLink" placeholder="粘贴 wiki / docx 链接，自动解析 token" oninput="parseFs(this.value)"></div>
+        <div class="login-tip" id="fsPreview" style="display:none"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('reqModal')">取消</button><button class="btn primary" onclick="addBacklog()">加入需求池</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: 添加部署渠道 ============ -->
+<div class="modal-mask" id="deployModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title" id="dpTitle">添加部署渠道</div><button class="drawer-close" onclick="closeModal('deployModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body" id="dpBody"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('deployModal')">取消</button><button class="btn primary" onclick="closeModal('deployModal');toast('渠道已添加（Mock）')">保存渠道</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: 添加 Maker ============ -->
+<div class="modal-mask" id="makerModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title" id="mkTitle">添加 Maker</div><button class="drawer-close" onclick="closeModal('makerModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body" id="mkBody"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('makerModal')">取消</button><button class="btn primary" onclick="closeModal('makerModal');toast('Maker 已保存（Mock，未落盘）')">保存 Maker</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ===== 登录 ===== */
+function fillDemo(){document.getElementById('loginUser').value='admin';document.getElementById('loginPass').value='loop123';}
+function doLogin(){
+  var u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPass').value.trim();
+  if(u==='admin'&&p==='loop123'){document.getElementById('loginMask').classList.add('hide');}
+  else{document.getElementById('loginErr').style.display='block';}
+}
+function logout(){document.getElementById('loginMask').classList.remove('hide');document.getElementById('loginPass').value='';document.getElementById('loginErr').style.display='none';}
+document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+
+/* ===== 导航切页 ===== */
+function go(el){
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  el.classList.add('active');
+  var page=el.getAttribute('data-page');
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('crumbCur').textContent=el.getAttribute('data-title');
+  document.getElementById('main').scrollTop=0;
+  closeDrawer();
+  onPageEnter(page);
+}
+function toggleNav(){document.getElementById('app').classList.toggle('collapsed');}
+
+/* ===== 主题 ===== */
+function toggleTheme(){
+  var d=document.documentElement.classList.toggle('dark');
+  try{localStorage.setItem('loop-theme',d?'dark':'light');}catch(e){}
+}
+try{if(localStorage.getItem('loop-theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
+
+/* ===== toast ===== */
+var toastTimer;
+function toast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.classList.remove('show');},2200);
+}
+
+/* ===== 模态框 ===== */
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function reqTab(btn,which){
+  btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
+  document.getElementById('reqtab-txt').style.display=which==='txt'?'block':'none';
+  document.getElementById('reqtab-fs').style.display=which==='fs'?'block':'none';
+}
+function parseFs(v){
+  var pv=document.getElementById('fsPreview');v=v.trim();if(!v){pv.style.display='none';return;}
+  var m=v.match(/(wiki|docx|docs)\/([A-Za-z0-9]+)/),kind='wiki_token',token='';
+  if(m){kind=m[1]==='wiki'?'wiki_token':'doc_token';token=m[2];}
+  else if(!v.includes('/')){token=v;}
+  pv.style.display='block';
+  if(token){pv.innerHTML='\u2713 \u89e3\u6790\u6210\u529f\uff1a<b>'+kind+'</b> = '+token.slice(0,18)+'\u2026 \u00b7 \u5c06\u751f\u6210 <b>FS-005</b>';}
+  else{pv.innerHTML='\u26a0 \u65e0\u6cd5\u89e3\u6790\uff0c\u8bf7\u7c98\u8d34 wiki / docx \u94fe\u63a5';}
+}
+
+/* ===== Harness 筛选 ===== */
+function filterHarness(btn,level){
+  btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
+  document.querySelectorAll('#harnessList .file-row').forEach(function(r){
+    r.style.display=(level==='all'||r.getAttribute('data-level')===level)?'flex':'none';
+  });
+}
+
+/* ===== Harness 详情抽屉 ===== */
+var SAMPLE={
+  'security.md':'# \u5b89\u5168\u57fa\u5ea7\u7ea6\u675f\n\n- \u7981\u6b62\u4f7f\u7528 eval() / exec() / os.system() / subprocess / __import__ / pickle.load\n- \u5bc6\u94a5\u4e00\u5f8b\u4ece\u73af\u5883\u53d8\u91cf\u8bfb\u53d6\uff0c\u4e0d\u5f97\u786c\u7f16\u7801\u5165\u4ee3\u7801\n- \u5916\u90e8\u8f93\u5165\u5fc5\u987b\u6821\u9a8c\uff0c\u907f\u514d\u6ce8\u5165\n- \u4f9d\u8d56\u9501\u5b9a\u7248\u672c\uff0c\u4e0d\u5f15\u5165\u7981\u7528\u5305',
+  'error-and-logging.md':'# \u9519\u8bef\u4e0e\u65e5\u5fd7\u89c4\u8303\n\n- \u7edf\u4e00\u5f02\u5e38\u5904\u7406\uff0c\u4e0d\u541e\u5f02\u5e38\n- \u65e5\u5fd7\u5206\u7ea7 INFO/WARN/ERROR\uff0c\u5173\u952e\u8def\u5f84\u5fc5\u987b\u6253\u70b9\n- 4xx/5xx \u8fd4\u56de\u7ed3\u6784\u5316\u9519\u8bef\u4f53',
+  'testing.md':'# \u6d4b\u8bd5\u7b56\u7565\n\n- \u6bcf\u4e2a\u7aef\u70b9\u81f3\u5c11\u4e00\u4e2a\u6b63\u5411\u7528\u4f8b + \u4e00\u4e2a 404 \u7528\u4f8b\n- \u5217\u8868\u975e\u7a7a\u3001\u8be6\u60c5\u53ef\u6253\u5f00\n- \u4f7f\u7528 unittest\uff0c\u4e0d\u5f15\u5165 pytest',
+  'constraints.json':'{\n  "tech": {"framework": "flask", "entry": "app.py", "default_port": 5000},\n  "banned_deps": ["django","sqlalchemy","fastapi","react","vue"],\n  "banned_code_patterns": ["eval(","exec(","os.system("],\n  "cases": ["ecommerce","blog","education"]\n}',
+  'tech-stack.md':'# \u6280\u672f\u6808\n\n- \u540e\u7aef\uff1aFlask + Jinja2\n- \u5b58\u50a8\uff1aJSON \u6587\u4ef6\uff08\u65e0\u6570\u636e\u5e93\uff09\n- \u524d\u7aef\uff1a\u539f\u751f HTML/CSS/JS\uff0c\u65e0\u6784\u5efa\n- \u542f\u52a8\uff1apython app.py\uff0c\u7aef\u53e3\u8bfb PORT',
+  'structure.md':'# \u76ee\u5f55\u9aa8\u67b6\n\n- app.py / requirements.txt / README.md\n- templates/{base,list,detail}.html\n- static/css/style.css \u00b7 static/js/main.js\n- tests/test_app.py',
+  'conventions.md':'# \u547d\u540d\u4e0e\u98ce\u683c\n\n- \u8def\u7531 snake_case\uff0c\u6a21\u677f\u53d8\u91cf\u8bed\u4e49\u5316\n- \u51fd\u6570\u77ed\u5c0f\u5355\u4e00\u804c\u8d23\n- \u5185\u8054\u6837\u5f0f\u2264 3 \u5904',
+  'case.json':'{\n  "case": "education",\n  "entity": "course",\n  "field_rules": {"course_count": {"min": 8}, "title_len": {"max": 40}},\n  "routes": ["/", "/course/<id>"],\n  "palette": {"primary": "#1e88e5"}\n}'
+};
+function openConstraint(name,level,quad,path){
+  document.getElementById('dwName').textContent=name;
+  document.getElementById('dwPath').textContent=path;
+  document.getElementById('dwQuad').textContent=quad;
+  var lv=document.getElementById('dwLevel');
+  lv.textContent=level==='system'?'\ud83d\udee1 \u7cfb\u7edf\u7ea7':'\ud83d\udce6 \u9879\u76ee\u7ea7';
+  lv.className='badge '+(level==='system'?'gray':'purple');
+  var code=SAMPLE[name]||'# '+name+'\n\n\uff08\u793a\u4f8b\u5185\u5bb9\uff09';
+  document.getElementById('dwCode').textContent=code;
+  document.getElementById('dwEdit').value=code;
+  cancelEdit();
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');}
+function editConstraint(){
+  document.getElementById('dwView').style.display='none';
+  document.getElementById('dwEdit').style.display='block';
+  document.getElementById('dwEditBtn').style.display='none';
+  document.getElementById('dwSaveBtn').style.display='inline-flex';
+  document.getElementById('dwCancelBtn').style.display='inline-flex';
+}
+function cancelEdit(){
+  document.getElementById('dwView').style.display='block';
+  document.getElementById('dwEdit').style.display='none';
+  document.getElementById('dwEditBtn').style.display='inline-flex';
+  document.getElementById('dwSaveBtn').style.display='none';
+  document.getElementById('dwCancelBtn').style.display='none';
+}
+function saveConstraint(){
+  document.getElementById('dwCode').textContent=document.getElementById('dwEdit').value;
+  cancelEdit();toast('\u5df2\u4fdd\u5b58\uff08Mock\uff0c\u672a\u843d\u76d8\uff09');
+}
+
+/* ===== 设置 Tab ===== */
+function setTab(el,which){
+  el.parentNode.querySelectorAll('.set-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
+  document.getElementById('set-log').classList.toggle('active',which==='log');
+  document.getElementById('set-cfg').classList.toggle('active',which==='cfg');
+}
+
+/* ===== 部署渠道表单 ===== */
+function openDeploy(kind){
+  document.getElementById('dpTitle').textContent='\u6dfb\u52a0\u90e8\u7f72\u6e20\u9053 \u00b7 '+kind;
+  var b=document.getElementById('dpBody'),h='';
+  if(kind==='GitHub'){h='<div class="form-row"><label>\u4ed3\u5e93 URL</label><input placeholder="github.com/&lt;org&gt;/&lt;repo&gt;.git"></div><div class="form-grid"><div class="form-row"><label>\u5206\u652f</label><input value="main"></div><div class="form-row"><label>\u5e03\u5c40</label><select><option>\u5b50\u76ee\u5f55</option><option>\u5206\u652f</option></select></div></div><div class="form-row"><label>GITHUB_TOKEN</label><input type="password" placeholder="\u53ea\u5199\u4e0d\u56de\u663e"></div>';}
+  else if(kind.indexOf('ECS')>-1){h='<div class="form-grid"><div class="form-row"><label>\u5b9e\u4f8b IP</label><input placeholder="47.76.211.100"></div><div class="form-row"><label>\u5e94\u7528\u7aef\u53e3</label><input value="5001"></div></div><div class="form-grid"><div class="form-row"><label>\u7528\u6237</label><input value="root"></div><div class="form-row"><label>SSH \u7aef\u53e3</label><input value="22"></div></div><div class="form-row"><label>\u5bc6\u7801</label><input type="password" placeholder="\u53ea\u5199\u4e0d\u56de\u663e"></div>';}
+  else{h='<div class="form-row"><label>\u5206\u53d1 ID</label><input placeholder="E1XXXXXXXXXXXX"></div><div class="form-row"><label>\u57df\u540d</label><input placeholder="xxx.cloudfront.net"></div>';}
+  b.innerHTML=h;openModal('deployModal');
+}
+
+/* ===== Maker 配置表单 ===== */
+function openMaker(type){
+  document.getElementById('mkTitle').textContent='添加 Maker · '+(type==='api'?'API 型':'CLI Agent 型');
+  var b=document.getElementById('mkBody'),h='';
+  h+='<div class="form-row"><label>名称</label><input placeholder="如 DeepSeek 生产 / Claude Code"></div>';
+  if(type==='api'){
+    h+='<div class="form-grid"><div class="form-row"><label>Provider</label><select><option>deepseek</option><option>openai</option><option>claude</option></select></div><div class="form-row"><label>模型</label><input placeholder="deepseek-chat"></div></div>';
+    h+='<div class="form-row"><label>Base URL</label><input placeholder="https://api.deepseek.com"></div>';
+    h+='<div class="form-row"><label>API Key（写入 .env，只写不回显）</label><input type="password" placeholder="输入以设置，留空不变"></div>';
+    h+='<div class="form-grid"><div class="form-row"><label>Temperature</label><input type="number" value="0" step="0.1"></div><div class="form-row"><label>Seed</label><input type="number" value="42"></div></div>';
+  }else{
+    h+='<div class="form-row"><label>CLI</label><select><option>claude-code</option><option>qoder-cli</option><option>copilot-cli</option><option>cursor-agent</option></select></div>';
+    h+='<div class="form-row"><label>命令模板</label><input placeholder="claude -p {prompt} --cwd {workdir}"></div>';
+    h+='<div class="form-row"><label>模型（可选）</label><input placeholder="留空用 CLI 默认"></div>';
+    h+='<div class="form-row"><label>API Key / Token（写入 .env，只写不回显）</label><input type="password" placeholder="输入以设置，留空不变"></div>';
+  }
+  h+='<div class="form-grid"><div class="form-row"><label>超时(s)</label><input type="number" value="300"></div><div class="form-row"><label>最大迭代</label><input type="number" value="3"></div></div>';
+  b.innerHTML=h;openModal('makerModal');
+}
+
+/* ===== Loop 引擎 v2：控制台 + 回放（Graph 视图） ===== */
+/* 数据结构与真实产物一致(verify-report.json / runs.jsonl / _run_meta.json)，
+   现为 Mock；后续把 RUNS / LP_EVENTS 换成 fetch('/api/...') 即可接真。 */
+var LICON={
+  req:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg>',
+  mk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M5 8l2 2M19 8l-2 2M4 15h16M6 15l1.5 5h9L18 15"/></svg>',
+  ck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
+  pub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 1 5 4 5 8l-1.5 4h-7L7 11c0-4 2-7 5-8z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 18c-1 1-1.5 2.5-1.5 3.5C8.5 21 10 20.5 11 19.5"/><path d="M15 18c1 1 1.5 2.5 1.5 3.5C15.5 21 14 20.5 13 19.5"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+};
+function lgNodes(st){
+  var defs=[
+    {k:'req',nm:'取需求',sub:'backlog / 飞书',ic:LICON.req},
+    {k:'mk',nm:'Maker · 生成',sub:'run_model.py',ic:LICON.mk},
+    {k:'ck',nm:'Checker · 验收',sub:'verify.py · 20 门禁',ic:LICON.ck},
+    {k:'pub',nm:'发布 / 部署',sub:'GitHub → ECS',ic:LICON.pub}
+  ];
+  var h='<div class="lg-nodes">';
+  defs.forEach(function(d,i){
+    if(i>0)h+='<div class="lg-arrow">'+LICON.arrow+'</div>';
+    h+='<div class="lg-node '+(st[d.k]||'')+'"><div class="lg-ico">'+d.ic+'</div><div class="lg-nm">'+d.nm+'</div><div class="lg-sub">'+d.sub+'</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="lg-backedge'+(st.back?'':' hide')+'"><div class="lg-backlabel">'+(st.backLabel||'FAIL → 回喂 Maker')+'</div></div>';
+  return h;
+}
+function renderGraph(id,st){document.getElementById(id).innerHTML=lgNodes(st||{});}
+function lpTab(el,which){
+  el.parentNode.querySelectorAll('.lp-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
+  document.getElementById('lpv-console').classList.toggle('active',which==='console');
+  document.getElementById('lpv-replay').classList.toggle('active',which==='replay');
+}
+
+/* ---- 控制台：模拟一次流式 Loop ---- */
+var LP_EVENTS=[
+  {log:'<span class="lg-info">ROUND 1</span> Maker 生成 9 个文件…',g:{req:'pass',mk:'run'}},
+  {log:'Checker 自洽性门禁… <span class="lg-ok">PASS</span>',g:{req:'pass',mk:'pass',ck:'run'}},
+  {log:'Checker 派生 Schema + JSON 合法… <span class="lg-ok">PASS</span>'},
+  {log:'Checker 起 Flask + 探活… <span class="lg-ok">PASS</span>'},
+  {log:'Checker field_rules（课程数 ≥ 8）… <span class="lg-warn">FAIL 实际 7</span>',g:{req:'pass',mk:'pass',ck:'fail',back:true,backLabel:'第 1 轮 FAIL → 回喂'}},
+  {log:'<span class="lg-warn">→ 失败报告拼回 prompt，回喂 Maker</span>'},
+  {log:'<span class="lg-info">ROUND 2</span> Maker 依据失败详情修复…',g:{req:'pass',mk:'run',back:false}},
+  {log:'Checker 20 项门禁全通过… <span class="lg-ok">PASS ✔</span>',g:{req:'pass',mk:'pass',ck:'pass',pub:'run'}},
+  {log:'确定性复跑 hash 比对… <span class="lg-ok">identical</span>'},
+  {log:'<span class="lg-ok">✓ DONE</span> 产物 output/20260720-education/ · 2 轮通过',g:{req:'pass',mk:'pass',ck:'pass',pub:'pass'}}
+];
+var lpRunning=false;
+function setRunState(cls,txt){var s=document.getElementById('runState');s.className='run-state '+cls;s.innerHTML='<span class="dot"></span>'+txt;}
+function hhmmss(d){function p(n){return(n<10?'0':'')+n;}return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
+function lpRun(){
+  var real=document.getElementById('trigReal');
+  if(real&&real.checked){
+    if(!API_LIVE){toast('未连后端，无法真实交付；请取消勾选走演示');return;}
+    return lpRunReal();
+  }
+  if(lpRunning)return;lpRunning=true;
+  var btn=document.getElementById('trigBtn');btn.disabled=true;
+  setRunState('running','运行中');
+  var log=document.getElementById('liveLog');log.innerHTML='';
+  renderGraph('lgConsole',{req:'run'});
+  var base=new Date(),i=0;
+  function step(){
+    if(i>=LP_EVENTS.length){lpRunning=false;btn.disabled=false;setRunState('pass','通过 ✔');return;}
+    var e=LP_EVENTS[i],t=new Date(base.getTime()+i*1400);
+    log.innerHTML+='<div><span class="lg-time">['+hhmmss(t)+']</span> '+e.log+'</div>';
+    log.scrollTop=log.scrollHeight;
+    if(e.g)renderGraph('lgConsole',e.g);
+    i++;setTimeout(step,900);
+  }
+  setTimeout(step,450);
+}
+
+/* ---- 回放：逐轮 + 20 门禁 + 确定性 + 历史 ---- */
+var GG1='静态层 · 前馈护栏',GG2='数据层 · 事实源',GG3='UI 层',GG4='测试层',GG5='运行时 · 真起服务';
+var GATE_GROUPS=[GG1,GG2,GG3,GG4,GG5];
+var GATE_DEFS=[
+  {nm:'必备文件齐全',dt:'9/9 文件存在（app.py / templates / static…）',group:GG1},
+  {nm:'requirements.txt 存在',dt:'存在，含 flask',group:GG1},
+  {nm:'无禁用依赖',dt:'未见 django/react/vue/fastapi',group:GG1},
+  {nm:'无危险调用',dt:'未见 eval/exec/os.system/pickle',group:GG1},
+  {nm:'路由函数唯一且齐全',dt:'index_course / course_detail 均存在',group:GG1},
+  {nm:'内联 style ≤ 3',dt:'内联样式 1 处',group:GG1},
+  {nm:'数据文件存在 + JSON 合法',dt:'courses.json 解析通过',group:GG2},
+  {nm:'条数 ≥ min_items',dt:'9 条 ≥ 8',group:GG2},
+  {nm:'必填字段齐全',dt:'id/title/teacher/price 齐全',group:GG2},
+  {nm:'field_rules 量化约束',dt:'course_count / title_len 均满足',group:GG2},
+  {nm:'id 连续',dt:'1..9 连续无缺号',group:GG2},
+  {nm:'图片文件齐全',dt:'9/9 图片存在',group:GG2},
+  {nm:'CSS 含全部配色',dt:'#1e88e5 等 3 色全含',group:GG3},
+  {nm:'unittest 全绿',dt:'6 passed',group:GG4},
+  {nm:'服务可启动（Flask 探活）',dt:'127.0.0.1:5060 → 200',group:GG5},
+  {nm:'GET 列表 200 且数量达标',dt:'/api/courses → 9 条',group:GG5},
+  {nm:'详情不存在 → 404',dt:'/course/999 → 404',group:GG5},
+  {nm:'列表页 marker 数达标',dt:'course-card × 9',group:GG5},
+  {nm:'列表卡片子元素齐全',dt:'标题/价格/图片 齐全',group:GG5},
+  {nm:'详情页含全部 markers',dt:'标题/简介/报名 齐全',group:GG5}
+];
+var FAIL_DETAIL={8:'数据仅 5 条 < 要求 8（min_items）',10:'course_count = 7，要求 ≥ 8（field_rules 未过）',16:'/api/products → 5 条 < 要求 8'};
+function buildChecks(fail){
+  return GATE_DEFS.map(function(g,idx){
+    var i=idx+1,ok=(fail!==i);
+    return {i:i,ok:ok,nm:g.nm,dt:ok?g.dt:(FAIL_DETAIL[i]||'不满足约束'),group:g.group};
+  });
+}
+function renderGates(checks){
+  var byG={};checks.forEach(function(c){(byG[c.group]=byG[c.group]||[]).push(c);});
+  var h='';
+  GATE_GROUPS.forEach(function(gn){
+    if(!byG[gn])return;
+    var np=byG[gn].filter(function(c){return c.ok;}).length;
+    h+='<div class="gate-group"><div class="gate-gh">'+gn+' · '+np+'/'+byG[gn].length+'</div>';
+    byG[gn].forEach(function(c){
+      h+='<div class="gate-row '+(c.ok?'ok':'bad')+'"><span class="gate-mk">'+(c.ok?'✔':'✘')+'</span><div class="gate-main"><div class="gate-nm">'+c.i+'. '+c.nm+'</div><div class="gate-dt">'+c.dt+'</div></div></div>';
+    });
+    h+='</div>';
+  });
+  document.getElementById('gateList').innerHTML=h;
+}
+var RUNS=[
+  {ts:'2026-07-20 10:02',cs:'education',mode:'sample',model:'sample-generator',seed:42,temp:0,ver:'4.0.0',dir:'output/20260720-education',det:'identical',rounds:[{fail:10},{fail:null}]},
+  {ts:'2026-07-19 18:41',cs:'blog',mode:'real',model:'deepseek-chat',seed:42,temp:0,ver:'4.0.0',dir:'output/20260719-blog',det:'identical',rounds:[{fail:null}]},
+  {ts:'2026-07-19 15:10',cs:'ecommerce',mode:'real',model:'deepseek-chat',seed:42,temp:0,ver:'4.0.0',dir:'output/20260719-ecommerce',det:'drift',rounds:[{fail:8},{fail:16},{fail:null}]},
+  {ts:'2026-07-18 09:22',cs:'education',mode:'sample',model:'sample-generator',seed:42,temp:0,ver:'4.0.0',dir:'output/20260718-education',det:'identical',rounds:[{fail:10},{fail:null}]}
+];
+var rpCur=0;
+function renderRunsTable(){
+  var h='';
+  RUNS.forEach(function(r,idx){
+    var det=r.det==='identical'?'<span class="badge green">identical</span>':'<span class="badge orange">drift</span>';
+    h+='<tr class="'+(idx===rpCur?'sel':'')+'" onclick="rpSelectRun('+idx+')"><td>'+r.ts+'</td><td>'+r.cs+'</td><td>'+r.mode+'</td><td>'+r.rounds.length+'</td><td><span class="badge green">PASS</span></td><td>'+det+'</td></tr>';
+  });
+  document.getElementById('runsBody').innerHTML=h;
+}
+function rpSelectRun(idx){
+  rpCur=idx;var r=RUNS[idx];renderRunsTable();
+  document.getElementById('metaKv').innerHTML=
+    '<dt>模式</dt><dd>'+r.mode+'</dd>'+
+    '<dt>模型</dt><dd>'+r.model+'</dd>'+
+    '<dt>temperature</dt><dd>'+r.temp+'</dd>'+
+    '<dt>seed</dt><dd>'+r.seed+'</dd>'+
+    '<dt>引擎版本</dt><dd>'+r.ver+'</dd>'+
+    '<dt>轮次</dt><dd>'+r.rounds.length+' 轮</dd>'+
+    '<dt>产物</dt><dd>'+r.dir+'</dd>'+
+    '<dt>时间</dt><dd>'+r.ts+'</dd>';
+  document.getElementById('detBox').innerHTML=r.det==='identical'
+    ?'<div class="run-state pass" style="border-radius:9px"><span class="dot"></span>identical · 两次复跑字节一致</div><div style="font-size:12px;color:var(--text-sec);margin-top:8px">temperature 0 + 固定 seed → 产物可复现，hash 相同。</div>'
+    :'<div class="run-state fail" style="border-radius:9px"><span class="dot"></span>drift · 两次复跑不一致</div><div style="font-size:12px;color:var(--text-sec);margin-top:8px">real 模式模型输出存在随机性；如需严格复现可锁定 seed 或改用 sample。</div>';
+  var tabs='';
+  r.rounds.forEach(function(rd,i){
+    var ok=(rd.fail===null||rd.fail===undefined);
+    tabs+='<div class="rnd-tab" onclick="rpRound('+i+')" id="rnd-'+i+'">ROUND '+(i+1)+'<span class="rt-badge">'+(ok?'✔':'✘')+'</span></div>';
+  });
+  document.getElementById('rndTabs').innerHTML=tabs;
+  rpRound(0);
+}
+function rpRound(i){
+  var r=RUNS[rpCur],rd=r.rounds[i],fail=(rd.fail===undefined?null:rd.fail);
+  document.querySelectorAll('#rndTabs .rnd-tab').forEach(function(t){t.classList.remove('active');});
+  var tab=document.getElementById('rnd-'+i);if(tab)tab.classList.add('active');
+  var st=(fail!==null)
+    ?{req:'pass',mk:'pass',ck:'fail',back:true,backLabel:'ROUND '+(i+1)+' FAIL → 回喂 Maker'}
+    :{req:'pass',mk:'pass',ck:'pass',pub:'pass',back:false};
+  renderGraph('lgReplay',st);
+  renderGates(buildChecks(fail));
+}
+
+/* ===== API 客户端层：实时接 studio 后端(5100)，失败自动回退 Mock =====
+   config = file = repo：constraints 直读写 harness-4/constraints.json；
+   Dashboard/需求/Trace 读 studio 真实需求池 /api/backlog。 */
+var API_BASE='';/* 同源:本页由 studio(5100) 直接 serve,/api/* 走相对路径,自动携带登录 session cookie,不再 401 */
+try{var _ab=localStorage.getItem('loopApiBase');if(_ab)API_BASE=_ab;}catch(e){}
+var API_LIVE=false;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function setText(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+async function apiGet(path){var r=await fetch(API_BASE+path,{method:'GET'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+async function apiPost(path,body){var r=await fetch(API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});var j=await r.json().catch(function(){return {};});return {status:r.status,ok:r.ok,json:j};}
+function paintBadge(bid,tid,live,lt,mt){var b=document.getElementById(bid);if(!b)return;b.classList.toggle('live',live);b.classList.toggle('mock',!live);setText(tid,live?(lt||'实时'):(mt||'Mock'));}
+function paintAllBadges(){paintBadge('srcBadge','srcTxt',API_LIVE,'实时 · 5100','Mock · 未连');paintBadge('cfgSrc','cfgSrcTxt',API_LIVE);paintBadge('dashSrc','dashSrcTxt',API_LIVE);paintBadge('traceSrc','traceSrcTxt',API_LIVE);}
+async function probeLive(manual){
+  try{await apiGet('/api/constraints');API_LIVE=true;}catch(e){API_LIVE=false;}
+  paintAllBadges();
+  if(manual)toast(API_LIVE?'已连接 studio 后端 (5100)':'未连接后端，使用 Mock 数据');
+  if(API_LIVE){loadConstraints(false);loadDashboard();}
+  return API_LIVE;
+}
+function onPageEnter(page){
+  if(page==='harness')loadConstraints(false);
+  else if(page==='dashboard')loadDashboard();
+  else if(page==='reqs')loadReqs();
+  else if(page==='trace')loadTrace();
+  else if(page==='loop')loadTrigReqs();
+}
+// 用真实 backlog 填充「需求」下拉:只列 pending(可交付)的,首项保留“整池”。
+async function loadTrigReqs(){
+  var sel=document.getElementById('trigReq');if(!sel)return;
+  var items=[];try{var d=await apiGet('/api/backlog');items=d.docs||[];}catch(e){return;}
+  var cur=sel.value;var h='<option value="">整池（全部待处理）</option>';
+  items.forEach(function(x){
+    if(!x.pending)return;// 非 pending(已完成)不可直接交付,需先在需求页“重跑”
+    h+='<option value="'+esc(x.id)+'">'+esc(x.id)+' · '+esc(x.title||x.id)+'</option>';
+  });
+  sel.innerHTML=h;if(cur)sel.value=cur;
+}
+
+/* ===== A · 全局约束 constraints.json 结构化编辑（直写仓库文件） ===== */
+var cfgData=null;
+var CFG_MOCK={harness_version:'4.0.0',tech:{language:'python',framework:'flask',entry:'app.py',port_env:'PORT',default_port:5000},
+  base_required_files:['app.py','requirements.txt','README.md','templates/base.html','templates/list.html','templates/detail.html','static/css/style.css','static/js/main.js','tests/test_app.py'],
+  banned_deps:['django','sqlalchemy','flask-sqlalchemy','fastapi','vue','react','jquery','bootstrap','pytest'],
+  banned_code_patterns:['eval(','exec(','os.system(','subprocess.','__import__(','pickle.load'],
+  max_inline_style:3,cases:['ecommerce','blog','education'],run_cases:['education']};
+async function loadConstraints(manual){
+  var live=false,data;
+  try{data=await apiGet('/api/constraints');live=true;}catch(e){data=JSON.parse(JSON.stringify(CFG_MOCK));}
+  cfgData=data;paintBadge('cfgSrc','cfgSrcTxt',live);
+  renderConstraintsForm(data);document.getElementById('cfgResult').innerHTML='';
+  if(manual)toast(live?'已从 constraints.json 拉取':'未连后端，显示本地示例');
+}
+function chipHtml(key,arr,danger){
+  var h='<div class="chips">';
+  (arr||[]).forEach(function(v,i){h+='<span class="chip'+(danger?' danger':'')+'">'+esc(v)+'<span class="chip-x" onclick="cfgDelChip(\''+key+'\','+i+')">\u00d7</span></span>';});
+  h+='<button class="chip-add" onclick="cfgAddChip(\''+key+'\')">+ 添加</button></div>';return h;
+}
+function renderConstraintsForm(d){
+  var t=d.tech||{},h='';
+  h+='<div class="cfg-block"><div class="cfg-bt">技术栈 tech</div><div class="cfg-grid">';
+  h+='<div class="cfg-field"><label>framework</label><input id="cfg_framework" value="'+esc(t.framework||'')+'"></div>';
+  h+='<div class="cfg-field"><label>entry</label><input id="cfg_entry" value="'+esc(t.entry||'')+'"></div>';
+  h+='<div class="cfg-field"><label>default_port</label><input id="cfg_port" type="number" value="'+esc(t.default_port)+'"></div>';
+  h+='</div></div>';
+  h+='<div class="cfg-block"><div class="cfg-bt">禁用依赖 banned_deps</div>'+chipHtml('banned_deps',d.banned_deps,true)+'</div>';
+  h+='<div class="cfg-block"><div class="cfg-bt">禁用代码模式 banned_code_patterns</div>'+chipHtml('banned_code_patterns',d.banned_code_patterns,true)+'</div>';
+  h+='<div class="cfg-block"><div class="cfg-bt">必备文件 base_required_files</div>'+chipHtml('base_required_files',d.base_required_files,false)+'</div>';
+  h+='<div class="cfg-block"><div class="cfg-grid">';
+  h+='<div class="cfg-field"><label>max_inline_style</label><input id="cfg_maxinline" type="number" value="'+esc(d.max_inline_style)+'"></div>';
+  h+='<div class="cfg-field"><label>harness_version（只读）</label><input value="'+esc(d.harness_version||'')+'" disabled></div>';
+  h+='</div></div>';
+  h+='<div class="cfg-block"><div class="cfg-bt">已登记用例 cases（随磁盘目录自动对齐，只读）</div><div class="chips">';
+  (d.cases||[]).forEach(function(c){h+='<span class="chip">'+esc(c)+'</span>';});
+  h+='</div></div>';
+  document.getElementById('cfgBody').innerHTML=h;
+}
+function cfgHarvest(){
+  if(!cfgData)return;cfgData.tech=cfgData.tech||{};
+  var f=document.getElementById('cfg_framework');if(f)cfgData.tech.framework=f.value.trim();
+  var e=document.getElementById('cfg_entry');if(e)cfgData.tech.entry=e.value.trim();
+  var p=document.getElementById('cfg_port');if(p&&p.value!=='')cfgData.tech.default_port=parseInt(p.value,10);
+  var m=document.getElementById('cfg_maxinline');if(m&&m.value!=='')cfgData.max_inline_style=parseInt(m.value,10);
+}
+function cfgDelChip(key,i){cfgHarvest();cfgData[key].splice(i,1);renderConstraintsForm(cfgData);}
+function cfgAddChip(key){cfgHarvest();var v=prompt('新增到 '+key+'：');if(v&&v.trim()){cfgData[key]=cfgData[key]||[];cfgData[key].push(v.trim());renderConstraintsForm(cfgData);}}
+async function saveConstraintsForm(){
+  cfgHarvest();var res=document.getElementById('cfgResult');
+  if(!API_LIVE){res.innerHTML='<span class="badge orange">未连后端</span> 无法写盘：请先启动 studio（python harness-4/studio/server.py）再点右上「重试连接」。当前仅本地预览。';toast('未连后端，未写盘');return;}
+  try{
+    var r=await apiPost('/api/constraints',cfgData);
+    if(r.json&&r.json.ok){cfgData=r.json.constraints||cfgData;renderConstraintsForm(cfgData);
+      res.innerHTML='<span class="badge green">\u2714 已写入</span> harness-4/constraints.json 已更新（cases 由后端按磁盘目录自动对齐）。';toast('已保存到 constraints.json');}
+    else{res.innerHTML='<span class="badge red">保存失败</span> '+esc(JSON.stringify(r.json));}
+  }catch(e){res.innerHTML='<span class="badge red">保存失败</span> '+esc(e.message);toast('保存失败：'+e.message);}
+}
+
+/* ===== C · Dashboard / 需求列表 / Trace 接真 /api/backlog ===== */
+function badgeForStatus(st){
+  if(st==='done')return '<span class="badge green">\u2714 done</span>';
+  if(st==='failed')return '<span class="badge red">\u2718 failed</span>';
+  return '<span class="badge orange">\u25cf '+esc(st||'pending')+'</span>';
+}
+async function loadDashboard(){
+  var live=false,items=[];
+  try{var d=await apiGet('/api/backlog');items=d.docs||[];live=true;}catch(e){}
+  paintBadge('dashSrc','dashSrcTxt',live);if(!live)return;
+  var done=items.filter(function(x){return x.status==='done';}).length;
+  var failed=items.filter(function(x){return x.status==='failed';}).length;
+  var pending=items.filter(function(x){return x.pending;}).length;
+  setText('kpiTotal',items.length);setText('kpiDone',done);
+  setText('pieDone',done);setText('piePending',pending);setText('pieFailed',failed);
+  var rows='';
+  items.slice(0,8).forEach(function(x){
+    var url='\u2014',pub=x.publish;
+    if(pub&&pub.port)url='<a class="lnk" href="http://47.76.211.100:'+esc(pub.port)+'" target="_blank">:'+esc(pub.port)+'</a>';
+    rows+='<tr><td>'+esc(x.id)+' '+esc(x.title||'')+'</td><td>'+esc(x.token_kind||'\u2014')+'</td><td>'+badgeForStatus(x.status)+'</td><td>'+url+'</td><td>'+(x.attempts!=null?x.attempts+' 次':'\u2014')+'</td></tr>';
+  });
+  if(rows)document.getElementById('dashRuns').innerHTML=rows;
+}
+async function loadReqs(){
+  var live=false,items=[];
+  try{var d=await apiGet('/api/backlog');items=d.docs||[];live=true;}catch(e){}
+  if(!live)return;var h='';
+  items.forEach(function(x){
+    var pub=x.publish,pubTxt=(pub&&pub.subdir)?(esc(pub.subdir)+':'+esc(pub.port||'')):'\u2014';
+    var src=x.token_kind==='wiki_token'?'飞书Wiki':(x.token_kind==='doc_token'?'飞书文档':'\u2014');
+    h+='<div class="card req-card"><div class="req-id">'+esc(x.id)+'</div><div class="req-main"><div class="req-title">'+esc(x.title||x.id)+'</div><div class="req-meta"><span>来源 <b>'+src+'</b></span><span>优先级 <b>P'+esc(x.priority)+'</b></span><span>发布 <b>'+pubTxt+'</b></span><span>尝试 <b>'+(x.attempts!=null?x.attempts:0)+' 次</b></span></div></div>'+badgeForStatus(x.status)+'<div class="req-actions"><button class="btn sm" onclick="go(document.querySelector(\'[data-page=spec]\'))">查看 Spec</button><button class="btn sm" onclick="rerunReq(\''+esc(x.id)+'\')">重跑</button><button class="btn sm" onclick="delReq(\''+esc(x.id)+'\')">移除</button></div></div>';
+  });
+  if(h)document.getElementById('reqList').innerHTML=h;
+}
+async function loadTrace(){
+  var live=false,items=[];
+  try{var d=await apiGet('/api/backlog');items=d.docs||[];live=true;}catch(e){}
+  paintBadge('traceSrc','traceSrcTxt',live);if(!live)return;
+  var evs=items.filter(function(x){return x.finished_at;}).sort(function(a,b){return (b.finished_at||'').localeCompare(a.finished_at||'');});
+  if(!evs.length)return;var h='';
+  evs.forEach(function(x){
+    var cls=x.status==='failed'?' err':(x.status==='done'?'':' warn'),pub=x.publish;
+    var sub=(x.status==='done'&&pub)?('阶段 发布 · '+esc(pub.subdir||'')+' @ '+esc(pub.branch||'')+' · commit '+esc(pub.commit||'')):('阶段 验收 · 尝试 '+esc(x.attempts));
+    h+='<div class="tl-item'+cls+'"><div class="tl-time">'+esc(x.finished_at)+'</div><div class="tl-msg">'+esc(x.id)+' '+esc(x.title||'')+' · '+esc(x.status)+'</div><div class="tl-sub">'+sub+'</div></div>';
+  });
+  document.getElementById('traceTimeline').innerHTML=h;
+}
+
+/* ===== 需求池 CRUD 接真：POST/DELETE /api/backlog（仅本地 JSON 读写，安全） ===== */
+async function addBacklog(){
+  var fsTab=document.getElementById('reqtab-fs');
+  if(fsTab&&fsTab.style.display==='none'){toast('后端目前仅支持飞书文档链接入池；文字需求端点尚未提供');return;}
+  if(!API_LIVE){toast('未连后端，无法入池：请先启动 studio 再点右上「重试连接」');return;}
+  var link=((document.getElementById('fsLink')||{}).value||'').trim();
+  var title=((document.getElementById('fsTitle')||{}).value||'').trim();
+  if(!link){toast('请粘贴飞书 wiki / docx 链接');return;}
+  await doAddBacklog(link,title,false);
+}
+async function doAddBacklog(link,title,force){
+  var r=await apiPost('/api/backlog',{link:link,title:title,force:force});
+  if(r.status===409&&r.json&&r.json.duplicate){
+    if(confirm((r.json.error||'该文档已在需求池')+'\n\n仍要再加一条（各自独立 id 与状态）吗？')){return doAddBacklog(link,title,true);}
+    return;
+  }
+  if(r.ok&&r.json&&r.json.ok){
+    closeModal('reqModal');toast('已入池 '+r.json.id);
+    var fl=document.getElementById('fsLink');if(fl)fl.value='';
+    var ft=document.getElementById('fsTitle');if(ft)ft.value='';
+    var pv=document.getElementById('fsPreview');if(pv)pv.style.display='none';
+    loadReqs();loadDashboard();
+  }else{toast('入池失败：'+((r.json&&r.json.error)||('HTTP '+r.status)));}
+}
+async function rerunReq(id){
+  if(!API_LIVE){toast('未连后端，无法重跑');return;}
+  var r=await apiPost('/api/backlog/'+encodeURIComponent(id)+'/reset',{});
+  if(r.ok){toast((r.json&&r.json.reset)?(id+' 已清状态，下次交付将重跑'):(id+' 本无状态记录'));loadReqs();loadDashboard();}
+  else toast('重跑失败：HTTP '+r.status);
+}
+async function delReq(id){
+  if(!API_LIVE){toast('未连后端，无法移除');return;}
+  if(!confirm('确认从需求池移除 '+id+'？将同时清除其处理状态。'))return;
+  try{
+    var r=await fetch(API_BASE+'/api/backlog/'+encodeURIComponent(id),{method:'DELETE'});
+    var j=await r.json().catch(function(){return{};});
+    if(r.ok&&j.ok){toast(id+' 已移除');loadReqs();loadDashboard();}
+    else toast('移除失败：'+(j.error||('HTTP '+r.status)));
+  }catch(e){toast('移除失败：'+e.message);}
+}
+
+/* ===== 自洽性门禁接真：POST /api/gate/consistency（真跑 compile_spec --check，无 API 额度） ===== */
+async function runConsistencyGate(){
+  var pre=document.getElementById('gateCheckResult'),btn=document.getElementById('gateBtn');
+  if(!API_LIVE){toast('未连后端，无法运行门禁检查');return;}
+  pre.style.display='block';pre.textContent='运行中… tools/compile_spec.py --check';btn.disabled=true;
+  var r=await apiPost('/api/gate/consistency',{});
+  btn.disabled=false;var j=r.json||{};
+  var head=(j.ok?'\u2714 PASS':'\u2718 FAIL')+' · compile_spec.py --check（exit '+(j.ok?'0':'非 0')+'）\n\n';
+  pre.textContent=head+(j.stdout||'')+((j.stderr)?('\n[stderr]\n'+j.stderr):'');
+  toast(j.ok?'自洽性检查通过':'自洽性检查未通过，见输出');
+}
+
+/* ===== 一键交付接真：POST /api/trigger + 轮询 /api/trigger/status =====
+   真实对外动作（推 GitHub / 调 LLM）：默认走 Mock 演示，只有勾选「真实交付」+ 二次确认才发起。 */
+var trigPoll=null;
+function lpRunReal(){
+  var reqSel=document.getElementById('trigReq'),modeSel=document.getElementById('trigMode');
+  var task=reqSel?reqSel.value:'',mode=modeSel?modeSel.value:'';
+  var scopeTxt=task?(task+'（单条）'):'整池（全部待处理）';
+  if(!confirm('真实交付确认\n\n范围：'+scopeTxt+'\n模式：'+(mode||'real')+'\n\n将后台运行 delivery-loop/run_backlog.sh：\n飞书取需求 → 生成 → 20 门禁验收 → 推 GitHub（可能触发 Actions 部署）。\n会消耗 LLM 额度并向远端仓库推送。\n\n确认发起？'))return;
+  var btn=document.getElementById('trigBtn'),log=document.getElementById('liveLog');
+  btn.disabled=true;setRunState('running','真实运行中');
+  log.innerHTML='<div><span class="lg-time">['+hhmmss(new Date())+']</span> <span class="lg-info">POST /api/trigger</span> 发起真实交付（'+esc(scopeTxt)+'）…</div>';
+  apiPost('/api/trigger',{task:task,mode:mode}).then(function(r){
+    if(r.status===409){log.innerHTML+='<div><span class="lg-warn">上一批仍在运行（busy）</span></div>';btn.disabled=false;setRunState('idle','就绪');pollTrigger();return;}
+    if(!(r.ok&&r.json&&r.json.ok)){log.innerHTML+='<div><span class="lg-warn">发起失败：'+esc(JSON.stringify(r.json))+'</span></div>';btn.disabled=false;setRunState('fail','失败');return;}
+    pollTrigger();
+  }).catch(function(e){log.innerHTML+='<div><span class="lg-warn">发起失败：'+esc(e.message)+'</span></div>';btn.disabled=false;setRunState('fail','失败');});
+}
+function pollTrigger(){
+  var log=document.getElementById('liveLog'),btn=document.getElementById('trigBtn');
+  if(trigPoll)clearInterval(trigPoll);
+  trigPoll=setInterval(async function(){
+    var st;try{st=await apiGet('/api/trigger/status');}catch(e){return;}
+    if(st.log!=null){log.textContent=st.log;log.scrollTop=log.scrollHeight;}
+    if(!st.running){
+      clearInterval(trigPoll);trigPoll=null;btn.disabled=false;
+      var ok=st.exit_code===0;setRunState(ok?'pass':'fail',ok?'完成 \u2714':('退出码 '+st.exit_code));
+      loadDashboard();loadReqs();loadTrace();
+    }
+  },1500);
+}
+
+/* ---- 初始化 ---- */
+renderGraph('lgConsole',{});
+renderRunsTable();
+rpSelectRun(0);
+loadConstraints(false);
+probeLive(false);
+</script>
+</body>
+</html>

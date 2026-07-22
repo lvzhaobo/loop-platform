@@ -26,7 +26,7 @@ import threading
 import time
 
 from flask import (Flask, jsonify, redirect, render_template, request,
-                   session, url_for)
+                   send_file, session, url_for)
 
 STUDIO_DIR = os.path.dirname(os.path.abspath(__file__))
 if STUDIO_DIR not in sys.path:
@@ -40,6 +40,11 @@ CONSTRAINTS_PATH = os.path.join(HARNESS_DIR, "constraints.json")
 # 一键交付入口:仓库根 / delivery-loop / run_backlog.sh(它自己 source config.env + .env)
 REPO_ROOT = os.path.dirname(HARNESS_DIR)
 RUN_BACKLOG = os.path.join(REPO_ROOT, "delivery-loop", "run_backlog.sh")
+
+# 12 菜单 Loop Platform 前端(单文件自包含 HTML),默认在仓库根 loop-platform/index.html。
+# 由本服务在 / 直接 serve,使前端与 /api/* 同源,登录后 session cookie 自动带上,不再 401。
+PLATFORM_HTML = os.environ.get("LOOP_PLATFORM_HTML") or os.path.join(
+    REPO_ROOT, "loop-platform", "index.html")
 
 # 点“开始交付”时默认跑的完整链路开关(仅当外部环境未显式设置时才兜底,尊重已导出的覆盖)。
 # 与 deploy/loop-platform.service 的 Environment 块保持一致:飞书源 + 真实 LLM + 推 GitHub。
@@ -154,6 +159,16 @@ def _list_case_names():
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
+    """默认入口:12 菜单 Loop Platform 前端(登录门禁后同源访问 /api/*)。
+    找不到平台文件时回退旧的配置工作台,保证不影响老用法。"""
+    if os.path.exists(PLATFORM_HTML):
+        return send_file(PLATFORM_HTML)
+    return render_template("index.html")
+
+
+@app.route("/studio")
+def studio_workbench():
+    """旧的 3 面板配置工作台(需求/用例/约束表单编辑),保留备用。"""
     return render_template("index.html")
 
 

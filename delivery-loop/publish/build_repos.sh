@@ -41,6 +41,12 @@ echo "==> 组装 loop-platform"
 rsync -a --delete "${EXCLUDES[@]}" "$ROOT/harness-4"      "$PLATFORM/"
 rsync -a --delete "${EXCLUDES[@]}" "$ROOT/delivery-loop"  "$PLATFORM/"
 
+# 12 菜单 Loop Platform 前端(单文件自包含 HTML):harness-4/studio/server.py 的 /
+# 路由从 <repo>/loop-platform/index.html serve,故须随仓发布,克隆后即可复现平台。
+# 只收 index.html,不带同目录的规划稿/副本(那些是本地笔记,不入仓)。
+mkdir -p "$PLATFORM/loop-platform"
+cp "$ROOT/loop-platform/index.html" "$PLATFORM/loop-platform/index.html"
+
 cp "$TPL/platform.README.md"   "$PLATFORM/README.md"
 cp "$TPL/platform.gitignore"   "$PLATFORM/.gitignore"
 cp "$TPL/platform.env.example" "$PLATFORM/.env.example"
