@@ -13,6 +13,7 @@ import json
 import os
 import re
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -190,19 +191,63 @@ def check_unittest(out):
 
 # ---------- 运行时真渲染 ----------
 
+def _tcp_open(port, host="127.0.0.1", timeout=1.0):
+    """端口是否已被监听(用于区分'进程还在但没绑端口' vs '已绑但没答 200')。"""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _drain(pipe):
+    """读尽管道剩余内容(调用前须确保进程已结束,否则会阻塞)。"""
+    if not pipe:
+        return ""
+    try:
+        return pipe.read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def wait_ready(proc, path, timeout=40.0):
-    """轮询列表路由直到 200 或超时(替代固定 sleep)。
-    超时给到 40s:部分环境(如 macOS 本地 host=0.0.0.0 时 getfqdn 反向解析慢)
-    werkzeug 启动会白等几秒;进程真崩溃仍由 proc.poll() 立即判失败,抬高上限无副作用。"""
+    """轮询列表路由直到 200;返回 (ok, reason)。
+    reason: 'ok' | 'exit:<code>'(进程启动即退出) | 'timeout'(进程在跑但没答 200)。
+    超时给到 40s:部分环境(host=0.0.0.0 时 getfqdn 反向解析慢)werkzeug 启动会白等几秒。"""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if proc.poll() is not None:
-            return False
-        status, _ = http_get(path)
-        if status == 200:
-            return True
+        rc = proc.poll()
+        if rc is not None:
+            return False, f"exit:{rc}"
+        if http_get(path)[0] == 200:
+            return True, "ok"
         time.sleep(0.3)
-    return False
+    return False, "timeout"
+
+
+def startup_diag(proc, reason):
+    """就绪失败时收集可操作诊断:被杀/自退 vs 超时,端口是否在听,stderr 尾部。
+    关键:这段信息会被 generate.sh 回灌给下一轮生成,空诊断=白修。"""
+    listening = _tcp_open(VERIFY_PORT)
+    if proc.poll() is None:  # 超时:进程仍在,先终止才能非阻塞读管道
+        try:
+            proc.send_signal(signal.SIGTERM)
+            proc.wait(timeout=3)
+        except Exception:  # noqa: BLE001
+            proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except Exception:  # noqa: BLE001
+                pass
+    tail = _drain(getattr(proc, "stderr", None)).strip()[-400:]
+    if reason.startswith("exit:"):
+        rc = reason.split(":", 1)[1].strip()
+        killed = rc.startswith("-")  # 负数=被信号杀死(如 -9=SIGKILL,常见于 OOM 内存不足)
+        head = (f"app.py 启动即退出 code={rc}(疑似被系统杀死,可能 OOM 内存不足)"
+                if killed else f"app.py 启动即退出 code={rc}")
+    else:
+        head = f"未在超时内就绪(进程仍在运行,端口{'已监听但未答 200' if listening else '未监听'})"
+    return head + ("; " + tail if tail else "; 无 stderr 输出")
 
 
 def check_runtime(out, case):
@@ -218,9 +263,9 @@ def check_runtime(out, case):
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     )
     try:
-        if not wait_ready(proc, case["routes"]["list"]):
-            err = proc.stderr.read().decode("utf-8", "replace")[-300:] if proc.stderr else ""
-            return record("运行时:服务可启动", False, "未在超时内就绪; " + err)
+        ok, reason = wait_ready(proc, case["routes"]["list"])
+        if not ok:
+            return record("运行时:服务可启动", False, startup_diag(proc, reason))
         record("运行时:服务可启动", True)
 
         arr_path = os.path.join(out, case["data_file"])

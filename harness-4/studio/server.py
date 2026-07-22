@@ -16,10 +16,12 @@
 """
 from __future__ import annotations
 
+import glob
 import hmac
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -359,6 +361,81 @@ def trigger_delivery():
 def trigger_status():
     """前端轮询:回当前交付批次的运行状态与实时日志。"""
     return jsonify(_trigger_state)
+
+
+# ---------------------------------------------------------------------------
+# 已部署应用列表(APP List):扫描拉取式部署目录 <ECS_REMOTE_DIR>/<repo>/sampleN,
+# 端口 = 1000 + N(与 loop-sample 的 deploy.yml 及 publisher 完全对齐),本机 127.0.0.1
+# 探活得 online。studio 本就跑在 ECS 同机,apps 目录在本地,故纯只读、不 SSH。
+# 本机开发无该目录时回空列表(前端据此回退旧的静态示例卡,不报错)。
+# ---------------------------------------------------------------------------
+def _apps_dir():
+    """部署根:LOOP_APPS_DIR 显式优先,否则 <ECS_REMOTE_DIR|~/apps>/<repo>。
+    repo 名从 HARNESS_GIT_REMOTE 推导(缺省 loop-sample)。"""
+    override = os.environ.get("LOOP_APPS_DIR")
+    if override:
+        return os.path.expanduser(override)
+    base = os.path.expanduser(os.environ.get("ECS_REMOTE_DIR", "~/apps"))
+    remote = os.environ.get("HARNESS_GIT_REMOTE", "").strip()
+    repo = "loop-sample"
+    if remote:
+        name = remote.rstrip("/").split("/")[-1]
+        repo = name[:-4] if name.endswith(".git") else name
+    return os.path.join(base, repo)
+
+
+def _port_alive(port, timeout=0.3):
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _app_title(sample_dir, fallback):
+    """标题取 README.md 第一个 Markdown 标题;取不到则回目录名。"""
+    readme = os.path.join(sample_dir, "README.md")
+    if os.path.exists(readme):
+        try:
+            with open(readme, encoding="utf-8") as f:
+                for line in f:
+                    s = line.strip()
+                    if s.startswith("#"):
+                        t = s.lstrip("#").strip()
+                        if t:
+                            return t
+        except OSError:
+            pass
+    return fallback
+
+
+@app.route("/api/apps", methods=["GET"])
+def list_apps():
+    """真实已部署应用:sampleN → 端口 1000+N,本机探活 online,README 取标题。
+    最新(端口大)排前。URL 主机沿用浏览器访问 studio 的主机名,自动对外可点。"""
+    apps_dir = _apps_dir()
+    host = (request.host or "").split(":")[0] or "127.0.0.1"
+    apps = []
+    if os.path.isdir(apps_dir):
+        for d in sorted(glob.glob(os.path.join(apps_dir, "sample*"))):
+            name = os.path.basename(d)
+            m = re.fullmatch(r"sample(\d+)", name)
+            if not m or not os.path.isdir(d):
+                continue
+            port = 1000 + int(m.group(1))
+            apps.append({
+                "name": name,
+                "title": _app_title(d, name),
+                "port": port,
+                "url": f"http://{host}:{port}/",
+                "online": _port_alive(port),
+                "deployed": os.path.exists(os.path.join(d, "app.pid")),
+            })
+    apps.sort(key=lambda a: a["port"], reverse=True)
+    online_n = sum(1 for a in apps if a["online"])
+    return jsonify({"apps": apps, "total": len(apps),
+                    "online": online_n, "offline": len(apps) - online_n,
+                    "dir": apps_dir})
 
 
 # ---------------------------------------------------------------------------

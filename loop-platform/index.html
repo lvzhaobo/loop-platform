@@ -285,7 +285,7 @@ textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px
 
 /* Log console */
 .log-console{background:#0d1526;border-radius:12px;padding:16px;font-family:ui-monospace,Menlo,monospace;
-  font-size:12.5px;line-height:1.8;color:#a9b6cc;height:420px;overflow-y:auto}
+  font-size:12.5px;line-height:1.8;color:#a9b6cc;height:420px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
 .log-console .lg-time{color:#5b6b82}
 .log-console .lg-info{color:#4c9df0}.log-console .lg-ok{color:#4caf7d}
 .log-console .lg-warn{color:#f0b34a}.log-console .lg-err{color:#ec6b6f}
@@ -780,10 +780,10 @@ textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px
   <div class="lp-view active" id="lpv-console">
     <div class="trigbar">
       <span class="tb-field">需求
-        <select id="trigReq"><option value="">整池（全部待处理）</option></select>
+        <select id="trigReq" title="真实交付的唯一入口:选一条飞书需求(FS-NNN),后端按其 Spec 自动编译 case 并交付;选“整池”则处理全部 pending。"><option value="">整池（全部待处理）</option></select>
       </span>
       <span class="tb-field">用例
-        <select id="trigCase" title="仅影响演示动画；真实交付时用例由飞书 Spec 自动编译得出"><option>education</option><option>blog</option><option>ecommerce</option></select>
+        <span class="badge gray" title="真实交付流程:选定需求后,用例(case)由其 Spec 自动编译得出,无需手选。cases/ 里的样例仅作离线参考。">由 Spec 自动编译</span>
       </span>
       <span class="tb-field">模式
         <select id="trigMode"><option value="real">real · DeepSeek</option><option value="sample">sample · 零密钥</option></select>
@@ -795,8 +795,16 @@ textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px
     </div>
     <div class="lg-graph" id="lgConsole"></div>
     <div class="card panel">
-      <div class="panel-title">实时日志<span class="spacer"></span><span class="badge gray">/api/trigger/status · 流式（Mock）</span></div>
+      <div class="panel-title">验收门禁进度<span class="spacer"></span><span class="badge gray" id="gateProgStat">等待运行</span></div>
+      <div id="gateProg"><span class="hint">点「开始交付」后，逐条验收门禁会在这里实时打勾（数据源：实时日志 [OK]/[FAIL]，门禁数量随用例契约变化）。</span></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-title">实时日志<span class="spacer"></span><span class="badge gray">/api/trigger/status · 流式（真实）</span></div>
       <div class="log-console" id="liveLog"><span class="lg-time">就绪。点击「开始交付」触发一次 Loop。</span></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-title">已部署产物<span class="spacer"></span><span class="badge gray" id="loopAppsStat">/api/apps · 实时探活</span></div>
+      <div id="loopApps"><span class="hint">进入页面自动加载、交付完成后自动刷新。</span></div>
     </div>
   </div>
 
@@ -806,7 +814,7 @@ textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px
       <div>
         <div class="lg-graph" id="lgReplay"></div>
         <div class="card panel">
-          <div class="panel-title">逐轮验收 · 20 项门禁<span class="spacer"></span><span class="badge gray">verify-report.json</span></div>
+          <div class="panel-title">逐轮验收 · 逐条门禁<span class="spacer"></span><span class="badge gray">verify-report.json</span></div>
           <div class="rnd-tabs" id="rndTabs"></div>
           <div id="gateList"></div>
         </div>
@@ -863,9 +871,9 @@ textarea.code-edit{width:100%;min-height:340px;background:var(--bg-2);border:1px
   <div class="toolbar-row">
     <div class="seg"><button class="active">卡片</button><button>列表</button></div>
     <div class="spacer"></div>
-    <span class="hint">共 6 个应用 · 5 在线 · 1 离线</span>
+    <span class="hint" id="appsStat">共 6 个应用 · 5 在线 · 1 离线</span>
   </div>
-  <div class="card-grid">
+  <div class="card-grid" id="appsGrid">
     <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/><circle cx="6.5" cy="7" r=".6"/></svg></div><div><div style="font-size:15px;font-weight:800">课程商城</div><div class="hint">FS-002 · education</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5001 <a class="lnk" href="http://47.76.211.100:5001" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 2h 前</span><button class="btn sm" onclick="toast('已重启（Mock）')">重启</button></div></div>
     <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div><div><div style="font-size:15px;font-weight:800">博客站</div><div class="hint">FS-001 · blog</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5002 <a class="lnk" href="http://47.76.211.100:5002" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 5h 前</span><button class="btn sm">重启</button></div></div>
     <div class="card app-card"><div class="app-card-top"><div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div><div><div style="font-size:15px;font-weight:800">新闻站</div><div class="hint">FS-005 · news</div></div><span class="badge green" style="margin-left:auto"><span class="dot green"></span> 在线</span></div><div class="app-url">http://47.76.211.100:5003 <a class="lnk" href="http://47.76.211.100:5003" target="_blank">↗</a></div><div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">更新 1d 前</span><button class="btn sm">重启</button></div></div>
@@ -1205,7 +1213,7 @@ function lgNodes(st){
   var defs=[
     {k:'req',nm:'取需求',sub:'backlog / 飞书',ic:LICON.req},
     {k:'mk',nm:'Maker · 生成',sub:'run_model.py',ic:LICON.mk},
-    {k:'ck',nm:'Checker · 验收',sub:'verify.py · 20 门禁',ic:LICON.ck},
+    {k:'ck',nm:'Checker · 验收',sub:'verify.py · 逐条门禁',ic:LICON.ck},
     {k:'pub',nm:'发布 / 部署',sub:'GitHub → ECS',ic:LICON.pub}
   ];
   var h='<div class="lg-nodes">';
@@ -1382,6 +1390,26 @@ function onPageEnter(page){
   else if(page==='reqs')loadReqs();
   else if(page==='trace')loadTrace();
   else if(page==='loop')loadTrigReqs();
+  else if(page==='apps')loadApps();
+}
+// APP List 接真:读 /api/apps(扫 <ECS_REMOTE_DIR>/loop-sample/sampleN + 端口探活),动态渲染。
+// 后端不可达时保留页面原有静态示例卡(不清空);目录为空则给空态提示。
+async function loadApps(){
+  var grid=document.getElementById('appsGrid'),stat=document.getElementById('appsStat');
+  if(!grid)return;
+  var d;try{d=await apiGet('/api/apps');}catch(e){return;}
+  var apps=d.apps||[];
+  if(!apps.length){if(stat)stat.textContent='共 0 个应用（部署目录为空）';grid.innerHTML='<div class="hint" style="padding:20px">暂无已部署应用。点「开始交付」生成并部署后,这里会实时出现。</div>';return;}
+  if(stat)stat.textContent='共 '+d.total+' 个应用 · '+d.online+' 在线 · '+d.offline+' 离线';
+  grid.innerHTML=apps.map(function(a){
+    var on=a.online;
+    return '<div class="card app-card"><div class="app-card-top">'
+      +'<div class="app-thumb"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 5h16v11H4z"/><path d="M4 9h16"/></svg></div>'
+      +'<div><div style="font-size:15px;font-weight:800">'+esc(a.title)+'</div><div class="hint">'+esc(a.name)+' · 端口 '+a.port+'</div></div>'
+      +'<span class="badge '+(on?'green':'red')+'" style="margin-left:auto"><span class="dot '+(on?'green':'red')+'"></span> '+(on?'在线':'离线')+'</span></div>'
+      +'<div class="app-url">'+esc(a.url)+' <a class="lnk" href="'+esc(a.url)+'" target="_blank">↗</a></div>'
+      +'<div class="app-foot"><span class="badge gray">阿里云 ECS</span><span class="hint">'+(a.deployed?'已部署':'未部署')+'</span></div></div>';
+  }).join('');
 }
 // 用真实 backlog 填充「需求」下拉:只列 pending(可交付)的,首项保留“整池”。
 async function loadTrigReqs(){
@@ -1393,6 +1421,21 @@ async function loadTrigReqs(){
     h+='<option value="'+esc(x.id)+'">'+esc(x.id)+' · '+esc(x.title||x.id)+'</option>';
   });
   sel.innerHTML=h;if(cur)sel.value=cur;
+  renderLoopApps();
+}
+
+// Loop Engine「已部署产物」:读 /api/apps 展示真实应用地址+端口(1000+N,非写死 500x),最新在前。
+async function renderLoopApps(){
+  var box=document.getElementById('loopApps'),stat=document.getElementById('loopAppsStat');
+  if(!box)return;
+  var d;try{d=await apiGet('/api/apps');}catch(e){box.innerHTML='<span class="hint">未连后端，无法读取已部署产物。</span>';return;}
+  var apps=d.apps||[];
+  if(stat)stat.textContent='共 '+d.total+' · '+d.online+' 在线';
+  if(!apps.length){box.innerHTML='<span class="hint">暂无已部署产物。点「开始交付」完成后，产物地址+端口会实时出现在这里。</span>';return;}
+  box.innerHTML='<table class="tbl"><thead><tr><th>产物</th><th>用例</th><th>地址:端口</th><th>状态</th></tr></thead><tbody>'+apps.map(function(a){
+    var on=a.online,addr=esc((a.url||'').replace(/^https?:\/\//,'').replace(/\/$/,''));
+    return '<tr><td>'+esc(a.title)+'</td><td>'+esc(a.name)+'</td><td><a class="lnk" href="'+esc(a.url)+'" target="_blank">'+addr+'</a></td><td><span class="badge '+(on?'green':'red')+'"><span class="dot '+(on?'green':'red')+'"></span> '+(on?'在线':'离线')+'</span></td></tr>';
+  }).join('')+'</tbody></table>';
 }
 
 /* ===== A · 全局约束 constraints.json 结构化编辑（直写仓库文件） ===== */
@@ -1471,7 +1514,7 @@ async function loadDashboard(){
   var rows='';
   items.slice(0,8).forEach(function(x){
     var url='\u2014',pub=x.publish;
-    if(pub&&pub.port)url='<a class="lnk" href="http://47.76.211.100:'+esc(pub.port)+'" target="_blank">:'+esc(pub.port)+'</a>';
+    if(pub&&pub.port)url='<a class="lnk" href="http://'+location.hostname+':'+esc(pub.port)+'" target="_blank">:'+esc(pub.port)+'</a>';
     rows+='<tr><td>'+esc(x.id)+' '+esc(x.title||'')+'</td><td>'+esc(x.token_kind||'\u2014')+'</td><td>'+badgeForStatus(x.status)+'</td><td>'+url+'</td><td>'+(x.attempts!=null?x.attempts+' 次':'\u2014')+'</td></tr>';
   });
   if(rows)document.getElementById('dashRuns').innerHTML=rows;
@@ -1561,9 +1604,11 @@ function lpRunReal(){
   var reqSel=document.getElementById('trigReq'),modeSel=document.getElementById('trigMode');
   var task=reqSel?reqSel.value:'',mode=modeSel?modeSel.value:'';
   var scopeTxt=task?(task+'（单条）'):'整池（全部待处理）';
-  if(!confirm('真实交付确认\n\n范围：'+scopeTxt+'\n模式：'+(mode||'real')+'\n\n将后台运行 delivery-loop/run_backlog.sh：\n飞书取需求 → 生成 → 20 门禁验收 → 推 GitHub（可能触发 Actions 部署）。\n会消耗 LLM 额度并向远端仓库推送。\n\n确认发起？'))return;
+  if(!confirm('真实交付确认\n\n范围：'+scopeTxt+'\n模式：'+(mode||'real')+'\n\n将后台运行 delivery-loop/run_backlog.sh：\n飞书取需求 → 生成 → 逐条门禁验收 → 推 GitHub（可能触发 Actions 部署）。\n会消耗 LLM 额度并向远端仓库推送。\n\n确认发起？'))return;
   var btn=document.getElementById('trigBtn'),log=document.getElementById('liveLog');
   btn.disabled=true;setRunState('running','真实运行中');
+  var gp=document.getElementById('gateProg'),gps=document.getElementById('gateProgStat');
+  if(gp)gp.innerHTML='<span class="hint">运行中，等待首条验收结果…</span>';if(gps)gps.textContent='运行中';
   log.innerHTML='<div><span class="lg-time">['+hhmmss(new Date())+']</span> <span class="lg-info">POST /api/trigger</span> 发起真实交付（'+esc(scopeTxt)+'）…</div>';
   apiPost('/api/trigger',{task:task,mode:mode}).then(function(r){
     if(r.status===409){log.innerHTML+='<div><span class="lg-warn">上一批仍在运行（busy）</span></div>';btn.disabled=false;setRunState('idle','就绪');pollTrigger();return;}
@@ -1571,16 +1616,37 @@ function lpRunReal(){
     pollTrigger();
   }).catch(function(e){log.innerHTML+='<div><span class="lg-warn">发起失败：'+esc(e.message)+'</span></div>';btn.disabled=false;setRunState('fail','失败');});
 }
+// 解析实时日志里的 [OK]/[FAIL] 行 → 验收门禁 checklist(真实门禁,数量随用例变)。
+// 同名去重取最后一次(即最新一轮的结果);并提取当前是第几次生成。
+function parseLiveGates(text){
+  var box=document.getElementById('gateProg'),stat=document.getElementById('gateProgStat');
+  if(!box||!text)return;
+  var attempt=0,mA=text.match(/第\s*(\d+)\s*次生成/g);
+  if(mA)attempt=parseInt(mA[mA.length-1].replace(/\D/g,''),10)||0;
+  var re=/\[(OK|FAIL)\]\s*([^\n]+)/g,m,order=[],map={};
+  while((m=re.exec(text))){
+    var ok=m[1]==='OK',raw=m[2].trim(),name=raw.split(' - ')[0].trim(),detail=raw.slice(name.length).replace(/^\s*-\s*/,'');
+    if(!(name in map))order.push(name);
+    map[name]={ok:ok,detail:detail};
+  }
+  if(!order.length)return;
+  var pass=order.filter(function(n){return map[n].ok;}).length;
+  if(stat)stat.textContent=(attempt?('第 '+attempt+' 次 · '):'')+pass+'/'+order.length+' 通过';
+  box.innerHTML=order.map(function(n){
+    var g=map[n];
+    return '<div class="gate-row '+(g.ok?'ok':'bad')+'"><span class="gate-mk">'+(g.ok?'✔':'✘')+'</span><div class="gate-main"><div class="gate-nm">'+esc(n)+'</div>'+(g.detail?'<div class="gate-dt">'+esc(g.detail)+'</div>':'')+'</div></div>';
+  }).join('');
+}
 function pollTrigger(){
   var log=document.getElementById('liveLog'),btn=document.getElementById('trigBtn');
   if(trigPoll)clearInterval(trigPoll);
   trigPoll=setInterval(async function(){
     var st;try{st=await apiGet('/api/trigger/status');}catch(e){return;}
-    if(st.log!=null){log.textContent=st.log;log.scrollTop=log.scrollHeight;}
+    if(st.log!=null){log.textContent=st.log;log.scrollTop=log.scrollHeight;parseLiveGates(st.log);}
     if(!st.running){
       clearInterval(trigPoll);trigPoll=null;btn.disabled=false;
       var ok=st.exit_code===0;setRunState(ok?'pass':'fail',ok?'完成 \u2714':('退出码 '+st.exit_code));
-      loadDashboard();loadReqs();loadTrace();
+      loadDashboard();loadReqs();loadTrace();renderLoopApps();
     }
   },1500);
 }
