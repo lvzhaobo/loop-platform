@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import re
@@ -24,7 +25,8 @@ import sys
 import threading
 import time
 
-from flask import Flask, jsonify, render_template, request
+from flask import (Flask, jsonify, redirect, render_template, request,
+                   session, url_for)
 
 STUDIO_DIR = os.path.dirname(os.path.abspath(__file__))
 if STUDIO_DIR not in sys.path:
@@ -53,6 +55,58 @@ _DELIVERY_DEFAULTS = {
 
 app = Flask(__name__, template_folder=os.path.join(STUDIO_DIR, "templates"),
             static_folder=os.path.join(STUDIO_DIR, "static"))
+
+# ---------------------------------------------------------------------------
+# 访问门禁(纯新增):设了环境变量 STUDIO_TOKEN 就开启口令保护,未设=保持旧行为(本机开发无门禁)。
+# 口令只来自环境变量,绝不写进代码或仓库。会话签名密钥 STUDIO_SECRET 未设则每次启动随机。
+# ---------------------------------------------------------------------------
+STUDIO_TOKEN = os.environ.get("STUDIO_TOKEN", "").strip()
+app.secret_key = os.environ.get("STUDIO_SECRET") or os.urandom(24)
+
+
+@app.before_request
+def _auth_guard():
+    """未设 STUDIO_TOKEN 时直接放行(兼容本机);设了则:已登录会话/头 X-Studio-Token/参数 ?token= 命中放行,
+    否则 /api/* 返 401,页面重定向 /login。"""
+    if not STUDIO_TOKEN:
+        return None
+    p = request.path
+    if p == "/login" or p == "/healthz" or p.startswith("/static/"):
+        return None
+    if session.get("auth"):
+        return None
+    supplied = request.headers.get("X-Studio-Token", "") or request.args.get("token", "")
+    if supplied and hmac.compare_digest(supplied, STUDIO_TOKEN):
+        return None
+    if p.startswith("/api/"):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """口令登录:命中 STUDIO_TOKEN 则在会话里置 auth=True。未开启门禁时直接回首页。"""
+    if not STUDIO_TOKEN:
+        return redirect("/")
+    if request.method == "POST":
+        tok = (request.form.get("token") or "").strip()
+        if hmac.compare_digest(tok, STUDIO_TOKEN):
+            session["auth"] = True
+            return redirect("/")
+        return render_template("login.html", error="口令错误，请重试"), 401
+    return render_template("login.html", error="")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.route("/healthz")
+def healthz():
+    """探活端点(不需鉴权):部署自测/公网探活用。"""
+    return jsonify({"ok": True, "auth": bool(STUDIO_TOKEN)})
 
 
 # 允许 loop-platform 原型(另一端口的静态站)跨域读写本工作台 API。
@@ -434,5 +488,8 @@ def delete_backlog(tid):
 
 if __name__ == "__main__":
     port = int(os.environ.get("STUDIO_PORT", "5100"))
-    print(f"Harness-4 配置工作台: http://127.0.0.1:{port}")
-    app.run(host="127.0.0.1", port=port, debug=True)
+    # 部署到公网需 STUDIO_HOST=0.0.0.0;本机开发默认仍只绑回环。debug 默认关(公网暴露时勿开)。
+    host = os.environ.get("STUDIO_HOST", "127.0.0.1")
+    debug = os.environ.get("STUDIO_DEBUG", "0") == "1"
+    print(f"Harness-4 配置工作台: http://{host}:{port}  鉴权: {'ON' if STUDIO_TOKEN else 'OFF'}  debug: {debug}")
+    app.run(host=host, port=port, debug=debug)
