@@ -2,13 +2,57 @@
   "name": "pomodoro",
   "ready_route": "/",
   "acceptance": [
-    {"id": "TC1", "type": "http_status", "route": "/", "expect": 200, "desc": "首页可访问"},
-    {"id": "TC2", "type": "http_body_contains", "route": "/", "needle": "25:00", "desc": "默认显示 25:00"},
-    {"id": "TC3", "type": "http_body_contains", "route": "/", "needle": "id=\"start\"", "desc": "有开始按钮"},
-    {"id": "TC4", "type": "file_exists", "file": "static/js/timer.js", "desc": "有计时逻辑脚本"},
-    {"id": "TC5", "type": "text_contains", "file": "static/js/timer.js", "needle": "setInterval", "desc": "用定时器驱动倒计时"},
-    {"id": "TC6", "type": "unit_test", "test": "tests/test_timer.py", "desc": "倒计时纯函数单测:25:00 →tick→ 24:59"},
-    {"id": "TC7", "type": "text_absent", "file": "app.py", "needle": "detail_markers", "desc": "不是 catalog 列表站(无 detail_markers 逻辑)"},
-    {"id": "AC1", "type": "manual", "desc": "计时结束有明显提示(声音/颜色变化),人工抽检确认"}
+    {
+      "id": "TC1",
+      "type": "http_status",
+      "route": "/",
+      "expect": 200,
+      "desc": "首页可访问"
+    },
+    {
+      "id": "TC2",
+      "type": "http_body_contains",
+      "route": "/",
+      "needle": "25:00",
+      "desc": "默认显示 25:00"
+    },
+    {
+      "id": "TC3",
+      "type": "http_body_contains",
+      "route": "/",
+      "needle": "id=\"start\"",
+      "desc": "有开始按钮"
+    },
+    {
+      "id": "TC4",
+      "type": "file_exists",
+      "file": "static/js/timer.js",
+      "desc": "有计时逻辑脚本"
+    },
+    {
+      "id": "TC5",
+      "type": "text_contains",
+      "file": "static/js/timer.js",
+      "needle": "setInterval",
+      "desc": "用定时器驱动倒计时"
+    },
+    {
+      "id": "TC6",
+      "type": "unit_test",
+      "test": "tests/test_timer.py",
+      "desc": "倒计时纯函数单测"
+    },
+    {
+      "id": "TC7",
+      "type": "text_absent",
+      "file": "app.py",
+      "needle": "detail_markers",
+      "desc": "不是 catalog 列表站"
+    },
+    {
+      "id": "AC1",
+      "type": "manual",
+      "desc": "计时结束有明显提示(声音/颜色),人工抽检"
+    }
   ]
 }

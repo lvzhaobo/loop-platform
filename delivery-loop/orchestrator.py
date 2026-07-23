@@ -98,11 +98,12 @@ def compile_from_spec(task: Task) -> tuple[str | None, str, str | None]:
     name = slugify_case(task.id)
     cmd = [sys.executable, f"{HARNESS}/tools/spec_compiler.py",
            "--name", name, "--input", os.path.join(ROOT, spec_path)]
-    # 形态:任务可显式声明 archetype=spec(单页交互工具,如计时器),编译走 Spec 路径产出
-    # spec.md+manifest.json+acceptance.json;缺省 catalog(列表/详情站,原行为不变)。
-    archetype = str(task.extra.get("archetype", "catalog")).strip().lower()
-    if archetype == "spec":
-        cmd += ["--archetype", "spec"]
+    # 形态:人工在需求源显式填了 archetype(spec/catalog)就用人工的(覆盖);没填 → auto,
+    # 交给 spec 编译层的 LLM 分类器读需求判 spec/catalog(兜底 spec)。不再默认退化成 catalog 列表站。
+    archetype = str(task.extra.get("archetype", "auto")).strip().lower()
+    if archetype not in ("spec", "catalog", "auto"):
+        archetype = "auto"
+    cmd += ["--archetype", archetype]
     print(f"[delivery-loop] ⚙ [{task.id}] 调用 spec 编译层:{name} ← {spec_path} (archetype={archetype})")
     proc = subprocess.run(cmd, cwd=ROOT)
     if proc.returncode == 0 and case_available(name):
