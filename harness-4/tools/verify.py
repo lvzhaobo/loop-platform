@@ -225,11 +225,20 @@ def wait_ready(proc, path, timeout=40.0):
     return False, "timeout"
 
 
-def startup_diag(proc, reason):
-    """就绪失败时收集可操作诊断:被杀/自退 vs 超时,端口是否在听,stderr 尾部。
+def _tail_file(path, n=600):
+    """读日志文件尾部(app 的 stdout+stderr 全量落在这里)。"""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read().strip()[-n:]
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def startup_diag(proc, reason, run_log):
+    """就绪失败时收集可操作诊断:被杀/自退 vs 超时,端口是否在听,app 全量输出尾部。
     关键:这段信息会被 generate.sh 回灌给下一轮生成,空诊断=白修。"""
     listening = _tcp_open(VERIFY_PORT)
-    if proc.poll() is None:  # 超时:进程仍在,先终止才能非阻塞读管道
+    if proc.poll() is None:  # 超时:进程仍在,先终止(app 输出已落文件,无需读管道)
         try:
             proc.send_signal(signal.SIGTERM)
             proc.wait(timeout=3)
@@ -239,7 +248,7 @@ def startup_diag(proc, reason):
                 proc.wait(timeout=2)
             except Exception:  # noqa: BLE001
                 pass
-    tail = _drain(getattr(proc, "stderr", None)).strip()[-400:]
+    tail = _tail_file(run_log)
     if reason.startswith("exit:"):
         rc = reason.split(":", 1)[1].strip()
         killed = rc.startswith("-")  # 负数=被信号杀死(如 -9=SIGKILL,常见于 OOM 内存不足)
@@ -247,25 +256,40 @@ def startup_diag(proc, reason):
                 if killed else f"app.py 启动即退出 code={rc}")
     else:
         head = f"未在超时内就绪(进程仍在运行,端口{'已监听但未答 200' if listening else '未监听'})"
-    return head + ("; " + tail if tail else "; 无 stderr 输出")
+    if tail:
+        return head + "; app输出尾部: " + tail
+    # 连 werkzeug 的 "* Running on..." 横幅都没有 → 极可能没执行到 app.run() 或入口写法有误
+    return head + "; app 全程零输出(连 werkzeug 启动横幅都没有,极可能未执行到 app.run():检查 __main__ 入口/有无提前 return 或 sys.exit)"
 
 
 def check_runtime(out, case):
     env = dict(os.environ)
     env["PORT"] = str(VERIFY_PORT)
+    env["PYTHONUNBUFFERED"] = "1"  # app 的 print/日志实时落盘,不被块缓冲吞掉
     # 清除父进程(如 studio 的 Flask 调试重载器)注入的 werkzeug 套接字传递变量:
     # 否则被验收的 app.py 里 werkzeug 会去 socket.fromfd(继承来的 fd) 复用父进程套接字,
     # 在 Python 3.14 下触发 OSError: [Errno 9] Bad file descriptor,导致服务永远起不来。
     env.pop("WERKZEUG_SERVER_FD", None)
     env.pop("WERKZEUG_RUN_MAIN", None)
+    # Flask CLI(studio 用 `flask run` 启动)会注入 FLASK_RUN_FROM_CLI=true,并被子进程一路继承:
+    # 一旦被验收的 app.py 里检测到它,app.run() 会被 Flask 直接忽略
+    # (日志出现 "Ignoring a call to 'app.run()'"),服务根本不启动 →
+    # 进程干净退出 code=0 → 门禁误判为"生成失败"。必须清除,否则平台触发的批次必挂。
+    for _v in ("FLASK_RUN_FROM_CLI", "FLASK_APP", "FLASK_DEBUG", "FLASK_RUN_PORT", "FLASK_RUN_HOST"):
+        env.pop(_v, None)
+    # 把 app 的 stdout+stderr 全量落到 _app_run.log(不再丢 DEVNULL):
+    # 用文件而非管道,避免"启动成功后无人读管道→缓冲填满→app 卡死"的死锁;
+    # 失败时 startup_diag 从此文件取真相(连 werkzeug 横幅都没有=没跑到 app.run)。
+    run_log = os.path.join(out, "_app_run.log")
+    log_fh = open(run_log, "wb")
     proc = subprocess.Popen(
         [sys.executable, "app.py"], cwd=out, env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        stdout=log_fh, stderr=subprocess.STDOUT,
     )
     try:
         ok, reason = wait_ready(proc, case["routes"]["list"])
         if not ok:
-            return record("运行时:服务可启动", False, startup_diag(proc, reason))
+            return record("运行时:服务可启动", False, startup_diag(proc, reason, run_log))
         record("运行时:服务可启动", True)
 
         arr_path = os.path.join(out, case["data_file"])
@@ -319,6 +343,10 @@ def check_runtime(out, case):
             proc.wait(timeout=5)
         except Exception:  # noqa: BLE001
             proc.kill()
+        try:
+            log_fh.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ---------- 报告 ----------

@@ -74,14 +74,17 @@ def slugify_case(task_id: str) -> str:
 
 
 def case_available(case: str) -> bool:
-    """case 是否可跑:预置用例,或 cases/<case>/case.json 已存在(含 spec 编译产物)。
+    """case 是否可跑:预置用例,或已编译出契约——
+    catalog 形态看 cases/<case>/case.json;Spec 形态(单页交互工具)看 cases/<case>/spec/manifest.json。
 
     generate.sh 以 HARNESS_CASES 直跑指定用例,不受 constraints.json["cases"] 限制,
-    故只要 case.json 在,引擎即可生成+验证——这也从根上打破了写死的 case 边界。
+    故只要契约在,引擎即可生成+验证——这也从根上打破了写死的 case 边界。
     """
     if case in VALID_CASES:
         return True
-    return os.path.exists(os.path.join(ROOT, HARNESS, "cases", case, "case.json"))
+    cdir = os.path.join(ROOT, HARNESS, "cases", case)
+    return (os.path.exists(os.path.join(cdir, "case.json"))
+            or os.path.exists(os.path.join(cdir, "spec", "manifest.json")))
 
 
 def compile_from_spec(task: Task) -> tuple[str | None, str, str | None]:
@@ -95,7 +98,12 @@ def compile_from_spec(task: Task) -> tuple[str | None, str, str | None]:
     name = slugify_case(task.id)
     cmd = [sys.executable, f"{HARNESS}/tools/spec_compiler.py",
            "--name", name, "--input", os.path.join(ROOT, spec_path)]
-    print(f"[delivery-loop] ⚙ [{task.id}] 调用 spec 编译层:{name} ← {spec_path}")
+    # 形态:任务可显式声明 archetype=spec(单页交互工具,如计时器),编译走 Spec 路径产出
+    # spec.md+manifest.json+acceptance.json;缺省 catalog(列表/详情站,原行为不变)。
+    archetype = str(task.extra.get("archetype", "catalog")).strip().lower()
+    if archetype == "spec":
+        cmd += ["--archetype", "spec"]
+    print(f"[delivery-loop] ⚙ [{task.id}] 调用 spec 编译层:{name} ← {spec_path} (archetype={archetype})")
     proc = subprocess.run(cmd, cwd=ROOT)
     if proc.returncode == 0 and case_available(name):
         return name, spec_path, None

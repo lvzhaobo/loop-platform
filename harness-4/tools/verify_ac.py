@@ -170,19 +170,40 @@ def wait_ready(proc, path, timeout=40.0):
     return False
 
 
+def _tail_file(path, n=600):
+    """读日志文件尾部(app 的 stdout+stderr 全量落在这里)。"""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read().strip()[-n:]
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def run_http_batch(out, http_tcs, ready_route):
     env = dict(os.environ)
     env["PORT"] = str(VERIFY_PORT)
+    env["PYTHONUNBUFFERED"] = "1"  # app 输出实时落盘,不被块缓冲吞掉
     env.pop("WERKZEUG_SERVER_FD", None)
     env.pop("WERKZEUG_RUN_MAIN", None)
+    # Flask CLI(studio 用 `flask run` 启动)注入 FLASK_RUN_FROM_CLI=true 会被子进程一路继承:
+    # 一旦被验收的 app.py 检测到它,app.run() 会被 Flask 直接忽略
+    # (日志出现 "Ignoring a call to 'app.run()'"),服务根本不启动 →
+    # 进程干净退出 code=0 → 门禁误判。必须清除,否则平台触发的 Spec 验收必挂。
+    for _v in ("FLASK_RUN_FROM_CLI", "FLASK_APP", "FLASK_DEBUG", "FLASK_RUN_PORT", "FLASK_RUN_HOST"):
+        env.pop(_v, None)
+    # app 的 stdout+stderr 全量落到 _app_run.log(文件而非管道,避免缓冲填满卡死);失败时取尾部诊断。
+    run_log = os.path.join(out, "_app_run.log")
+    log_fh = open(run_log, "wb")
     proc = subprocess.Popen(
         [sys.executable, "app.py"], cwd=out, env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        stdout=log_fh, stderr=subprocess.STDOUT,
     )
     try:
         if not wait_ready(proc, ready_route):
-            err = proc.stderr.read().decode("utf-8", "replace")[-300:] if proc.stderr else ""
-            record("运行时:服务可启动", False, "未在超时内就绪; " + err)
+            tail = _tail_file(run_log)
+            diag = ("未在超时内就绪; app输出尾部: " + tail if tail
+                    else "未在超时内就绪; app 全程零输出(连 werkzeug 启动横幅都没有,极可能未执行到 app.run())")
+            record("运行时:服务可启动", False, diag)
             for tc in http_tcs:  # 服务起不来,http 断言全判失败
                 record(f"{tc.get('id', tc['type'])}:{tc.get('desc') or tc['type']}", False, "服务未就绪")
             return
@@ -213,6 +234,10 @@ def run_http_batch(out, http_tcs, ready_route):
             proc.wait(timeout=5)
         except Exception:  # noqa: BLE001
             proc.kill()
+        try:
+            log_fh.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ---------- 报告 ----------

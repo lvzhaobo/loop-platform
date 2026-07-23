@@ -12,8 +12,17 @@ MAX_RETRY=5
 source "$HDIR/config.env"
 [ -z "$DEEPSEEK_API_KEY" ] && [ -f .env ] && source .env
 
-# 选择 Python 解释器:优先仓库 .venv,其次 python3(macOS 无裸 python)
-if [ -x "$ROOT/.venv/bin/python" ]; then PYTHON="$ROOT/.venv/bin/python"; elif command -v python3 >/dev/null 2>&1; then PYTHON="$(command -v python3)"; else PYTHON="$(command -v python)"; fi
+# 选择 Python 解释器:强制锁定仓库 .venv,禁止静默回退系统 python。
+# 动机:generate 与手动验证若用到不同解释器(版本/依赖不一致),会让"环境问题"伪装成"生成失败"。
+# 缺 .venv 直接报错停机,而非悄悄用系统 python 蒙混过关。
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  PYTHON="$ROOT/.venv/bin/python"
+else
+  echo "[generate] 致命: 未找到 $ROOT/.venv/bin/python。整条生成/验收闭环锁定该解释器以保证环境一致。" >&2
+  echo "[generate] 请先: python3 -m venv .venv 并安装依赖(flask 等)。" >&2
+  exit 3
+fi
+echo "[generate] Python 解释器: $PYTHON ($("$PYTHON" -V 2>&1))"
 
 # 用例集:优先环境变量 HARNESS_CASES;否则用 constraints.json 的 run_cases(默认运行集);
 # run_cases 缺省时回退到 cases(全部已登记用例)。仅影响「实际运行」,不影响自洽检查/Schema 派生。

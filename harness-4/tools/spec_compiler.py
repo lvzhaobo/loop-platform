@@ -177,6 +177,8 @@ def build_prompt_spec(free_text, name):
 - file_exists / text_* / unit_test 引用的文件**必须**出现在 manifest.required_files 里。
 - 至少包含:1 条 http_status 首页返回 200;1 条 http_body_contains 校验核心文案;
   1 条 unit_test 校验抽出的纯逻辑;建议再加 1 条 text_absent 断言「不是列表站」(如 app.py 不含 detail_markers)。
+- **若需求原文点名要求页面出现某段字面文案(如版本号/口号/日期),必须为每段这样的文案各加一条
+  http_body_contains 断言(needle 逐字照抄,不得改写/翻译/省略),确保它真出现在渲染后的页面上。**
 - 只写**客观可判定**的断言;主观效果(声音/动画/美观)一律用 manual。
 """
 
@@ -433,6 +435,16 @@ def write_case_spec(name, blocks):
         with open(os.path.join(cdir, rel), "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, indent=2)
             f.write("\n")
+    # 定性为 Spec 形态:清除同名 case 的 catalog 残留(旧 case.json 及 catalog spec 三件套),
+    # 否则 run_model 一见 case.json 就误走 catalog(列表站),这套 Spec 契约形同虚设。
+    for stale in ("case.json", "case.meta.json",
+                  os.path.join("spec", "api-contract.md"),
+                  os.path.join("spec", "data-model.md"),
+                  os.path.join("spec", "ui-spec.md")):
+        p = os.path.join(cdir, stale)
+        if os.path.exists(p):
+            os.remove(p)
+            print(f"[spec_compiler] 清除 catalog 残留: {stale}")
     print(f"[spec_compiler] 已写 cases/{name}/spec/(spec.md + manifest.json + acceptance.json)")
     return cdir
 

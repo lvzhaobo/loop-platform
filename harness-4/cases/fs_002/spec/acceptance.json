@@ -1,0 +1,50 @@
+{
+  "name": "fs_002",
+  "ready_route": "/",
+  "acceptance": [
+    {
+      "id": "TC1",
+      "type": "http_status",
+      "route": "/",
+      "expect": 200,
+      "desc": "首页返回200"
+    },
+    {
+      "id": "TC2",
+      "type": "http_body_contains",
+      "route": "/",
+      "needle": "Loop-20260721",
+      "desc": "页面包含指定文案Loop-20260721"
+    },
+    {
+      "id": "TC3",
+      "type": "unit_test",
+      "test": "tests/test_timer_core.py",
+      "desc": "timer_core.py纯逻辑单元测试通过"
+    },
+    {
+      "id": "TC4",
+      "type": "text_absent",
+      "file": "app.py",
+      "needle": "detail",
+      "desc": "app.py不含detail相关词汇，非列表站"
+    },
+    {
+      "id": "TC5",
+      "type": "file_exists",
+      "file": "timer_core.py",
+      "desc": "timer_core.py文件存在"
+    },
+    {
+      "id": "TC6",
+      "type": "file_exists",
+      "file": "static/js/timer.js",
+      "desc": "timer.js文件存在"
+    },
+    {
+      "id": "TC7",
+      "type": "manual",
+      "desc": "需人工抽检：页面白色背景，番茄红色调，计时器交互正常"
+    }
+  ]
+}

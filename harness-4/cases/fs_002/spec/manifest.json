@@ -1,0 +1,20 @@
+{
+  "archetype": "spec",
+  "name": "fs_002",
+  "title": "番茄时钟-LOOP",
+  "tech": {
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/index.html",
+    "static/js/timer.js",
+    "static/css/style.css",
+    "timer_core.py",
+    "tests/test_timer_core.py"
+  ]
+}
