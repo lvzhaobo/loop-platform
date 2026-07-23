@@ -2,11 +2,7 @@
   "archetype": "spec",
   "name": "pomodoro",
   "title": "番茄时钟:25 分钟专注倒计时(可开始/重置,结束有提示)",
-  "tech": {
-    "framework": "flask",
-    "language": "python",
-    "port_env": "PORT"
-  },
+  "tech": {"framework": "flask", "language": "python", "port_env": "PORT"},
   "required_files": [
     "app.py",
     "requirements.txt",
