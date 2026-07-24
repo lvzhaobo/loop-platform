@@ -512,34 +512,10 @@ def acceptance_gate(cdir, name):
     return True
 
 
-# ---------------------------------------------------------------- 形态自动分类
-def classify_archetype(free_text: str) -> str:
-    """LLM 读需求原文,判定该做「单页交互工具(spec)」还是「数据目录站(catalog)」。
-    判据:需求核心是「用户在页面上操作/交互」→ spec;是「浏览一批条目看详情」→ catalog。
-    判不了 / 无 key / 异常 一律兜底 spec —— 交互工具才是绝大多数真实需求的常态,
-    绝不再默认退化成列表站。"""
-    text = (free_text or "").strip()
-    if not text:
-        return "spec"
-    system = (
-        "你是需求形态分类器。只回一个词:spec 或 catalog,不要任何解释、不要标点。\n"
-        "- spec = 围绕某个核心交互的单页 Web 工具(计时器/计算器/排序或算法可视化/"
-        "编辑器/绘图板/播放器/小游戏/表单工具等)。\n"
-        "- catalog = 以数据集为主的内容站,典型是「列表页 + 详情页」"
-        "(如商品目录、菜谱大全、文章博客、课程列表)。\n"
-        "判据:核心是「用户在页面上操作/交互」→ spec;核心是「浏览一批条目并看详情」→ catalog。\n"
-        "拿不准一律回 spec。"
-    )
-    try:
-        ans = run_model.call_deepseek(system, f'需求原文:\n"""{text[:4000]}"""').strip().lower()
-    except SystemExit:
-        return "spec"   # 无 DEEPSEEK_API_KEY:兜底 spec
-    except Exception:
-        return "spec"   # 网络/解析异常:兜底 spec
-    # 只有明确判成 catalog 才走 catalog,其余(含含糊输出)一律 spec
-    return "catalog" if "catalog" in ans and "spec" not in ans else "spec"
-
-
+# ----------------------------------------------------------------
+# 形态:catalog(列表/详情站)已彻底下线,不再有"形态分类"这一步。
+# 一切需求都当作 spec(单页交互工具)由 LLM 读原文解析生成。原 classify_archetype()
+# 已随 catalog 下线而移除。
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description="Spec 编译层:自由文本 → 合规 case 契约")
@@ -548,8 +524,9 @@ def main():
     src.add_argument("--text", help="直接给一段自由文本需求")
     src.add_argument("--input", help="从文件读自由文本需求")
     ap.add_argument("--mock", action="store_true", help="离线模式:用内置领域样例自证链路,不调用 LLM")
-    ap.add_argument("--archetype", choices=("auto", "catalog", "spec"), default="auto",
-                    help="auto=LLM 自动判形态(默认,兜底 spec);spec=单页交互工具;catalog=列表/详情站")
+    ap.add_argument("--archetype", choices=("auto", "catalog", "spec"), default="spec",
+                    help="[catalog 已下线] 入参保留仅为向后兼容;无论传 auto/catalog/spec 都强制按 spec"
+                         "(单页交互工具)由 LLM 解析生成,catalog 列表形态不再生效")
     args = ap.parse_args()
 
     if not args.mock:
@@ -562,11 +539,11 @@ def main():
     else:
         free_text = ""
 
-    # 形态解析:auto → LLM 读需求判 spec/catalog(离线 mock 兜底 spec);人工显式值直接用(覆盖)
-    archetype = args.archetype
-    if archetype == "auto":
-        archetype = "spec" if args.mock else classify_archetype(free_text)
-        print(f"[spec_compiler] 形态自动判定 → archetype={archetype}")
+    # 形态解析:catalog(列表/详情站)已彻底下线。无论入参 auto/catalog/spec,一律 spec ——
+    # 完全交给 LLM 读需求原文解析并生成单页交互工具。即便显式选/填 catalog 也不生效。
+    if args.archetype == "catalog":
+        print("[spec_compiler] ⚠ 已忽略 --archetype catalog:列表形态已下线,强制按 spec 生成")
+    archetype = "spec"
 
     print("=" * 64)
     print(f"Spec 编译层 Phase 1 | name={args.name} | archetype={archetype} | mode={'mock' if args.mock else 'LLM'}")
