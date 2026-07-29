@@ -107,6 +107,8 @@ def _read_json(path):
         return json.load(f)
 
 def _write_json(path, data):
+    # data/ 是运行时目录不入仓，克隆部署后首次写入时需自动创建
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
