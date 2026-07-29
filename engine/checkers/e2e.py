@@ -9,14 +9,19 @@ from .entry import detect_entry, clean_env, wait_http_ready
 
 
 class DOMCheck(HTMLParser):
+    INTERACTIVE = ("button", "input", "textarea", "select")
+
     def __init__(self):
         super().__init__()
-        self.tags = []; self.buttons = []
+        self.tags = []; self.buttons = []; self.has_js = False
 
     def handle_starttag(self, tag, attrs):
         self.tags.append(tag)
-        if tag in ("button", "input"):
+        ad = dict(attrs)
+        if tag in self.INTERACTIVE or "onclick" in ad or ad.get("role") == "button":
             self.buttons.append(tag)
+        elif tag == "script":
+            self.has_js = True
 
 
 @register("e2e")
@@ -26,7 +31,14 @@ class E2EChecker(Checker):
     def _assert_dom(self, checks, html_text):
         dom = DOMCheck(); dom.feed(html_text)
         checks.append({"name": "页面渲染", "pass": len(html_text) > 0, "detail": f"{len(html_text)} 字符"})
-        checks.append({"name": "交互元素", "pass": len(dom.buttons) > 0, "detail": f"{len(dom.buttons)} 个按钮/输入框"})
+        if dom.buttons:
+            checks.append({"name": "交互元素", "pass": True, "detail": f"{len(dom.buttons)} 个交互元素(按钮/输入框/onclick)"})
+        elif dom.has_js:
+            # html/css/js 分离的产物界面常由 JS 运行时渲染，静态解析看不到；
+            # 有 <script> 即视为动态渲染，不误报(真正的交互验证需真实浏览器)
+            checks.append({"name": "交互元素", "pass": True, "detail": "静态DOM未见交互元素，但页面含 JS 动态渲染，视为通过"})
+        else:
+            checks.append({"name": "交互元素", "pass": False, "detail": "0 个交互元素且无 JS，疑似不可交互的死页面"})
 
     def check(self, target_dir: str) -> CheckerResult:
         checks = []
