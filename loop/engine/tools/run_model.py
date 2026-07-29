@@ -4,7 +4,7 @@
   - real  :调用 DeepSeek,依据 prompt + rules + 该用例 spec + case.json(唯一事实源)生成;
   - sample:离线参考生成器(不烧额度,产物确定性、必过 verify),用于冒烟/CI/确定性基线。
 
-用法: python harness-4/tools/run_model.py <case> <产物目录> [反馈日志]
+用法: python loop/engine/tools/run_model.py <case> <产物目录> [反馈日志]
 环境: HARNESS_MODE=real|sample;密钥从环境变量 DEEPSEEK_API_KEY 读取。
 """
 import glob
@@ -279,7 +279,7 @@ def _png(path, rgb, size=400):
 
 def main():
     if len(sys.argv) < 3:
-        sys.exit("用法: python harness-4/tools/run_model.py <case> <产物目录> [反馈日志]")
+        sys.exit("用法: python loop/engine/tools/run_model.py <case> <产物目录> [反馈日志]")
     case_name, out = sys.argv[1], sys.argv[2]
     # 无外部约束文件，Spec 是唯一事实源
     constraints = {}

@@ -400,6 +400,29 @@ def list_checks():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def _svg(body):
+    """简笔画线条 icon：统一描边风格，随文字颜色(currentColor)。"""
+    return ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+            'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+            'stroke-linejoin="round" style="vertical-align:-2px">%s</svg>' % body)
+
+
+_PIPE_ICONS = {
+    # 折角文档+段落线:Spec 编译
+    "mumuspec": _svg('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/>'),
+    # 三节点连线图:多 Agent 协作
+    "langgraph": _svg('<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/>'
+                      '<circle cx="12" cy="17" r="2.5"/><path d="M8.5 6h7M7 8.2l3.8 6.3M17 8.2l-3.8 6.3"/>'),
+    # 信号灯:门禁
+    "gate": _svg('<rect x="9" y="3" width="6" height="18" rx="3"/>'
+                 '<circle cx="12" cy="7.5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="16.5" r="1"/>'),
+    # 循环箭头:生成主循环
+    "generate": _svg('<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v5h-5"/>'),
+    # 滑杆:功能开关
+    "features": _svg('<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.2"/><circle cx="15" cy="17" r="2.2"/>'),
+}
+
+
 @app.route("/api/pipeline", methods=["GET"])
 def list_pipeline():
     """流水线各环节可枚举清单（除 checker 之外）：
@@ -410,7 +433,7 @@ def list_pipeline():
     try:
         from mumuspec_compiler import SKILLS
         stages.append({
-            "key": "mumuspec", "name": "MumuSpec 六轮编译", "icon": "📐",
+            "key": "mumuspec", "name": "MumuSpec 六轮编译", "icon": _PIPE_ICONS["mumuspec"],
             "desc": "自由文本需求 → 契约三件套（‘生成’前的 Spec 编译）",
             "toggle": "mumuspec",
             "items": [{"id": s["id"], "name": s["name"]} for s in SKILLS],
@@ -421,7 +444,7 @@ def list_pipeline():
     try:
         from langgraph_orchestrator import AGENTS
         stages.append({
-            "key": "langgraph", "name": "LangGraph 多 Agent 协作", "icon": "",
+            "key": "langgraph", "name": "LangGraph 多 Agent 协作", "icon": _PIPE_ICONS["langgraph"],
             "desc": "五 Agent 流水线：分析 → 生成 → 审查 → 测试 → 集成",
             "toggle": "langgraph",
             "items": [{"id": a["id"], "name": a["name"], "desc": a.get("desc", "")} for a in AGENTS],
@@ -430,7 +453,7 @@ def list_pipeline():
         pass
     # ③ 门禁三阶段（gate.py 固定流程）
     stages.append({
-        "key": "gate", "name": "门禁闭环", "icon": "🚦",
+        "key": "gate", "name": "门禁闭环", "icon": _PIPE_ICONS["gate"],
         "desc": "任一阶段失败即终止（python loop/engine/gate.py）",
         "items": [
             {"id": "1/3", "name": "Spec 自洽性校验", "desc": "compile_spec.py --check"},
@@ -440,7 +463,7 @@ def list_pipeline():
     })
     # ④ 生成主循环阶段（generate.py main）
     stages.append({
-        "key": "generate", "name": "生成主循环", "icon": "🔁",
+        "key": "generate", "name": "生成主循环", "icon": _PIPE_ICONS["generate"],
         "desc": "单用例的生成→验收→重试闭环（含护栏）",
         "items": [
             {"id": "S1", "name": "生成产物", "desc": "Maker 生成代码"},
@@ -465,7 +488,7 @@ def list_pipeline():
             "det_check": "确定性复跑",
         }
         stages.append({
-            "key": "features", "name": "功能开关", "icon": "🎛",
+            "key": "features", "name": "功能开关", "icon": _PIPE_ICONS["features"],
             "desc": "全局能力开关（可在设置页切换）",
             "items": [{"id": k, "name": fmeta.get(k, k), "on": bool(v)}
                       for k, v in feats.items()],

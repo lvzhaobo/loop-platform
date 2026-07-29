@@ -7,7 +7,7 @@
   4. run 隔离报告:把逐项结果写入 <out>/reports/verify-report.json 与 summary.md;
   5. 全部检查收集后统一判定,一次看清所有问题(而非首错即停)。
 
-用法: python harness-4/tools/verify.py <case> <产物目录>
+用法: python loop/engine/tools/verify.py <case> <产物目录>
 """
 import json
 import os
@@ -385,7 +385,7 @@ def write_reports(out, case):
 
 def main():
     if len(sys.argv) < 3:
-        sys.exit("用法: python harness-4/tools/verify.py <case> <产物目录>")
+        sys.exit("用法: python loop/engine/tools/verify.py <case> <产物目录>")
     case_name, out = sys.argv[1], sys.argv[2]
     # 硬编码安全检查，不依赖外部文件
     case = load_json(os.path.join(LOOP_DIR, "cases", case_name, "case.json"))

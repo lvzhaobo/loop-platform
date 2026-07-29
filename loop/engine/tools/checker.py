@@ -70,10 +70,8 @@ register(Check(
     category="structure", active=True))
 
 # ── 宪法 ──
-register(Check(
-    id="inject-03", name="全局硬约束", quadrant="inject-rule",
-    description="constraints.json 注入：tech(框架/入口/端口)、base_required_files、banned_deps、banned_code_patterns、max_inline_style",
-    category="structure", active=True))
+# (已移除 inject-03 全局硬约束:constraints.json 已废弃，职责拆分到
+#  rules/base/security.md + rules/task/tech-stack.md(注入侧)与 verify.py 内置清单(验收侧))
 
 # ── 通用基座规则 rules/base/ ──
 register(Check(
