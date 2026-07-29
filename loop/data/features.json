@@ -1,9 +1,0 @@
-{
-  "reasoning_review": true,
-  "reasoning_style": true,
-  "langgraph": true,
-  "mumuspec": true,
-  "cost_cap": true,
-  "stall_detect": true,
-  "det_check": true
-}

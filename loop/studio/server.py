@@ -421,7 +421,7 @@ def list_pipeline():
     try:
         from langgraph_orchestrator import AGENTS
         stages.append({
-            "key": "langgraph", "name": "LangGraph 多 Agent 协作", "icon": "🤖",
+            "key": "langgraph", "name": "LangGraph 多 Agent 协作", "icon": "",
             "desc": "五 Agent 流水线：分析 → 生成 → 审查 → 测试 → 集成",
             "toggle": "langgraph",
             "items": [{"id": a["id"], "name": a["name"], "desc": a.get("desc", "")} for a in AGENTS],
@@ -520,7 +520,10 @@ def swagger_ui():
 
 # ── 启动 ──
 if __name__ == "__main__":
+    # .env 优先取仓库上级(本地开发布局)，其次取 loop 目录本身(loop 作为仓库根克隆时)
     env_file = os.path.join(REPO_ROOT, ".env")
+    if not os.path.exists(env_file):
+        env_file = os.path.join(LOOP_DIR, ".env")
     if os.path.exists(env_file):
         with open(env_file) as f:
             for line in f:

@@ -1,3 +1,0 @@
-{"id":"T1","title":"Flask 后端骨架","desc":"创建 app.py 提供首页路由和健康检查","deps":[],"files":["app.py","requirements.txt"]}
-{"id":"T2","title":"前端计时器","desc":"HTML+JS 实现倒计时显示和控制","deps":["T1"],"files":["templates/index.html","static/css/style.css","static/js/timer.js"]}
-{"id":"T3","title":"测试","desc":"单元测试验证路由和计时逻辑","deps":["T1","T2"],"files":["tests/test_timer.py"]}

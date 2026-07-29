@@ -25,3 +25,9 @@ sample-new/
 0.md
 .claude/
 pyrightconfig.json
+
+# loop 内不入仓的部分:用例库(仅引擎批量线用)/运行时数据/过时CI模板/待办笔记
+loop/cases/
+loop/data/
+loop/ci/
+loop/PENDING.md
