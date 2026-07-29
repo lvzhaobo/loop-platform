@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loop Platform · 自主交付应用平台</title>
+  <link rel="stylesheet" href="/static/css/platform.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<!-- 客户端演示登录默认隐藏:外层已由 studio token 门禁保护(同源),避免双重登录。如需单独演示可移除 hide。 -->
+<div class="login-mask hide" id="loginMask">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <svg class="icon" style="width:30px;height:30px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.5 5.8"/><polyline points="4 20 4 14 10 14"/></svg>
+    </div>
+    <div class="login-title">Loop Platform</div>
+    <div class="login-sub">自主交付应用平台 · 登录以继续</div>
+    <div class="login-field">
+      <label>账号</label>
+      <div class="login-input">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <input id="loginUser" type="text" placeholder="请输入账号" autocomplete="username">
+      </div>
+    </div>
+    <div class="login-field">
+      <label>密码</label>
+      <div class="login-input">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <input id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="login-row"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" checked> 记住我</label><span style="color:var(--blue);cursor:pointer">忘记密码?</span></div>
+    <div class="login-err" id="loginErr">账号或密码错误，请重试</div>
+    <button class="login-btn" onclick="doLogin()">登 录</button>
+    <div class="login-tip">演示账号：<b>admin</b> / <b>loop123</b> · <span class="fill-btn" onclick="fillDemo()">一键填入</span></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+
+<!-- ============ HEADER ============ -->
+<header class="header">
+  <div class="brand">
+    <button class="nav-toggle" onclick="toggleNav()" title="折叠菜单">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+    </button>
+    <div class="brand-logo">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.5 5.8"/><polyline points="4 20 4 14 10 14"/></svg>
+    </div>
+    <div class="brand-txt">
+      <span class="brand-name">Loop Platform</span>
+      <span class="brand-sub">自主交付控制台</span>
+    </div>
+  </div>
+  <div class="crumb">
+    <span>控制台</span>
+    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    <span class="crumb-cur" id="crumbCur">Dashboard</span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="src-badge" id="srcBadge" onclick="probeLive(true)" title="点击重试连接"><span class="dot"></span><span id="srcTxt">—</span></div>
+  <div class="h-search">
+    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+    <input type="text" placeholder="搜索需求 / 应用 / 约束…">
+  </div>
+  <button class="h-btn" onclick="toggleTheme()" title="切换主题" id="themeBtn">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4" y1="12" x2="2" y2="12"/><line x1="22" y1="12" x2="20" y2="12"/><line x1="5.6" y1="5.6" x2="4.2" y2="4.2"/><line x1="19.8" y1="19.8" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/></svg>
+  </button>
+  <button class="h-btn" title="通知">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 7 2 7H4s2-2 2-7"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+    <span class="h-badge">3</span>
+  </button>
+  <button class="h-btn" title="帮助">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+  </button>
+  <div class="h-user" onclick="logout()" title="点击退出登录">
+    <div class="h-avatar">A</div>
+    <div><div class="h-user-name">Admin</div><div class="h-user-role">平台管理员</div></div>
+  </div>
+</header>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <nav class="nav-scroll">
+    <div class="nav-group-label">总览</div>
+    <div class="nav-item active" data-page="dashboard" data-title="Dashboard" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      <span class="nav-idx">00</span><span class="nav-txt">Dashboard</span>
+    </div>
+
+    <div class="nav-group-label">需求与契约</div>
+    <div class="nav-item" data-page="reqs" data-title="需求列表" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg>
+      <span class="nav-idx">01</span><span class="nav-txt">需求列表</span>
+    </div>
+    <div class="nav-item" data-page="spec" data-title="Spec 详情" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="13 3 13 8 18 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+      <span class="nav-idx">02</span><span class="nav-txt">Spec 详情</span>
+    </div>
+
+    <div class="nav-group-label">交付控制</div>
+    <div class="nav-item" data-page="harness" data-title="Harness 约束" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-idx">03</span><span class="nav-txt">Harness 约束</span>
+    </div>
+    <div class="nav-item" data-page="loop" data-title="Loop 引擎" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg>
+      <span class="nav-idx">04</span><span class="nav-txt">Loop 引擎</span>
+    </div>
+
+    <div class="nav-group-label">应用与运维</div>
+    <div class="nav-item" data-page="apps" data-title="APP List" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="nav-idx">05</span><span class="nav-txt">APP List</span>
+    </div>
+
+    <div class="nav-group-label">系统设置</div>
+    <div class="nav-item" data-page="setting" data-title="设置" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.15-1.4l1.8-1.4-1.9-3.3-2.1.9a7 7 0 0 0-2.4-1.4L13.9 2h-3.8l-.35 2.3a7 7 0 0 0-2.4 1.4l-2.1-.9-1.9 3.3 1.8 1.4A7 7 0 0 0 5 12a7 7 0 0 0 .15 1.4l-1.8 1.4 1.9 3.3 2.1-.9a7 7 0 0 0 2.4 1.4l.35 2.4h3.8l.35-2.3a7 7 0 0 0 2.4-1.4l2.1.9 1.9-3.3-1.8-1.4A7 7 0 0 0 19 12z"/></svg>
+      <span class="nav-idx">06</span><span class="nav-txt">设置</span>
+    </div>
+    <div class="nav-item" data-page="monitor" data-title="监控" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>
+      <span class="nav-idx">07</span><span class="nav-txt">监控</span>
+    </div>
+    <div class="nav-group-label">系统</div>
+    <div class="nav-item" data-page="swagger" data-title="API 文档" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span class="nav-idx">08</span><span class="nav-txt">API 文档</span>
+    </a>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-mini">
+      <span class="dot green"></span><span>引擎在线 · v4.0.0</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main class="main" id="main">
+<!-- ===== PAGE: Dashboard ===== -->
+<section class="page active" id="page-dashboard">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;padding:20px 24px">
+    <div class="card-title" style="margin-bottom:16px">Loop 交付流水线 · 全景</div>
+    <style>
+      .flow-node{background:var(--bg-2);border-radius:12px;padding:14px 18px;text-align:center;min-width:100px;position:relative}
+      .flow-node.active{border:2px solid var(--blue)}
+      .flow-node.maker{border:2px solid var(--orange)}
+      .flow-node.check{border:2px solid var(--green)}
+      .flow-node .fn-label{font-weight:800;font-size:14px;color:var(--text);margin-bottom:2px}
+      .flow-node .fn-sub{font-size:11px;color:var(--muted)}
+      .flow-node .fn-alt{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+      .flow-node .fn-alt span{font-size:10px;background:var(--card);border:1px solid var(--border-2);border-radius:5px;padding:2px 6px;color:var(--text-sec)}
+      .flow-row{display:flex;align-items:flex-start;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+      .flow-back{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;font-size:12px;color:var(--orange);font-weight:600}
+      .flow-back svg{width:18px;height:18px}
+    </style>
+
+    <!-- 正向流程 -->
+    <div class="flow-row">
+      <div class="flow-node">
+        <div class="fn-label">输入</div>
+        <div class="fn-sub">需求来源</div>
+        <div class="fn-alt"><span>飞书文档</span><span>直接输入</span><span>Jira 🚧</span><span>GitHub Issue 🚧</span></div>
+      </div>
+      <span style="font-size:20px;color:var(--muted);line-height:70px">→</span>
+      <div class="flow-node active">
+        <div class="fn-label">编译器</div>
+        <div class="fn-sub">Spec 编译</div>
+        <div class="fn-alt"><span>MumuSpec</span><span>LangGraph</span><span>Spec Kit 🚧</span><span>OpenSpec 🚧</span></div>
+      </div>
+      <span style="font-size:20px;color:var(--muted);line-height:70px">→</span>
+      <div class="flow-node maker">
+        <div class="fn-label">Maker</div>
+        <div class="fn-sub">代码生成</div>
+        <div class="fn-alt"><span>DeepSeek</span><span>Claude 🚧</span><span>Qoder 🚧</span><span>Copilot 🚧</span></div>
+      </div>
+      <span style="font-size:20px;color:var(--muted);line-height:70px">→</span>
+      <div class="flow-node check">
+        <div class="fn-label">Checker</div>
+        <div class="fn-sub">22 项验收</div>
+        <div class="fn-alt"><span>verify_ac.py</span><span>LLM-Judge 🚧</span><span>Playwright 🚧</span></div>
+      </div>
+      <span style="font-size:20px;color:var(--muted);line-height:70px">→</span>
+      <div class="flow-node">
+        <div class="fn-label">发布</div>
+        <div class="fn-sub">部署交付</div>
+        <div class="fn-alt"><span>GitHub</span><span>ECS</span><span>Vercel 🚧</span><span>Docker 🚧</span></div>
+      </div>
+    </div>
+
+    <!-- 回边：失败回喂 -->
+    <div class="flow-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg>
+      FAIL → 回喂 Maker（最多 5 轮）· 连续 3 次相同失败 → 卡死终止 · 花费上限 ¥100/批
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/></svg>
+    </div>
+
+    <!-- 护栏层 -->
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <span style="font-size:11px;background:var(--bg-2);border-radius:6px;padding:4px 10px;color:var(--text-sec)">确定性: temp=0 seed=42 复跑比哈希</span>
+      <span style="font-size:11px;background:var(--bg-2);border-radius:6px;padding:4px 10px;color:var(--text-sec)">约束: AGENTS.md + 7 rules（Spec 是唯一事实源）</span>
+      <span style="font-size:11px;background:var(--bg-2);border-radius:6px;padding:4px 10px;color:var(--text-sec)">评分: MumuSpec 四维评分</span>
+      <span style="font-size:11px;background:var(--bg-2);border-radius:6px;padding:4px 10px;color:var(--text-sec)">开关: 推理型/多Agent 可配置</span>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico b"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg></div></div><div class="kpi-val" id="kpiTotal">-</div><div class="kpi-label">需求总数</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico g"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div><div class="kpi-val" id="kpiDone">-</div><div class="kpi-label">已交付</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico o"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></div></div><div class="kpi-val" id="kpiOnline">-</div><div class="kpi-label">在线应用</div></div>
+    <div class="card kpi"><div class="kpi-top"><div class="kpi-ico p"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg></div></div><div class="kpi-val">-</div><div class="kpi-label">今日运行</div></div>
+  </div>
+
+  <div class="card panel">
+    <div class="panel-title">最近运行<span class="spacer"></span><span class="src-badge" id="dashSrc"><span class="dot"></span><span id="dashSrcTxt">-</span></span></div>
+    <table class="tbl">
+      <thead><tr><th>时间</th><th>用例</th><th>结果</th><th>轮次</th><th>确定性</th></tr></thead>
+      <tbody id="dashRuns"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== PAGE: 需求列表 ===== -->
+<section class="page" id="page-reqs">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></svg>需求列表</div>
+    <div class="page-desc">需求池 Backlog——支持直接填写文字需求，或粘贴飞书云文档链接自动解析入池。</div>
+  </div>
+  <div class="toolbar-row">
+    <button class="btn primary" onclick="openModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加需求</button>
+    <div class="seg"><button class="active">全部</button><button>待处理</button><button>已完成</button><button>失败</button></div>
+    <div class="spacer"></div>
+    <div class="mini-search"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input placeholder="搜索需求…"></div>
+  </div>
+  <div id="reqList">
+    <div class="card req-card"><div class="req-id">FS-002</div><div class="req-main"><div class="req-title">课程商城：课程列表 + 详情 + 报名</div><div class="req-meta"><span>来源 <b>飞书文档</b></span><span>优先级 <b>P1</b></span><span>发布 <b>sample3:5001</b></span><span>尝试 <b>1 次</b></span></div></div><span class="badge green">✔ done</span><div class="req-actions"><button class="btn sm" onclick="go(document.querySelector('[data-page=spec]'))">查看 Spec</button><button class="btn sm" onclick="toast('已重新入队，下次交付将重跑')">重跑</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-001</div><div class="req-main"><div class="req-title">博客站：文章列表 + 详情页</div><div class="req-meta"><span>来源 <b>文字需求</b></span><span>优先级 <b>P2</b></span><span>发布 <b>sample2:5002</b></span><span>尝试 <b>1 次</b></span></div></div><span class="badge green">✔ done</span><div class="req-actions"><button class="btn sm">查看 Spec</button><button class="btn sm">重跑</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-003</div><div class="req-main"><div class="req-title">招聘板：岗位列表 + 详情</div><div class="req-meta"><span>来源 <b>飞书文档</b></span><span>优先级 <b>P1</b></span><span>发布 <b>—</b></span><span>尝试 <b>2 次</b></span></div></div><span class="badge orange">● pending</span><div class="req-actions"><button class="btn sm">查看 Spec</button><button class="btn sm">移除</button></div></div>
+    <div class="card req-card"><div class="req-id">FS-004</div><div class="req-main"><div class="req-title">食谱站：菜谱列表 + 步骤详情</div><div class="req-meta"><span>来源 <b>文字需求</b></span><span>优先级 <b>P3</b></span><span>发布 <b>—</b></span><span>尝试 <b>3 次</b></span></div></div><span class="badge red">✘ failed</span><div class="req-actions"><button class="btn sm">查看日志</button><button class="btn sm">重跑</button></div></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Spec 详情 ===== -->
+<section class="page page-full" id="page-spec">
+  <div class="spec-topbar">
+    <span style="font-size:14px;font-weight:800">Spec 详情</span>
+    <span style="font-size:13px;color:var(--text-sec)">当前需求：</span>
+    <select class="spec-select" id="specSelect" onchange="toast('已切换到 '+this.value+'（各需求各一套 14 文档）')">
+      <option>FS-002 · 课程商城</option>
+      <option>FS-001 · 博客站</option>
+      <option>FS-003 · 招聘板</option>
+      <option>FS-004 · 食谱站</option>
+    </select>
+    <div class="doc-pills">
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--phase-meta,#78909c)"></span>Meta×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:#5c6bc0"></span>Proposal×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--green)"></span>Spec×3</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--blue)"></span>Design×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--orange)"></span>Plan×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--red)"></span>Test×2</span>
+      <span class="doc-pill"><span class="dp-dot" style="background:var(--purple)"></span>Trace×1</span>
+    </div>
+    <div class="spacer" style="flex:1"></div>
+    <button class="btn sm" onclick="document.getElementById('specFrame').src=document.getElementById('specFrame').src">刷新</button>
+    <a class="btn sm" href="/static/spec-console-bl-v4.html" target="_blank">新窗打开</a>
+  </div>
+  <div class="spec-frame-wrap">
+    <iframe id="specFrame" src="/static/spec-console-bl-v4.html" title="MumuSpec 14文档三环追溯"></iframe>
+  </div>
+</section>
+<!-- ===== PAGE: Harness 约束 ===== -->
+<section class="page" id="page-harness">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Harness 约束</div>
+    <div class="page-desc">用确定性的脚手架约束非确定性的模型输出。下方按“前馈 / 反馈 × 计算型 / 推理型”四象限组织。</div>
+  </div>
+  <!-- 象限图 -->
+  <div class="card quad-wrap">
+    <div class="quad-head"><svg class="icon" style="color:var(--blue)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg><span style="font-size:16px;font-weight:800">约束四象限</span><span class="hint" style="margin-left:8px">两条正交的轴：计算型/推理型 × 前馈/反馈</span></div>
+    <div class="quad-grid">
+      <div class="quad-col-head" style="grid-column:2"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 12h14M13 6l6 6-6 6"/></svg>前馈（生成前注入）</div>
+      <div class="quad-col-head" style="grid-column:3"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>反馈（生成后回喂）</div>
+      <div class="quad-axis-y" style="grid-row:2"><span>计算型 / 确定性</span></div>
+      <div class="quad-cell ffc" style="grid-row:2;grid-column:2"><div class="qc-title">前馈·计算型<span class="qc-tag">机械确定</span></div><div class="qc-items"><span class="qc-chip">rules</span><span class="qc-chip">AGENTS.md</span><span class="qc-chip">spec</span><span class="qc-chip">facts</span><span class="qc-chip">JSON Schema</span><span class="qc-chip">模板</span></div></div>
+      <div class="quad-cell fbc" style="grid-row:2;grid-column:3"><div class="qc-title">反馈·计算型<span class="qc-tag">客观可复现</span></div><div class="qc-items"><span class="qc-chip">lint</span><span class="qc-chip">单测</span><span class="qc-chip">类型</span><span class="qc-chip">Schema校验</span><span class="qc-chip">字段规则</span><span class="qc-chip">路由连通</span><span class="qc-chip">行数</span><span class="qc-chip">哈希</span></div></div>
+      <div class="quad-axis-y" style="grid-row:3"><span>推理型 / 裁判型</span></div>
+      <div class="quad-cell ffr" style="grid-row:3;grid-column:2"><div class="qc-title">前馈·推理型<span class="qc-tag">少见·不可控</span></div><div class="qc-items"><span class="qc-chip">让模型读需求自行推断风格</span></div></div>
+      <div class="quad-cell fbr" style="grid-row:3;grid-column:3"><div class="qc-title">反馈·推理型<span class="qc-tag">主观·有噪声</span></div><div class="qc-items"><span class="qc-chip">LLM-as-Judge</span><span class="qc-chip">代码评审</span><span class="qc-chip">意图·可读性</span><span class="qc-chip">UI 还原度</span></div></div>
+    </div>
+  </div>
+  <!-- 筛选 + 列表 -->
+  <div class="toolbar-row">
+    <div class="seg" id="harnessLevelSeg"><button class="active" onclick="filterHarness(this,'all')">全部</button><button onclick="filterHarness(this,'system')">🛡 系统级</button><button onclick="filterHarness(this,'project')">📦 项目级</button></div>
+    <div class="spacer"></div>
+    <div class="mini-search"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input placeholder="搜索约束文件…"></div>
+  </div>
+  <div class="card" id="harnessList">
+    <div class="file-row" data-level="system" onclick='openConstraint("security.md","system","前馈·计算型","rules/base/security.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></div><div class="file-main"><div class="file-name">security.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/security.md · 禁用危险调用、密钥不入代码</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("error-and-logging.md","system","前馈·计算型","rules/base/error-and-logging.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 8v5M12 16h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><div class="file-main"><div class="file-name">error-and-logging.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/error-and-logging.md · 统一错误处理与日志规范</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("testing.md","system","前馈·计算型","rules/base/testing.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/></svg></div><div class="file-main"><div class="file-name">testing.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/base/testing.md · 测试策略与覆盖要求</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="system" onclick='openConstraint("security.md","system","反馈·计算型","rules/base/security.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2"/></svg></div><div class="file-main"><div class="file-name">rules/base/security.md <span class="badge green">反馈·计算型</span></div><div class="file-path">rules/base/security.md · 安全基线规则</div></div><div class="file-tags"><span class="badge gray">🛡 系统级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("tech-stack.md","project","前馈·计算型","rules/task/tech-stack.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="file-main"><div class="file-name">tech-stack.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/tech-stack.md · Flask + Jinja + JSON 文件，锁定技术栈</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("structure.md","project","前馈·计算型","rules/task/structure.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="file-main"><div class="file-name">structure.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/structure.md · 目录骨架与必备文件</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("conventions.md","project","前馈·计算型","rules/task/conventions.md")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div class="file-main"><div class="file-name">conventions.md <span class="badge blue">前馈·计算型</span></div><div class="file-path">rules/task/conventions.md · 命名 / 代码风格约定</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+    <div class="file-row" data-level="project" onclick='openConstraint("case.json","project","反馈·计算型","cases/education/case.json")'><div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H6a2 2 0 0 0-2 2v4l-2 3 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4l2 3-2 3v4a2 2 0 0 1-2 2h-2"/></svg></div><div class="file-main"><div class="file-name">case.json <span class="badge green">反馈·计算型</span></div><div class="file-path">cases/education/case.json · 用例专属：字段 / 量化约束 / 路由 / 配色</div></div><div class="file-tags"><span class="badge purple">📦 项目级</span></div></div>
+  </div>
+</section>
+
+<!-- ===== PAGE: Loop Engine ===== -->
+<section class="page" id="page-loop">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><polyline points="20 3 20 8 15 8"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><polyline points="4 21 4 16 9 16"/></svg>Loop 引擎</div>
+  </div>
+
+  <div class="trigbar">
+    <span class="tb-field">需求
+      <select id="trigReq"><option value="">整池（全部待处理）</option></select>
+    </span>
+    <span class="tb-field">Maker
+      <select id="trigMaker"><option value="">自动</option><option value="deepseek">DeepSeek</option><option value="claude-code">Claude Code 🚧</option><option value="qoder">Qoder 🚧</option><option value="copilot">Copilot 🚧</option></select>
+    </span>
+    <span class="spacer"></span>
+    <label class="rt-toggle"><input type="checkbox" id="trigReal" checked> 推 GitHub</label>
+    <label class="rt-toggle"><input type="checkbox" id="trigECS" checked> 部署 ECS</label>
+    <span class="run-state idle" id="runState"><span class="dot"></span>就绪</span>
+    <button class="btn primary" id="trigBtn" onclick="lpRun()">▶ 开始交付</button>
+  </div>
+
+  <!-- 检查清单 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">交付流程</div>
+    <div id="checklist">
+      <div class="cl-item" id="cl-fetch"><span class="cl-icon">⬜</span><span class="cl-label">1. 获取需求</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-generate"><span class="cl-icon">⬜</span><span class="cl-label">2. 生成代码</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-security"><span class="cl-icon">⬜</span><span class="cl-label">3. 安全检查</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-runtime"><span class="cl-icon">⬜</span><span class="cl-label">4. 运行验证</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-e2e"><span class="cl-icon">⬜</span><span class="cl-label">5. E2E 测试</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-publish"><span class="cl-icon">⬜</span><span class="cl-label">6. 推送 GitHub</span><span class="cl-detail hint"></span></div>
+      <div class="cl-item" id="cl-deploy"><span class="cl-icon">⬜</span><span class="cl-label">7. 部署 ECS</span><span class="cl-detail hint"></span></div>
+    </div>
+  </div>
+
+  <!-- 流程全景：各环节内部可枚举步骤（六轮/五 Agent/门禁/生成主循环/开关） -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">流程全景 · 各环节 Checklist
+      <span class="hint" id="pipeStat" style="font-weight:400;margin-left:8px"></span>
+      <span style="float:right;font-weight:400">
+        <span class="hint" id="pipeRunState" style="margin-right:8px"></span>
+        <button class="btn sm" id="pipeGateBtn" onclick="runGate()">▶ 跑门禁</button>
+        <button class="btn sm" id="pipeGenBtn" onclick="runGenerate()">▶ 跑生成</button>
+      </span>
+    </div>
+    <div id="pipelinePanorama"><span class="hint">加载流程环节…</span></div>
+  </div>
+
+  <!-- 检查项全景：所有 checker + 各环节 -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">检查项全景 · Checklist
+      <span class="hint" id="checksStat" style="font-weight:400;margin-left:8px"></span>
+      <span class="hint" id="checksRunNote" style="font-weight:400;margin-left:8px"></span>
+    </div>
+    <div id="checkPanorama"><span class="hint">加载检查项…</span></div>
+  </div>
+
+  <!-- 日志 + 产物 -->
+  <div class="grid g2">
+    <div class="card panel">
+      <div class="panel-title">实时日志</div>
+      <div class="log-console" id="liveLog"><span class="lg-time">就绪。点击「开始交付」触发一次 Loop。</span></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-title">产物 & 链接</div>
+      <div id="outputLinks"><span class="hint">等待生成完成后显示</span></div>
+    </div>
+  </div>
+</section>
+<!-- ===== PAGE: 监控 ===== -->
+<section class="page" id="page-monitor">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>监控</div>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-title">运行历史</div>
+      <div class="hint" id="monitorRuns" style="min-height:120px">读取 output/runs.jsonl …</div>
+    </div>
+    <div class="card">
+      <div class="card-title">交付日志</div>
+      <div class="hint" id="monitorLog" style="min-height:120px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:12px;white-space:pre-wrap">选择运行记录查看详情</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="card-title">测试结果</div>
+    <div class="hint">冒烟 / 契约测试由引擎 verify.py 自动执行，每次交付即测。E2E / 压力测试预留。</div>
+  </div>
+</section>
+
+<!-- ===== PAGE: API 文档（Swagger 内嵌） ===== -->
+<section class="page page-full" id="page-swagger">
+  <div class="spec-topbar">
+    <span style="font-size:14px;font-weight:800">API 文档 · Swagger</span>
+    <div class="spacer" style="flex:1"></div>
+    <button class="btn sm" onclick="document.getElementById('swaggerFrame').src=document.getElementById('swaggerFrame').src">刷新</button>
+    <a class="btn sm" href="/swagger" target="_blank">新窗打开 ↗</a>
+  </div>
+  <div class="spec-frame-wrap">
+    <iframe id="swaggerFrame" src="/swagger" title="Swagger API 文档" style="width:100%;height:100%;border:none;background:#fff"></iframe>
+  </div>
+</section>
+<!-- ===== PAGE: APP List ===== -->
+<section class="page" id="page-apps">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>APP List</div>
+    <div class="page-desc">已发布到 ECS 等位置的各应用。实时探活状态、产物 URL、部署渠道。</div>
+  </div>
+  <div class="toolbar-row">
+    <div class="seg"><button class="active">卡片</button><button>列表</button></div>
+    <div class="spacer"></div>
+    <span class="hint" id="appsStat">共 6 个应用 · 5 在线 · 1 离线</span>
+  </div>
+  <div class="card-grid" id="appsGrid">
+    <div class="hint" style="padding:20px">从 API 动态加载已部署应用…</div>
+  </div>
+</section>
+
+<!-- ===== PAGE: 设置 ===== -->
+<section class="page" id="page-setting">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.15-1.4l1.8-1.4-1.9-3.3-2.1.9a7 7 0 0 0-2.4-1.4L13.9 2h-3.8l-.35 2.3a7 7 0 0 0-2.4 1.4l-2.1-.9-1.9 3.3 1.8 1.4A7 7 0 0 0 5 12a7 7 0 0 0 .15 1.4l-1.8 1.4 1.9 3.3 2.1-.9a7 7 0 0 0 2.4 1.4l.35 2.4h3.8l.35-2.3a7 7 0 0 0 2.4-1.4l2.1.9 1.9-3.3-1.8-1.4A7 7 0 0 0 19 12z"/></svg>设置</div>
+    <button class="btn primary sm" onclick="saveSettings()" id="settingsSaveBtn">保存</button>
+    <span id="settingsStatus" style="font-size:13px;color:var(--muted);margin-left:8px"></span>
+  </div>
+
+  <div class="set-tabs">
+    <span class="set-tab active" onclick="setTab(this,'maker')">Maker</span>
+    <span class="set-tab" onclick="setTab(this,'compiler')">编译器</span>
+    <span class="set-tab" onclick="setTab(this,'deploy')">发布部署</span>
+    <span class="set-tab" onclick="setTab(this,'runtime')">运行参数</span>
+  </div>
+
+  <!-- Maker Tab -->
+  <div class="set-panel active" id="set-maker">
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Maker 引擎</div>
+      <div class="form-row"><label>当前 Maker</label>
+        <select id="cfg_HARNESS_MAKER">
+          <option value="deepseek">DeepSeek API ✅</option>
+          <option value="claude-code">Claude Code CLI 🚧</option>
+          <option value="qoder">Qoder CLI 🚧</option>
+          <option value="copilot">GitHub Copilot CLI 🚧</option>
+          <option value="sample">Sample 离线生成器</option>
+        </select>
+      </div>
+      <p class="hint">🚧 标记为待开发。选择后点击下方按钮了解接入进度。</p>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-title">DeepSeek 配置</div>
+        <div class="form-row"><label>模型</label><input id="cfg_DEEPSEEK_MODEL" placeholder="deepseek-chat"></div>
+        <div class="form-row"><label>Base URL</label><input id="cfg_DEEPSEEK_BASE_URL" placeholder="https://api.deepseek.com"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">确定性参数</div>
+        <div class="form-row"><label>Temperature</label><input id="cfg_HARNESS_TEMPERATURE" placeholder="0"></div>
+        <div class="form-row"><label>Seed</label><input id="cfg_HARNESS_SEED" placeholder="42"></div>
+      </div>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-title">运行控制</div>
+        <div class="form-row"><label>生成模式</label><select id="cfg_HARNESS_MODE"><option value="real">real</option><option value="sample">sample · 离线</option></select></div>
+        <div class="form-row"><label>验证端口</label><input id="cfg_HARNESS_VERIFY_PORT" placeholder="5060"></div>
+        <div class="form-row"><label>确定性复跑</label><select id="cfg_HARNESS_DET_CHECK"><option value="1">开启</option><option value="0">关闭</option></select></div>
+        <div class="form-row"><label>单批最大任务</label><input id="cfg_HARNESS_MAX_TASKS" placeholder="0=不限"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Maker 接入计划</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+          <div>✅ DeepSeek API — 已接入</div>
+          <div>🚧 Claude Code CLI — <a class="lnk" href="docs/Maker插件化方案.md" target="_blank">方案已有</a>，待开发</div>
+          <div>🚧 Qoder CLI — 方案已有，待开发</div>
+          <div>🚧 Copilot CLI — 方案已有，待开发</div>
+          <div style="margin-top:8px">Maker 插件化架构已就绪，新增加一个 CLI 适配器约 50 行代码。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compiler Tab -->
+  <div class="set-panel" id="set-compiler">
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">编译器选择</div>
+      <div class="form-row"><label>默认编译器</label>
+        <select id="cfg_COMPILER">
+          <option value="mumuspec">MumuSpec R1-R6 ✅</option>
+          <option value="langgraph">LangGraph 多Agent ✅</option>
+          <option value="spec-kit">GitHub Spec Kit 🚧</option>
+          <option value="openspec">OpenSpec 🚧</option>
+          <option value="rasen">Rasen 🚧</option>
+        </select>
+      </div>
+      <p class="hint">🚧 = 待开发。当前可用: MumuSpec / LangGraph。</p>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-title">LangGraph Agent 配置</div>
+        <div class="form-row"><label>A1 需求分析师</label><select><option>启用 ✅</option><option>禁用</option></select></div>
+        <div class="form-row"><label>A2 代码生成师</label><select><option>启用 ✅</option><option>禁用</option></select></div>
+        <div class="form-row"><label>A3 代码审查师</label><select><option>启用 ✅</option><option>禁用</option></select></div>
+        <div class="form-row"><label>A4 测试工程师</label><select><option>启用 ✅</option><option>禁用</option></select></div>
+        <div class="form-row"><label>A5 集成协调师</label><select><option>启用 ✅</option><option>禁用</option></select></div>
+      </div>
+      <div class="card">
+        <div class="card-title">接入计划</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+          <div>✅ MumuSpec R1-R6 — 已实现</div>
+          <div>✅ LangGraph 五Agent — 已实现</div>
+          <div>🚧 GitHub Spec Kit — 社区标准，待适配</div>
+          <div>🚧 OpenSpec — Fission-AI，待适配</div>
+          <div>🚧 Rasen — 自主编排，待适配</div>
+          <div style="margin-top:8px">编译器接口: 输入自由文本 → 输出 spec/manifest.json + spec/acceptance.json。新增编译器只需实现此协议。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deploy Tab -->
+  <div class="set-panel" id="set-deploy">
+    <div class="card">
+      <div class="card-title">GitHub 发布</div>
+      <div class="form-row"><label>自动发布</label><select id="cfg_HARNESS_AUTOCOMMIT"><option value="0">关闭</option><option value="1">开启</option></select></div>
+      <div class="form-row"><label>目标仓库</label><input id="cfg_HARNESS_GIT_REMOTE" placeholder="github.com/owner/repo.git"></div>
+      <div class="form-row"><label>推送</label><select id="cfg_HARNESS_GIT_PUSH"><option value="1">开启</option><option value="0">仅本地提交</option></select></div>
+      <div class="form-row"><label>子目录前缀</label><input id="cfg_HARNESS_GIT_SUBDIR" placeholder="留空=分支模式, 填写=sample1"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">ECS 部署</div>
+      <div class="form-row"><label>部署</label><select id="cfg_ECS_DEPLOY"><option value="0">关闭</option><option value="1">开启</option></select></div>
+      <div class="grid g2"><div class="form-row"><label>主机</label><input id="cfg_ECS_HOST" placeholder="IP 地址"></div><div class="form-row"><label>用户</label><input id="cfg_ECS_SSH_USER" placeholder="root"></div></div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn sm" onclick="openDeploy('GitHub')">+ GitHub 渠道</button>
+      <button class="btn sm" onclick="openDeploy('ECS')" style="margin-left:8px">+ ECS 渠道</button>
+    </div>
+  </div>
+
+  <!-- Runtime Tab -->
+  <div class="set-panel" id="set-runtime">
+    <div class="card">
+      <div class="card-title">当前环境变量</div>
+      <div class="hint" style="font-family:monospace;font-size:12px;white-space:pre-wrap" id="settingsEnv"></div>
+    </div>
+  </div>
+</section>
+<!-- ============ DRAWER: Harness 详情 ============ -->
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="file-ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M7 3h7l5 5v13H7z"/><polyline points="13 3 13 8 18 8"/></svg></div>
+    <div style="flex:1"><div class="dh-title" id="dwName">security.md</div><div class="file-path" id="dwPath">rules/base/security.md</div></div>
+    <button class="drawer-close" onclick="closeDrawer()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+  </div>
+  <div class="drawer-body">
+    <div style="display:flex;gap:8px;margin-bottom:14px"><span class="badge blue" id="dwQuad">前馈·计算型</span><span class="badge gray" id="dwLevel">🛡 系统级</span></div>
+    <div id="dwView"><div class="code-box" id="dwCode"></div></div>
+    <textarea class="code-edit" id="dwEdit" style="display:none"></textarea>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn" id="dwEditBtn" onclick="editConstraint()">编辑</button>
+    <button class="btn primary" id="dwSaveBtn" onclick="saveConstraint()" style="display:none">保存</button>
+    <button class="btn" id="dwCancelBtn" onclick="cancelEdit()" style="display:none">取消</button>
+  </div>
+</div>
+
+<!-- ============ MODAL: 添加需求 ============ -->
+<div class="modal-mask" id="reqModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title">添加需求</div><button class="drawer-close" onclick="closeModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="tab-row"><button class="active" onclick="reqTab(this,'txt')">文字需求</button><button onclick="reqTab(this,'fs')">飞书云文档</button></div>
+      <div id="reqtab-txt">
+        <div class="form-row"><label>标题</label><input id="txtTitle" placeholder="例：课程商城：课程列表 + 详情"></div>
+        <div class="form-row"><label>需求描述</label><textarea id="txtDesc" rows="5" placeholder="描述页面形态、字段、量化要求…"></textarea></div>
+        <div class="form-grid"><div class="form-row"><label>优先级</label><select id="txtPrio"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></div><div class="form-row"><label>编译方式</label><select id="txtCompiler"><option value="mumuspec">MumuSpec 六轮</option><option value="langgraph">LangGraph 多Agent</option></select></div></div>
+      </div>
+      <div id="reqtab-fs" style="display:none">
+        <div class="form-row"><label>标题（可选）</label><input id="fsTitle" placeholder="留空则取文档标题"></div>
+        <div class="form-row"><label>飞书文档链接</label><input id="fsLink" placeholder="粘贴 wiki / docx 链接，自动解析 token" oninput="parseFs(this.value)"></div>
+        <div class="login-tip" id="fsPreview" style="display:none"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('reqModal')">取消</button><button class="btn primary" onclick="addBacklog()">加入需求池</button></div>
+  </div>
+</div>
+
+
+<!-- ============ MODAL: 部署渠道 ============ -->
+<div class="modal-mask" id="deployModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title" id="dpTitle">添加部署渠道</div><button class="drawer-close" onclick="closeModal('deployModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body" id="dpBody"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('deployModal')">取消</button><button class="btn primary" onclick="saveDeployChannel()">保存渠道</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: Maker 配置 ============ -->
+<div class="modal-mask" id="makerModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title" id="mkTitle">添加 Maker</div><button class="drawer-close" onclick="closeModal('makerModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body" id="mkBody"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('makerModal')">取消</button><button class="btn primary" onclick="saveMakerProfile()">保存 Maker</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+  <script src="/static/js/platform.js"></script>
+</body>
+</html>

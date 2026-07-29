@@ -1,0 +1,25 @@
+# ---- 密钥/环境（永不提交）----
+.env
+.env.*
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ---- 运行时状态 / 产物 ----
+output/
+dist-repos/
+.last_ts
+delivery-loop/backlog/feishu_state.json
+delivery-loop/backlog/feishu_docs.json
+delivery-loop/backlog/backlog.jsonl
+*.log
+
+# ---- OS / 编辑器 ----
+.DS_Store
+.idea/
+.vscode/

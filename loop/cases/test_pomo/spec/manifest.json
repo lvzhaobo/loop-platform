@@ -1,0 +1,18 @@
+{
+  "archetype": "spec",
+  "name": "test_pomo",
+  "title": "番茄钟",
+  "tech": {
+    "framework": "flask",
+    "language": "python"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/index.html",
+    "static/css/style.css",
+    "static/js/timer.js",
+    "tests/test_timer.py"
+  ]
+}

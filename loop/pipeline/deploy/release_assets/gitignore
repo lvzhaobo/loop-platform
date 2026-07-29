@@ -1,0 +1,22 @@
+# ===== 密钥 / 环境(禁止提交)=====
+.env
+*.env.local
+harness/.deepseek_key
+
+# ===== Python =====
+.venv/
+__pycache__/
+*.pyc
+
+# ===== 运行中间态 / 产物 =====
+output/
+.last_ts
+delivery-loop/.trigger.lock/
+
+# ===== 运行态账本(各团队自有数据,勿入库)=====
+delivery-loop/backlog/feishu_state.json
+delivery-loop/backlog/feishu_state.json.*
+delivery-loop/backlog/feishu_docs.json.*
+
+# ===== 直传部署临时件 =====
+.git.disabled.*

@@ -1,0 +1,21 @@
+{
+  "archetype": "spec",
+  "name": "jobs",
+  "title": "招聘网站首页与职位详情页",
+  "tech": {
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/base.html",
+    "templates/list.html",
+    "templates/detail.html",
+    "static/css/style.css",
+    "static/js/main.js",
+    "tests/test_app.py"
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "name": "fs_001",
+  "ready_route": "/",
+  "acceptance": [
+    {
+      "id": "TC-S01",
+      "type": "file_exists",
+      "file": "app.py",
+      "desc": "必备文件: app.py"
+    },
+    {
+      "id": "TC-S02",
+      "type": "file_exists",
+      "file": "requirements.txt",
+      "desc": "必备文件: requirements.txt"
+    },
+    {
+      "id": "TC-S03",
+      "type": "file_exists",
+      "file": "README.md",
+      "desc": "必备文件: README.md"
+    },
+    {
+      "id": "TC-S04",
+      "type": "file_exists",
+      "file": "templates/base.html",
+      "desc": "必备文件: templates/base.html"
+    },
+    {
+      "id": "TC-S05",
+      "type": "file_exists",
+      "file": "templates/list.html",
+      "desc": "必备文件: templates/list.html"
+    },
+    {
+      "id": "TC-S06",
+      "type": "file_exists",
+      "file": "templates/detail.html",
+      "desc": "必备文件: templates/detail.html"
+    },
+    {
+      "id": "TC-S07",
+      "type": "file_exists",
+      "file": "static/css/style.css",
+      "desc": "必备文件: static/css/style.css"
+    },
+    {
+      "id": "TC-S08",
+      "type": "file_exists",
+      "file": "static/js/main.js",
+      "desc": "必备文件: static/js/main.js"
+    },
+    {
+      "id": "TC-S09",
+      "type": "file_exists",
+      "file": "tests/test_app.py",
+      "desc": "必备文件: tests/test_app.py"
+    },
+    {
+      "id": "TC-D10",
+      "type": "text_absent",
+      "file": "requirements.txt",
+      "needle": "django",
+      "desc": "禁 django"
+    },
+    {
+      "id": "TC-D11",
+      "type": "text_absent",
+      "file": "requirements.txt",
+      "needle": "sqlalchemy",
+      "desc": "禁 sqlalchemy"
+    },
+    {
+      "id": "TC-D12",
+      "type": "text_absent",
+      "file": "requirements.txt",
+      "needle": "react",
+      "desc": "禁 react"
+    },
+    {
+      "id": "TC-SEC13",
+      "type": "text_absent",
+      "file": "app.py",
+      "needle": "eval(",
+      "desc": "禁 eval("
+    },
+    {
+      "id": "TC-SEC14",
+      "type": "text_absent",
+      "file": "app.py",
+      "needle": "exec(",
+      "desc": "禁 exec("
+    },
+    {
+      "id": "TC-SEC15",
+      "type": "text_absent",
+      "file": "app.py",
+      "needle": "os.system(",
+      "desc": "禁 os.system("
+    },
+    {
+      "id": "TC-DATA16",
+      "type": "http_json_min",
+      "route": "/api/tomato_clocks",
+      "min": 8,
+      "desc": "/api/tomato_clocks 返回 ≥ 8 条"
+    },
+    {
+      "id": "TC-DATA17",
+      "type": "http_status",
+      "route": "/api/tomato_clocks/9999",
+      "expect": 404,
+      "desc": "/api/tomato_clocks/9999 返回 404"
+    },
+    {
+      "id": "TC-R18",
+      "type": "http_status",
+      "route": "/api/tomato_clocks",
+      "expect": 200,
+      "desc": "/api/tomato_clocks 返回 200"
+    },
+    {
+      "id": "TC-R19",
+      "type": "http_status",
+      "route": "/",
+      "expect": 200,
+      "desc": "首页返回 200"
+    },
+    {
+      "id": "TC-UI20",
+      "type": "http_body_contains",
+      "route": "/",
+      "needle": "tomato-card",
+      "desc": "列表页含 tomato-card"
+    },
+    {
+      "id": "TC-UI21",
+      "type": "http_body_contains",
+      "route": "/tomato_clock/1",
+      "needle": "btn-tomato",
+      "desc": "详情页含 btn-tomato"
+    },
+    {
+      "id": "TC-UI22",
+      "type": "http_body_contains",
+      "route": "/tomato_clock/1",
+      "needle": "tomato-detail-body",
+      "desc": "详情页含 tomato-detail-body"
+    },
+    {
+      "id": "TC-UI23",
+      "type": "text_contains",
+      "file": "static/css/style.css",
+      "needle": "#e74c3c",
+      "desc": "CSS 含颜色 #e74c3c"
+    },
+    {
+      "id": "TC-UI24",
+      "type": "text_contains",
+      "file": "static/css/style.css",
+      "needle": "#ffffff",
+      "desc": "CSS 含颜色 #ffffff"
+    },
+    {
+      "id": "TC-T25",
+      "type": "unit_test",
+      "test": "tests/test_app.py",
+      "desc": "unittest 全绿"
+    }
+  ]
+}

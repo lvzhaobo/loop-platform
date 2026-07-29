@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>百炼Chatbot — Spec 14文档三环追溯</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--card:#fff;--card-border:#dee2e6;--text:#2c3e50;--text-sec:#495057;
+  --toolbar-bg:#fff;--toolbar-border:#e0e0e0;--tooltip-bg:#333;--tooltip-text:#fff;
+  --dim-opacity:.15;--hover-bg:#e3f2fd;--active-color:#1e88e5;
+  --shadow-sm:0 2px 8px rgba(0,0,0,.08);--shadow-md:0 4px 20px rgba(0,0,0,.15);
+  --sidebar-bg:#fafbfc;--sidebar-border:#e5e7eb;--sidebar-hover:#eef3fb;
+  --green:#4caf50;--red:#ef5350;--orange:#ff9800;--blue:#1e88e5;--purple:#8e24aa;
+  --phase-meta:#78909c;--phase-proposal:#5c6bc0;--phase-spec:#43a047;
+  --phase-design:#1e88e5;--phase-plan:#fb8c00;--phase-test:#e53935;--phase-trace:#8e24aa;
+}
+.dark{
+  --bg:#1a1a2e;--card:#16213e;--card-border:#2a3a5c;--text:#e0e0e0;--text-sec:#b0b0b0;
+  --toolbar-bg:#0f3460;--toolbar-border:#1a1a4e;--tooltip-bg:#0f3460;--tooltip-text:#e0e0e0;
+  --sidebar-bg:#0c1a35;--sidebar-border:#1a2744;--sidebar-hover:#14254a;
+}
+body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;transition:background .3s,color .3s}
+
+/* Toolbar */
+.toolbar{position:fixed;top:0;left:0;right:0;height:46px;background:var(--toolbar-bg);border-bottom:1px solid var(--toolbar-border);display:flex;align-items:center;padding:0 12px;z-index:100;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.toolbar .brand{display:flex;align-items:center;gap:6px;padding-right:8px;border-right:1px solid var(--toolbar-border);font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+.toolbar .brand-logo{width:22px;height:22px;border-radius:5px;background:linear-gradient(135deg,var(--blue),#1565c0);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800}
+.toolbar .crumb{font-size:11px;color:var(--text-sec);white-space:nowrap}
+.toolbar .sep{width:1px;height:20px;background:var(--toolbar-border);margin:0 4px}
+.toolbar .spacer{flex:1}
+.btn{padding:4px 10px;border-radius:5px;border:1px solid var(--card-border);background:var(--card);cursor:pointer;font-size:11px;color:var(--text-sec);transition:all .12s;white-space:nowrap}
+.btn:hover{background:var(--hover-bg);border-color:var(--active-color)}
+.btn.active{background:var(--active-color);color:#fff;border-color:var(--active-color)}
+.btn-icon{padding:4px 6px;font-size:13px}
+
+/* 三栏布局 */
+.left-panel{position:fixed;top:46px;left:0;bottom:0;width:280px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);z-index:90;overflow-y:auto;font-size:12px}
+.left-panel::-webkit-scrollbar{width:4px}
+.left-panel::-webkit-scrollbar-thumb{background:#d0d4d9;border-radius:2px}
+.main-area{position:fixed;top:46px;left:280px;right:0;bottom:0;overflow:hidden}
+.canvas-wrap{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+.canvas-wrap.panning{cursor:grabbing}
+.canvas{position:relative;transform-origin:0 0}
+.canvas svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+
+/* 左侧面板样式 */
+.lp-section{border-bottom:1px solid var(--sidebar-border)}
+.lp-section:last-child{border-bottom:none}
+.lp-title{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#9aa0a6;padding:10px 14px 6px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.lp-title .lp-icon{font-size:12px}
+.lp-role{padding:2px 0}
+.lp-role-header{display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text);transition:all .12s}
+.lp-role-header:hover{background:var(--sidebar-hover)}
+.lp-role-caret{font-size:8px;color:#bbb;transition:transform .15s;width:10px}
+.lp-role.collapsed .lp-role-caret{transform:rotate(-90deg)}
+.lp-role.collapsed .lp-role-docs{display:none}
+.lp-role-color{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.lp-role-name{flex:1}
+.lp-role-count{font-size:9px;color:#999;background:#e9ecef;padding:0 5px;border-radius:6px}
+.lp-role-docs{padding:1px 0}
+.lp-doc{display:flex;align-items:center;gap:6px;padding:4px 14px 4px 34px;cursor:pointer;font-size:10.5px;color:var(--text-sec);transition:all .1s;border-left:3px solid transparent}
+.lp-doc:hover{background:var(--sidebar-hover);color:var(--text)}
+.lp-doc.active{background:var(--sidebar-hover);border-left-color:var(--active-color);color:var(--active-color);font-weight:600}
+.lp-doc-icon{font-size:11px;flex-shrink:0}
+.lp-doc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-doc-arrow{font-size:8px;color:#bbb;flex-shrink:0}
+.lp-doc:hover .lp-doc-arrow{color:var(--active-color)}
+
+/* 右侧侧边栏（评分/扫描/映射/校验连线） */
+.right-sidebar{position:fixed;top:46px;right:0;bottom:0;width:420px;background:var(--card);border-left:2px solid var(--card-border);z-index:98;transform:translateX(100%);transition:transform .25s ease;box-shadow:-2px 0 16px rgba(0,0,0,.08);display:flex;flex-direction:column}
+.right-sidebar.open{transform:translateX(0)}
+.rs-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--card-border);flex-shrink:0;background:var(--sidebar-bg);overflow-x:auto}
+.rs-tabs::-webkit-scrollbar{height:3px}
+.rs-tab{min-width:50px;padding:6px 1px;text-align:center;cursor:pointer;font-size:8.5px;font-weight:600;color:var(--text-sec);border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap;user-select:none;flex-shrink:0}
+.rs-tab:hover{color:var(--text);background:var(--hover-bg)}
+.rs-tab.active{color:var(--active-color);border-bottom-color:var(--active-color)}
+.rs-tab-icon{font-size:12px;display:block;margin-bottom:1px}
+.rs-close{position:absolute;top:6px;right:10px;cursor:pointer;color:#888;font-size:15px;z-index:5;padding:3px 6px;display:none}
+.rs-close.show{display:block}.rs-close:hover{color:var(--text)}
+.rs-body{flex:1;overflow-y:auto;padding:12px;font-size:11px;line-height:1.6}
+.rs-body::-webkit-scrollbar{width:4px}.rs-body::-webkit-scrollbar-thumb{background:#d0d4d9;border-radius:2px}
+
+/* 评分面板 */
+.rs-score-header{text-align:center;padding:4px 0 10px}
+.rs-score-num{font-size:30px;font-weight:800;letter-spacing:-1px}
+.rs-score-num.good{color:var(--green)}.rs-score-num.warn{color:var(--orange)}.rs-score-label{font-size:10px;color:#888}
+.rs-dim-row{display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:10px;border-radius:4px;transition:all .1s}
+.rs-dim-row:hover{background:var(--hover-bg)}
+.rs-dim-name{width:50px;text-align:right;color:var(--text-sec);font-weight:600;flex-shrink:0;font-size:9.5px}
+.rs-dim-bar-wrap{flex:1;height:7px;background:#e9ecef;border-radius:3px;overflow:hidden}
+.rs-dim-bar{height:100%;border-radius:3px}.rs-dim-bar.comp{background:var(--blue)}.rs-dim-bar.trace{background:var(--phase-spec)}.rs-dim-bar.verif{background:var(--orange)}.rs-dim-bar.consist{background:var(--purple)}
+.rs-dim-val{width:30px;font-weight:700;font-size:10px;text-align:left}
+.rs-vfy-item{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:10px;border-radius:4px;transition:all .1s}
+.rs-vfy-item:hover{background:var(--hover-bg)}
+.rs-vfy-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.rs-vfy-icon.pass{background:#e8f5e9;color:var(--green)}.rs-vfy-icon.issue{background:#ffebee;color:var(--red)}.rs-vfy-name{flex:1}.rs-vfy-badge{font-size:9px;color:#888}
+
+/* 扫描面板 */
+.rs-scan-item{display:flex;align-items:flex-start;gap:6px;padding:5px 0;font-size:10px;border-bottom:1px solid var(--card-border);opacity:0;transform:translateX(-8px);transition:all .2s}
+.rs-scan-item.show{opacity:1;transform:translateX(0)}
+.rs-scan-icon{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;margin-top:1px}
+.rs-scan-icon.pass{background:#e8f5e9;color:var(--green)}.rs-scan-icon.warn{background:#fff3e0;color:var(--orange)}.rs-scan-text{flex:1;line-height:1.3}
+.rs-scan-note{font-size:9px;color:#888;margin-top:1px}
+.rs-scan-bar-wrap{padding:8px 0}.rs-scan-bar{height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden}
+.rs-scan-bar-fill{height:100%;background:var(--green);transition:width .25s;border-radius:2px}
+.rs-scan-summary{font-size:10px;color:var(--text-sec);padding:4px 0}
+
+/* 映射/连线信息面板 */
+.rs-map-group{margin-bottom:10px}.rs-map-title{font-size:10px;font-weight:700;color:var(--active-color);margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid var(--card-border)}
+.rs-map-row{display:flex;gap:6px;padding:2px 0;font-size:10px;align-items:center}.rs-map-src{color:var(--text);font-weight:600;width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rs-map-arrow{color:#bbb;flex-shrink:0}.rs-map-spec{color:var(--active-color);font-weight:600}.rs-map-note{font-size:9px;color:#888;margin-left:4px}
+.rs-info-tip{font-size:9.5px;color:#888;padding:6px 10px;background:var(--sidebar-bg);border-radius:4px;margin-top:6px;line-height:1.5}
+
+/* 演练面板 */
+.rs-walk-step{padding:6px 8px;border-radius:4px;cursor:pointer;border-left:3px solid transparent;background:var(--sidebar-bg);margin-bottom:2px;transition:all .12s}
+.rs-walk-step:hover{background:var(--hover-bg)}
+.rs-walk-step.active{border-left-color:var(--green);background:#e8f5e9}
+.rs-walk-step .wl-label{font-size:8.5px;color:var(--green);font-weight:700}
+.rs-walk-step .wl-title{font-size:10.5px;font-weight:700;color:var(--text)}
+#wlDetail{font-size:10px}#wlDetail em{color:var(--blue);font-style:normal;font-weight:600}
+
+/* 任务面板 */
+.task-card{border:1px solid var(--card-border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--sidebar-bg);transition:all .12s}
+.task-card:hover{border-color:var(--active-color)}
+.task-header{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.task-id{font-size:10px;font-weight:800;background:var(--active-color);color:#fff;padding:1px 6px;border-radius:3px}
+.task-phase{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600}
+.task-phase.s1{background:#e8f5e9;color:#2e7d32}.task-phase.s2{background:#fff3e0;color:#e65100}.task-phase.s3{background:#e3f2fd;color:#1565c0}
+.task-name{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:3px}
+.task-desc{font-size:9.5px;color:var(--text-sec);line-height:1.4;margin-bottom:4px}
+.task-meta{display:flex;gap:8px;font-size:9px;color:#888;flex-wrap:wrap}
+.task-actions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.task-btn{padding:3px 10px;border-radius:4px;border:1px solid var(--card-border);cursor:pointer;font-size:9.5px;font-weight:600;transition:all .12s;background:var(--card);color:var(--text-sec)}
+.task-btn:hover{background:var(--hover-bg);border-color:var(--active-color)}
+.task-btn.jira{background:#0052cc;color:#fff;border-color:#0052cc}.task-btn.jira:hover{background:#0043a8}
+.task-btn.tb{background:#4e6af0;color:#fff;border-color:#4e6af0}.task-btn.tb:hover{background:#3d56c9}
+.task-milestone{margin:8px 0 12px;display:flex;gap:6px}
+.task-ms-dot{flex:1;text-align:center;padding:6px 4px;border-radius:6px;font-size:9px;font-weight:700;color:#fff}
+.task-ms-dot.s1{background:var(--phase-spec)}.task-ms-dot.s2{background:var(--orange)}.task-ms-dot.s3{background:var(--blue)}
+
+/* 流程面板 */
+.flow-phase{border-left:3px solid var(--card-border);padding:4px 0 4px 12px;margin:2px 0;transition:all .15s}
+.flow-phase:hover{border-left-color:var(--active-color)}
+.flow-phase-title{font-size:11px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+.flow-phase-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.flow-phase-who{font-size:9px;color:#888;margin-left:auto}
+.flow-phase-items{font-size:9.5px;color:var(--text-sec);line-height:1.6;padding:2px 0 2px 16px}
+.flow-arrow{text-align:center;color:#bbb;font-size:14px;padding:2px 0}
+.flow-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px;background:var(--sidebar-bg);border-radius:6px}
+.flow-legend-item{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text-sec)}
+.flow-legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* 变更面板 */
+.change-card{background:var(--card);border:1px solid var(--card-border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.change-title{font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.change-diff{display:flex;gap:4px;align-items:center;margin:6px 0}
+.change-diff-item{flex:1;text-align:center;padding:4px;border-radius:4px;font-size:9px}
+.change-diff-item .cd-val{font-size:16px;font-weight:800}.change-diff-item .cd-label{font-size:8px;color:#888}
+.change-up{color:var(--green)}.change-down{color:var(--red)}.change-same{color:#888}
+.change-bar{height:4px;border-radius:2px;background:#e9ecef;margin:4px 0;overflow:hidden}
+.change-bar-fill{height:100%;border-radius:2px;transition:width .5s}
+.fuzz-meter{display:flex;gap:3px;margin:6px 0}
+.fuzz-seg{flex:1;height:6px;border-radius:3px;background:#e9ecef}
+.fuzz-seg.filled.high{background:var(--red)}.fuzz-seg.filled.med{background:var(--orange)}.fuzz-seg.filled.low{background:var(--green)}
+.log-item{padding:5px 0;border-bottom:1px solid var(--card-border);display:flex;gap:6px;font-size:10px;align-items:flex-start}
+.log-time{color:#888;font-size:9px;white-space:nowrap;min-width:62px}
+.log-skill{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;white-space:nowrap}
+.log-desc{flex:1;color:var(--text);line-height:1.3}
+.doc-change-item{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:9.5px}
+.doc-change-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* 版本时间线 */
+.version-timeline{position:relative;padding-left:24px}
+.version-timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--card-border)}
+.ver-node{position:relative;margin-bottom:14px}
+.ver-node::before{content:'';position:absolute;left:-20px;top:6px;width:12px;height:12px;border-radius:50%;border:2px solid var(--active-color);background:var(--card);z-index:1}
+.ver-node.current::before{background:var(--active-color);box-shadow:0 0 0 4px rgba(30,136,229,.2)}
+.ver-header{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ver-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:4px;color:#fff;background:var(--active-color)}
+.ver-time{font-size:9px;color:#888}
+.ver-skill-tag{font-size:8.5px;padding:1px 5px;border-radius:3px;background:var(--sidebar-bg);color:var(--text-sec);font-weight:600}
+.ver-docs{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}
+.ver-doc{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid var(--card-border)}
+.ver-doc.done{background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7}
+.ver-doc.partial{background:#fff3e0;color:#e65100;border-color:#ffcc02}
+.ver-doc.todo{background:#ffebee;color:#c62828;border-color:#ef9a9a}
+.ver-doc.untouched{background:#f5f5f5;color:#999}
+
+/* 文档状态总览网格 */
+.status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:8px 0}
+.status-cell{text-align:center;padding:4px 2px;border-radius:4px;font-size:8.5px;font-weight:700;border:1px solid var(--card-border)}
+.status-cell.done{background:#e8f5e9;color:#2e7d32}.status-cell.attention{background:#fff3e0;color:#e65100}.status-cell.manual{background:#ffebee;color:#c62828}.status-cell.empty{background:#f5f5f5;color:#bbb}
+
+/* 摘要条 */
+.ver-summary{margin-top:8px;padding:8px;border-radius:6px;background:var(--sidebar-bg);font-size:10px;line-height:1.6}
+.ver-summary-row{display:flex;align-items:center;gap:4px;margin:2px 0}
+.rs-walk-nav{display:flex;gap:6px;margin-top:8px;justify-content:space-between}
+.rs-walk-btn{padding:5px 14px;border-radius:5px;border:1px solid var(--card-border);cursor:pointer;font-size:11px;font-weight:600;background:var(--card);color:var(--text-sec)}
+.rs-walk-btn:hover{background:var(--hover-bg)}.rs-walk-btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* 设置弹窗 */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center}
+.settings-overlay.open{display:flex}
+.settings-box{background:var(--card);border-radius:12px;width:420px;max-width:90vw;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
+.settings-box h3{font-size:15px;margin-bottom:14px;color:var(--text)}
+.settings-row{margin-bottom:10px}
+.settings-row label{display:block;font-size:11px;font-weight:600;color:var(--text-sec);margin-bottom:4px}
+.settings-row input{width:100%;padding:7px 10px;border:1px solid var(--card-border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--text)}
+.settings-row input:focus{outline:none;border-color:var(--active-color)}
+.settings-hint{font-size:9.5px;color:#888;margin-top:4px}
+.settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.settings-actions .btn-primary{background:var(--active-color);color:#fff;border-color:var(--active-color)}
+
+/* LLM校验结果 */
+.llm-loading{text-align:center;padding:30px;font-size:12px;color:var(--text);line-height:2}
+.llm-loading .spinner{display:inline-block;width:24px;height:24px;border:3px solid #e0e0e0;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.llm-result-item{padding:6px 0;border-bottom:1px solid var(--card-border);font-size:10.5px;line-height:1.5}
+.llm-result-item .llm-icon{font-size:12px;margin-right:4px}
+
+/* 右侧文档预览面板 */
+.doc-viewer{position:fixed;top:46px;right:0;bottom:0;width:45%;max-width:680px;background:var(--card);border-left:2px solid var(--card-border);z-index:100;transform:translateX(100%);transition:transform .3s ease;box-shadow:-4px 0 20px rgba(0,0,0,.1);display:flex;flex-direction:column}
+.doc-viewer.open{transform:translateX(0)}
+.doc-viewer-header{padding:10px 14px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.doc-viewer-header .doc-source{font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;color:#fff}
+.doc-viewer-header .doc-source.src-demand{background:var(--orange)}
+.doc-viewer-header .doc-source.src-pm{background:var(--phase-proposal)}
+.doc-viewer-header .doc-source.src-dev{background:var(--blue)}
+.doc-viewer-header .doc-source.src-test{background:var(--phase-test)}
+.doc-viewer-header .doc-source.src-spec{background:var(--green)}
+.doc-viewer-header .doc-source.src-skill{background:var(--purple)}
+.doc-viewer-header .doc-name{font-size:13px;font-weight:700;color:var(--text);flex:1}
+.doc-viewer-close{cursor:pointer;color:#888;font-size:16px;padding:4px 6px;margin-left:auto}
+.doc-viewer-close:hover{color:var(--text)}
+.doc-viewer-body{padding:14px;overflow-y:auto;flex:1;font-size:12.5px;line-height:1.8;color:var(--text)}
+.doc-viewer-body h1{font-size:17px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--card-border)}
+.doc-viewer-body h2{font-size:14px;margin:14px 0 6px;color:var(--blue)}
+.doc-viewer-body h3{font-size:12.5px;margin:10px 0 4px}
+.doc-viewer-body table{width:100%;border-collapse:collapse;margin:6px 0;font-size:11px}
+.doc-viewer-body th,.doc-viewer-body td{border:1px solid var(--card-border);padding:3px 6px;text-align:left}
+.doc-viewer-body th{background:var(--sidebar-bg);font-weight:600}
+.doc-viewer-body code{background:rgba(0,0,0,.05);padding:1px 4px;border-radius:2px;font-size:10.5px}
+.doc-viewer-body pre{background:var(--sidebar-bg);padding:8px 12px;border-radius:5px;overflow-x:auto;font-size:10.5px;line-height:1.4;margin:6px 0}
+.doc-viewer-body blockquote{border-left:3px solid var(--blue);padding:4px 10px;margin:6px 0;color:var(--text-sec);background:var(--sidebar-bg)}
+.doc-viewer-body strong{color:#e65100}
+.doc-viewer-body ul,ol{padding-left:20px}
+
+/* 画布节点 */
+.node{position:absolute;width:205px;border-radius:8px;background:var(--card);box-shadow:var(--shadow-sm);cursor:pointer;z-index:10;user-select:none;overflow:hidden;border:1.5px solid var(--card-border);font-size:10px;transition:box-shadow .15s,opacity .2s;text-align:center}
+.node:hover{box-shadow:var(--shadow-md);z-index:20}
+.node.highlight{box-shadow:0 0 0 3px #ffd54f,var(--shadow-md);z-index:30}
+.node.locked{box-shadow:0 0 0 3px var(--blue),var(--shadow-md);z-index:31}
+.node.dim{opacity:var(--dim-opacity)}
+.node.filled{border-color:var(--green)}
+.node.filled::after{content:'✓';position:absolute;top:4px;right:6px;font-size:9px;color:var(--green);font-weight:800}
+.node.empty{border-style:dashed;border-color:#bbb;opacity:.55}
+.node-header{padding:5px 8px;font-size:9px;font-weight:700;letter-spacing:.4px;color:#fff}
+.node-name{padding:5px 8px;min-height:26px;font-size:10.5px;font-weight:700;line-height:1.3;border-bottom:1px solid var(--card-border);color:var(--text)}
+.node-skill-tag{display:inline-block;font-size:8px;padding:1px 5px;border-radius:3px;margin-left:4px;background:rgba(0,0,0,.08)}
+.node .fill-by{font-size:8px;color:#888;margin-top:2px}
+.node-sections{padding:2px 0}
+.node-sec{padding:2px 8px;font-size:9px;color:var(--text-sec);line-height:1.3;transition:background .1s;border-left:2px solid transparent;margin:1px 0;text-align:left}
+.node-sec:hover{background:var(--hover-bg);border-left-color:var(--active-color)}
+
+.hdr-meta{background:var(--phase-meta)}
+.hdr-proposal{background:var(--phase-proposal)}
+.hdr-spec{background:var(--phase-spec)}
+.hdr-design{background:var(--phase-design)}
+.hdr-plan{background:var(--phase-plan)}
+.hdr-test{background:var(--phase-test)}
+.hdr-trace{background:var(--phase-trace)}
+
+/* 连线 */
+.edge{fill:none;stroke:#c5cae9;stroke-width:1.2;transition:stroke .2s,stroke-width .2s,opacity .3s}
+.dark .edge{stroke:#2a3a5c}
+.edge.node-edge{stroke:#bdbdbd;stroke-width:1.5;stroke-dasharray:6 3}
+.edge.highlight{stroke:var(--orange);stroke-width:2.5;stroke-dasharray:none}
+.edge.dim{opacity:.05}
+.edge.map-line{stroke:var(--blue);stroke-width:1.5;stroke-dasharray:3 3}
+.edge.verify-line{stroke:var(--purple);stroke-width:1.5;stroke-dasharray:2 4}
+.edge-arrow{fill:#bdbdbd}.edge-arrow.highlight{fill:var(--orange)}.edge-arrow.dim{opacity:.05}
+
+/* Walkthrough */
+.walkthrough{position:fixed;bottom:0;left:280px;right:0;background:var(--card);border-top:2px solid var(--green);z-index:120;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -4px 20px rgba(0,0,0,.1)}
+.walkthrough.open{transform:translateY(0)}
+.wt-inner{max-width:1000px;margin:0 auto;padding:12px 20px;display:flex;gap:16px;align-items:center}
+.wt-progress{display:flex;gap:3px;flex-shrink:0}
+.wt-dot{width:9px;height:9px;border-radius:50%;background:#e0e0e0;cursor:pointer;transition:all .15s}
+.wt-dot.done{background:#81c784}.wt-dot.current{background:var(--green);transform:scale(1.3);box-shadow:0 0 5px rgba(76,175,80,.5)}
+.wt-content{flex:1;min-width:0}
+.wt-step-label{font-size:10px;color:var(--green);font-weight:700;margin-bottom:2px}
+.wt-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.wt-desc{font-size:11.5px;color:var(--text-sec);line-height:1.5}
+.wt-desc em{color:var(--blue);font-weight:600;font-style:normal}
+.wt-nav{display:flex;gap:6px;flex-shrink:0}
+.wt-btn{padding:5px 14px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600}
+.wt-btn-prev{background:#f5f5f5;color:#555}.wt-btn-next{background:var(--green);color:#fff}
+.wt-btn-next:hover{background:#43a047}.wt-btn-close{background:#eee;color:#888;padding:5px 10px}
+
+/* 图例 */
+.legend-float{position:fixed;top:54px;right:16px;background:var(--card);border:1px solid var(--card-border);border-radius:6px;padding:8px 12px;z-index:94;box-shadow:var(--shadow-sm);font-size:9.5px;color:var(--text-sec);display:none}
+.legend-item{display:flex;align-items:center;gap:4px;margin:2px 0}
+.legend-dot{width:7px;height:7px;border-radius:1px;flex-shrink:0}
+
+/* Tooltip */
+.tooltip{position:fixed;background:var(--tooltip-bg);color:var(--tooltip-text);padding:8px 14px;border-radius:6px;font-size:11px;pointer-events:none;z-index:200;max-width:350px;line-height:1.5;display:none;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+/* 缩放 */
+.zoom-ctrl{position:fixed;bottom:16px;right:8px;display:flex;flex-direction:column;gap:2px;z-index:96}
+.zoom-ctrl .btn{width:28px;height:28px;padding:0;font-size:14px;display:flex;align-items:center;justify-content:center}
+.zoom-label{text-align:center;font-size:9px;color:#888}
+
+/* 状态标记 */
+.status-tag{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700}
+.status-tag.filled{background:#e8f5e9;color:#2e7d32}
+.status-tag.pending{background:#f5f5f5;color:#888}
+
+/* Scanner overlay */
+.scanner-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;display:none;align-items:center;justify-content:center}
+.scanner-overlay.open{display:flex}
+.scanner-box{background:var(--card);border-radius:12px;width:520px;max-width:92vw;max-height:80vh;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column}
+.scanner-head{padding:14px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--card-border)}
+.scanner-head-icon{font-size:20px}.scanner-head-info{flex:1}
+.scanner-head-name{font-size:14px;font-weight:700;color:var(--text)}
+.scanner-head-dim{font-size:10px;color:#888}.scanner-head-close{cursor:pointer;color:#888;font-size:18px;padding:4px}
+.scanner-score{font-size:28px;font-weight:800;text-align:center;padding:12px 0;letter-spacing:-1px}
+.scanner-score .big{font-size:36px}.scanner-score .sub{font-size:11px;color:#888;font-weight:400}
+.scanner-bar-wrap{padding:0 20px 8px}
+.scanner-bar{height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden}
+.scanner-bar-fill{height:100%;background:var(--green);transition:width .3s;border-radius:2px}
+.scanner-checks{padding:8px 20px 16px;overflow-y:auto;flex:1;max-height:340px}
+.scanner-checks::-webkit-scrollbar{width:4px}.scanner-checks::-webkit-scrollbar-thumb{background:#d0d4d9;border-radius:2px}
+.sc-check{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:11px;border-bottom:1px solid var(--card-border);opacity:0;transform:translateX(-10px);transition:all .25s}
+.sc-check.show{opacity:1;transform:translateX(0)}
+.sc-check-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px}
+.sc-check-icon.pass{background:#e8f5e9;color:var(--green)}
+.sc-check-icon.warn{background:#fff3e0;color:var(--orange)}
+.sc-check-icon.fail{background:#ffebee;color:var(--red)}
+.sc-check-text{flex:1;line-height:1.4}
+.sc-check-note{font-size:10px;color:#888;margin-top:1px}
+.scanner-foot{padding:10px 20px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.scanner-summary{color:var(--text-sec)}.scanner-summary b{color:var(--text)}
+.scanner-btn{padding:5px 16px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--active-color);color:#fff}
+.scanner-btn:hover{opacity:.9}
+
+/* Score badge in verify panel */
+.vp-score{text-align:center;padding:6px 0;border-bottom:1px solid var(--card-border)}
+.vp-score-num{font-size:22px;font-weight:800;letter-spacing:-1px}
+.vp-score-num.good{color:var(--green)}.vp-score-num.warn{color:var(--orange)}.vp-score-num.bad{color:var(--red)}
+.vp-score-label{font-size:9px;color:#888}
+.vp-dims{margin-top:4px;display:flex;flex-direction:column;gap:2px}
+.vp-dim-row{display:flex;align-items:center;gap:4px;font-size:9px;cursor:pointer;padding:2px 4px;border-radius:3px;transition:all .1s}
+.vp-dim-row:hover{background:var(--hover-bg)}
+.vp-dim-name{width:48px;text-align:right;color:var(--text-sec);flex-shrink:0}
+.vp-dim-bar-wrap{flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden}
+.vp-dim-bar{height:100%;border-radius:3px}
+.vp-dim-bar.comp{background:var(--blue)}.vp-dim-bar.trace{background:var(--phase-spec)}.vp-dim-bar.verif{background:var(--orange)}.vp-dim-bar.consist{background:var(--purple)}
+.vp-dim-val{width:32px;font-weight:700;font-size:9px;text-align:left}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="brand"><div class="brand-logo">SC</div>Spec Console</div>
+  <div class="crumb">SC-BL › 百炼Chatbot › <b>三环追溯</b></div>
+  <div class="spacer"></div>
+  <button class="btn active" id="btnAll" title="显示全部">全部</button>
+  <button class="btn" id="btnSrcSpec" title="显示输入→Spec映射关系">输入→Spec</button>
+  <button class="btn" id="btnVerify" title="显示校验关系">校验连线</button>
+  <button class="btn" id="btnWalk" title="5步Skill演练">▶ 演练</button>
+  <button class="btn" id="btnClear">清除</button>
+  <span class="sep"></span>
+  <button class="btn" id="btnAlignSkills" title="复制校验Skill到Claude Code">📋 Skill校验</button>
+  <button class="btn" id="btnLLM" title="百炼API语义校验">🤖 百炼校验</button>
+  <button class="btn" id="btnExportJSON" title="导出评分JSON">📦 JSON</button>
+  <button class="btn" id="btnExportRpt" title="导出评估报告MD">📄 MD报告</button>
+  <button class="btn" id="btnExportHTML" title="导出HTML报告（支持打印PDF）">🌐 HTML</button>
+  <button class="btn btn-icon" id="btnSettings" title="API配置">⚙️</button>
+  <button class="btn btn-icon" id="btnDark">🌙</button>
+</div>
+
+<!-- ====== 左侧：输入文档树 ====== -->
+<div class="left-panel" id="leftPanel">
+  <div class="lp-section">
+    <div class="lp-title"><span class="lp-icon">📥</span>输入文档 (sources/)</div>
+  </div>
+  <!-- 渲染位置 -->
+  <div class="lp-section">
+    <div class="lp-title"><span class="lp-icon">⚙️</span>Skill 工作流</div>
+  </div>
+</div>
+
+<!-- ====== 中间：画布 ====== -->
+<div class="main-area">
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="canvas" id="canvas"><svg id="svgLayer"></svg></div>
+  </div>
+</div>
+
+<!-- ====== 右侧：文档预览 ====== -->
+<div class="doc-viewer" id="docViewer">
+  <div class="doc-viewer-header">
+    <span class="doc-source" id="dvSource"></span>
+    <span class="doc-name" id="dvName"></span>
+    <span class="doc-viewer-close" id="dvClose">✕</span>
+  </div>
+  <div class="doc-viewer-body" id="dvBody"></div>
+</div>
+
+<!-- ====== 右侧：评分/扫描/映射/连线 侧边栏 ====== -->
+<div class="right-sidebar" id="rightSidebar">
+  <span class="rs-close" id="rsClose">✕</span>
+  <div class="rp-close" style="display:none"></div>
+  <div class="rs-tabs">
+    <div class="rs-tab active" data-rstab="score"><span class="rs-tab-icon">📊</span>评分</div>
+    <div class="rs-tab" data-rstab="scan"><span class="rs-tab-icon">🔍</span>校验扫描</div>
+    <div class="rs-tab" data-rstab="mapping"><span class="rs-tab-icon">🔗</span>输入→Spec</div>
+    <div class="rs-tab" data-rstab="verify"><span class="rs-tab-icon">✅</span>校验连线</div>
+    <div class="rs-tab" data-rstab="walk"><span class="rs-tab-icon">🚶</span>演练</div>
+    <div class="rs-tab" data-rstab="tasks"><span class="rs-tab-icon">📋</span>任务</div>
+    <div class="rs-tab" data-rstab="flow"><span class="rs-tab-icon">📐</span>流程</div>
+    <div class="rs-tab" data-rstab="changes"><span class="rs-tab-icon">📈</span>变更</div>
+    <div class="rs-tab" data-rstab="versions"><span class="rs-tab-icon">📜</span>版本</div>
+  </div>
+  <div class="rs-body" id="rsScore" style="display:block"></div>
+  <div class="rs-body" id="rsScan" style="display:none"></div>
+  <div class="rs-body" id="rsMapping" style="display:none"></div>
+  <div class="rs-body" id="rsVerify" style="display:none"></div>
+  <div class="rs-body" id="rsWalk" style="display:none"></div>
+  <div class="rs-body" id="rsTasks" style="display:none"></div>
+  <div class="rs-body" id="rsPreview" style="display:none"></div>
+  <div class="rs-body" id="rsFlow" style="display:none"></div>
+  <div class="rs-body" id="rsChanges" style="display:none"></div>
+  <div class="rs-body" id="rsVersions" style="display:none"></div>
+</div>
+
+<!-- ====== 右下角校验面板（保留，被右侧侧边栏替代） ====== -->
+<div class="verify-panel" id="verifyPanel" style="display:none">
+  <div class="vp-body" id="vpBody" style="display:none"></div>
+</div>
+
+<!-- ====== 演练面板 ====== -->
+<div class="walkthrough" id="walkthrough">
+  <div class="wt-inner">
+    <div class="wt-progress" id="wtProgress"></div>
+    <div class="wt-content"><div class="wt-step-label" id="wtLabel"></div><div class="wt-title" id="wtTitle"></div><div class="wt-desc" id="wtDesc"></div></div>
+    <div class="wt-nav">
+      <button class="wt-btn wt-btn-prev" id="wtPrev">← 上一步</button>
+      <button class="wt-btn wt-btn-next" id="wtNext">下一步 →</button>
+      <button class="wt-btn wt-btn-close" id="wtClose">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 图例浮层 ====== -->
+<div class="legend-float" id="legendFloat"></div>
+
+<!-- ====== 缩放 ====== -->
+<div class="zoom-ctrl">
+  <button class="btn" id="zoomIn">+</button>
+  <div class="zoom-label" id="zoomLabel">100%</div>
+  <button class="btn" id="zoomOut">−</button>
+  <button class="btn" id="zoomFit">⊞</button>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- Scanner overlay -->
+<div class="scanner-overlay" id="scannerOverlay">
+  <div class="scanner-box">
+    <div class="scanner-head">
+      <span class="scanner-head-icon" id="scIcon">🔍</span>
+      <div class="scanner-head-info">
+        <div class="scanner-head-name" id="scName"></div>
+        <div class="scanner-head-dim" id="scDim"></div>
+      </div>
+      <span class="scanner-head-close" id="scClose">✕</span>
+    </div>
+    <div class="scanner-score"><span class="big" id="scScoreNum"></span><span class="sub"> / <span id="scScoreMax"></span> 分</span></div>
+    <div class="scanner-bar-wrap"><div class="scanner-bar"><div class="scanner-bar-fill" id="scBar" style="width:0%"></div></div></div>
+    <div class="scanner-checks" id="scChecks"></div>
+    <div class="scanner-foot">
+      <span class="scanner-summary" id="scSummary"></span>
+      <button class="scanner-btn" id="scCloseBtn">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-box">
+    <h3>⚙️ 百炼 API 配置</h3>
+    <div class="settings-row">
+      <label>API Key</label>
+      <input type="password" id="setApiKey" placeholder="sk-xxxxxxxxxxxxxxxx">
+      <div class="settings-hint">用于 LLM 语义校验。Key 仅存储在浏览器 localStorage，不会上传到服务器。</div>
+    </div>
+    <div class="settings-row">
+      <label>模型</label>
+      <input type="text" id="setModel" value="qwen-plus" placeholder="qwen-plus / qwen-max">
+    </div>
+    <div class="settings-actions">
+      <button class="btn" id="setClear">清除 Key</button>
+      <button class="btn" id="setCancel">取消</button>
+      <button class="btn btn-primary" id="setSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// 数据定义
+// ═══════════════════════════════════════
+
+// 角色 + 输入文档
+const SOURCES = [
+  {role:'需求方', color:'#ff9800', docs:[
+    {id:'src-dem', file:'原始需求.md', path:'sources/需求方/原始需求.md',
+     feeds:['02','03'], title:'原始需求：调用百炼实现Chatbot'}
+  ]},
+  {role:'PM', color:'#5c6bc0', docs:[
+    {id:'src-pm-prd', file:'PRD草稿.md', path:'sources/PM/PRD草稿.md',
+     feeds:['03','04'], title:'PRD草稿 — 目标用户、业务场景、功能优先级'},
+    {id:'src-pm-us', file:'用户故事草稿.md', path:'sources/PM/用户故事草稿.md',
+     feeds:['05'], title:'用户故事草稿 — 4条US + 验收标准'}
+  ]},
+  {role:'后端', color:'#1e88e5', docs:[
+    {id:'src-be-api', file:'API设计.md', path:'sources/后端/API设计.md',
+     feeds:['09'], title:'API设计 — 端点、请求/响应、错误码'},
+    {id:'src-be-arch', file:'架构设计.md', path:'sources/后端/架构设计.md',
+     feeds:['08','10','11'], title:'架构设计 — 分层、外部服务、安全'}
+  ]},
+  {role:'测试', color:'#e53935', docs:[
+    {id:'src-qa', file:'测试策略草稿.md', path:'sources/测试/测试策略草稿.md',
+     feeds:['13'], title:'测试策略草稿 — 分层、TC、门禁'}
+  ]}
+];
+
+// Skill 工作流
+const SKILLS = [
+  {id:'skill-init', name:'mumu-spec-init', label:'Init 骨架', phase:'meta',
+   inputs:[], outputs:['01','02','03','04','05','06','07','08','09','10','11','12','13','14'],
+   desc:'创建 01-14 全部文档骨架（元数据 + 章节标题 + 占位符）。', details:'为每个文档写入元数据表、章节结构、变更记录表。01 额外包含写作铁律、编号规则、六阶段流程定义。'},
+  {id:'skill-r1', name:'mumu-spec-r1-proposal', label:'R1 Proposal', phase:'proposal',
+   inputs:['src-dem','src-pm-prd'], outputs:['03','04'],
+   desc:'读取需求方原始需求和PM的PRD草稿，填充 03 立项提案 + 04 PRD。', details:'03 定义痛点、提案概要、范围边界、成功标准、风险。04 定义目标用户、核心场景、产品规则、能力优先级。'},
+  {id:'skill-r2', name:'mumu-spec-r2-align', label:'R2 Align 互校准', phase:'spec',
+   inputs:['src-pm-us','src-be-api'], outputs:['05','09'],
+   desc:'PM的用户故事草稿 + 后端的API设计 → 05 用户故事 ↔ 09 API 契约，双向校准。', details:'每条 US 的 AC 必须在 09 中找到可观测断言（状态码、字段、错误码）。字段名在 09 冻结。'},
+  {id:'skill-r3', name:'mumu-spec-r3-design', label:'R3 Design', phase:'design',
+   inputs:['src-be-arch','src-be-api'], outputs:['08','10','06','07','11'],
+   desc:'后端的架构设计 → 展开为 08架构/10数据/06FSD/07NFR/11安全。', details:'按依赖顺序：先定 08 架构边界 + 10 数据，再展开 06 行为细节和 07 量化指标，最后 11 安全控制。'},
+  {id:'skill-r4', name:'mumu-spec-r4-finalize', label:'R4 Finalize', phase:'plan',
+   inputs:['src-qa'], outputs:['12','13','14'],
+   desc:'结合测试策略草稿，填充 12实施计划/13测试策略/14追踪矩阵，终检全链路。', details:'确保每条 P0 REQ ≥1 TC，14 四向追溯闭环。终检清单全部通过后文档可标 Approved。'},
+  {id:'skill-check', name:'mumu-spec-check', label:'Check 质量检查', phase:'trace',
+   inputs:[], outputs:[],
+   desc:'单篇文档质量检查：完整性、一致性、无模糊词、AC可测试。', details:'检查每篇文档内部质量。不同于 align-* 的跨文档校对。'},
+  {id:'skill-tasks', name:'mumu-spec-tasks', label:'Tasks 任务拆分', phase:'plan',
+   inputs:[], outputs:[],
+   desc:'将 05 用户故事拆分为可排期的开发任务（Sprint Backlog）。', details:'每个 US → 多个子任务，含依赖关系和验收标准映射。'}
+];
+
+// 校验项
+const VERIFY_ITEMS = [
+  {id:'v-prd-us', name:'align-prd-us', desc:'04 PRD ↔ 05 US 覆盖率', status:'pass', dim:'traceability',
+   detail:'4条能力全部有对应US。04 P0: Chat/Multi/Error → 05 US-001/002/003 ✓'},
+  {id:'v-us-api', name:'align-us-api', desc:'05 US ↔ 09 API AC可断言', status:'pass', dim:'verifiability',
+   detail:'6条P0 AC全部在09找到对应断言（状态码/字段/错误码）✓'},
+  {id:'v-api-db', name:'align-api-db', desc:'09 API ↔ 10 数据 字段一致', status:'pass', dim:'consistency',
+   detail:'09 DTO字段与10映射一致。P0无持久化，无字段冲突 ✓'},
+  {id:'v-trace', name:'align-trace', desc:'14 追溯矩阵 四向闭环', status:'pass', dim:'traceability',
+   detail:'4 REQ→4 US→1 API→9 TC。无孤立项。覆盖率 100% ✓'},
+  {id:'v-check', name:'mumu-spec-check', desc:'单篇质量检查', status:'pass', dim:'completeness',
+   detail:'13篇已填充文档通过检查：无模糊词、编号唯一、AC可测试 ✓'},
+];
+
+// 评分框架（checks 由真实文档分析动态生成）
+const SCORE_FRAMEWORK = {
+  completeness: {label:'完整性',weight:30,max:30,skill:'mumu-spec-check',key:'completeness'},
+  traceability: {label:'可追溯性',weight:25,max:25,skill:'align-trace + align-prd-us',key:'traceability'},
+  verifiability: {label:'可验证性',weight:25,max:25,skill:'align-us-api',key:'verifiability'},
+  consistency: {label:'一致性',weight:20,max:20,skill:'align-api-db',key:'consistency'},
+};
+let SCORE_DATA = {};
+
+// 模糊词列表
+const FUZZY_WORDS = ['尽量','大概','可能','建议','友好','应该','适当','酌情','差不多','基本上','一般来说'];
+
+// ── 真实文档分析 ──
+function runRealChecks() {
+  // 需要分析的文档（排除02占位、01总则）
+  const targetDocs = ['03','04','05','06','07','08','09','10','11','12','13','14'];
+  const docNames = {'03':'立项提案','04':'PRD','05':'用户故事','06':'FSD','07':'NFR','08':'架构','09':'API契约','10':'数据模型','11':'安全设计','12':'实施计划','13':'测试策略','14':'RTM追溯'};
+
+  // 1. 完整性检查：每篇文档是否存在 + 有无占位符
+  let completenessChecks = [];
+  let filledCount = 0, placeholderCount = 0;
+  targetDocs.forEach(id => {
+    const content = DOCS[id];
+    if (!content) {
+      completenessChecks.push({item:(id+' '+docNames[id]+' — 文档不可访问'),result:'fail',note:'fetch 失败，请通过 HTTP 服务打开'});
+      return;
+    }
+    const stripped = content.replace(/^---\n[\s\S]*?\n---\n*/, ''); // 去除 frontmatter
+    const placeholders = stripped.match(/【[^】]*填写[^】]*】/g) || [];
+    const fuzzyHits = [];
+    FUZZY_WORDS.forEach(w => {
+      const re = new RegExp(w, 'g');
+      const matches = stripped.match(re);
+      if (matches) fuzzyHits.push(w + '(' + matches.length + ')');
+    });
+    if (placeholders.length === 0) {
+      filledCount++;
+      const note = fuzzyHits.length ? '⚠ 模糊词: ' + fuzzyHits.join(', ') : '内容完整，无占位符';
+      completenessChecks.push({item:(id+' '+docNames[id]+' — '+placeholders.length+'个占位符'),result:fuzzyHits.length?'warn':'pass',note:note});
+    } else {
+      placeholderCount++;
+      completenessChecks.push({item:(id+' '+docNames[id]+' — '+placeholders.length+'个占位符残留'),result:'warn',note:'仍有【填写】未替换: ' + placeholders.slice(0,3).join(', ')});
+    }
+  });
+  // 02 单独检查
+  const doc02 = DOCS['02'];
+  if (doc02) {
+    const p02 = (doc02.replace(/^---\n[\s\S]*?\n---\n*/, '').match(/【[^】]*填写[^】]*】/g) || []).length;
+    completenessChecks.unshift({item:'02 需求采集 — 会议纪要/痛点/访谈',result:p02===0?'pass':'warn',note:p02===0?'已有素材来源':'无素材，'+p02+'个占位符待补充'});
+  }
+  // 01 始终通过
+  completenessChecks.unshift({item:'01 写作总则 — 铁律/编号规则/阶段流程',result:'pass',note:'框架文档，始终完整'});
+
+  const compScore = Math.round((filledCount / targetDocs.length) * 30);
+  const compDesc = filledCount+'/'+targetDocs.length+'篇完整填充。'+(placeholderCount>0?placeholderCount+'篇有占位符残留。':'')+(doc02&&(doc02.match(/【[^】]*填写[^】]*】/g)||[]).length>0?'02无素材来源。':'');
+
+  // 2. 可追溯性检查：提取编号并校验
+  let traceChecks = [];
+  const allIds = {REQ:[],US:[],TC:[]};
+  targetDocs.forEach(id => {
+    const content = DOCS[id] || '';
+    const reqs = content.match(/REQ-M1BL-\d+/g) || [];
+    const us = content.match(/US-\d+/g) || [];
+    const tcs = content.match(/TC-M1BL-\d+/g) || [];
+    allIds.REQ.push(...reqs); allIds.US.push(...us); allIds.TC.push(...tcs);
+  });
+  // 去重
+  const uniqueREQ = [...new Set(allIds.REQ)];
+  const uniqueUS = [...new Set(allIds.US)];
+  const uniqueTC = [...new Set(allIds.TC)];
+
+  traceChecks.push({item:'需求编号统计',result:'pass',note:'REQ: '+uniqueREQ.length+'个, US: '+uniqueUS.length+'个, TC: '+uniqueTC.length+'个'});
+  // 编号唯一性
+  const dupREQ = allIds.REQ.length - uniqueREQ.length;
+  const dupUS = allIds.US.length - uniqueUS.length;
+  const dupTC = allIds.TC.length - uniqueTC.length;
+  if (dupREQ+dupUS+dupTC === 0) {
+    traceChecks.push({item:'编号唯一性检查',result:'pass',note:'所有REQ/US/TC编号无重复'});
+  } else {
+    traceChecks.push({item:'编号唯一性检查',result:'warn',note:'REQ重复'+dupREQ+'次, US重复'+dupUS+'次, TC重复'+dupTC+'次'});
+  }
+
+  // 交叉引用：检查09是否被05引用
+  const doc05 = DOCS['05'] || '';
+  const doc09 = DOCS['09'] || '';
+  const doc14 = DOCS['14'] || '';
+  const refs09in05 = doc05.includes('09') || doc05.includes('API');
+  const refs14in05 = doc05.includes('14') || doc14.includes('US-');
+  traceChecks.push({item:'05→09 交叉引用',result:refs09in05?'pass':'warn',note:refs09in05?'05引用了09 API':'05未明确引用09 API契约'});
+  traceChecks.push({item:'05→14 追溯索引',result:refs14in05?'pass':'warn',note:refs14in05?'05与14存在交叉引用':'05追溯索引待完善'});
+
+  // API端点检查
+  const apiEndpoints = doc09.match(/\/api\/v\d+\/\w+/g) || [];
+  traceChecks.push({item:'API端点统计',result:apiEndpoints.length>0?'pass':'warn',note:apiEndpoints.length+'个端点定义: '+apiEndpoints.join(', ')});
+
+  // 每条P0 REQ至少1条TC
+  const p0REQs = uniqueREQ.filter(r => {
+    const content = DOCS['05'] || '';
+    return content.includes(r) && content.includes('P0');
+  });
+  const tcPerREQ = p0REQs.length > 0 && uniqueTC.length >= p0REQs.length;
+  traceChecks.push({item:'P0 REQ → TC 覆盖',result:tcPerREQ?'pass':'warn',note:p0REQs.length+'条P0 REQ, '+uniqueTC.length+'条TC'+(tcPerREQ?' ✓':' ⚠ 可能不足')});
+
+  const traceScore = Math.min(25, 15 + uniqueREQ.length*2 + (tcPerREQ?3:0));
+  const traceDesc = uniqueREQ.length+'条REQ → '+uniqueUS.length+'条US → '+apiEndpoints.length+'个API → '+uniqueTC.length+'条TC。'+(dupREQ+dupUS+dupTC===0?'编号唯一 ✓':'⚠ 编号重复');
+
+  // 3. 可验证性检查
+  let verifChecks = [];
+  let fuzzyTotal = 0;
+  targetDocs.forEach(id => {
+    const content = DOCS[id] || '';
+    const stripped = content.replace(/^---\n[\s\S]*?\n---\n*/, '');
+    let docFuzzy = 0;
+    FUZZY_WORDS.forEach(w => {
+      const re = new RegExp(w, 'g');
+      const m = stripped.match(re);
+      if (m) docFuzzy += m.length;
+    });
+    fuzzyTotal += docFuzzy;
+    if (docFuzzy > 0) {
+      verifChecks.push({item:(id+' '+docNames[id]+' — 模糊词检测'),result:'warn',note:'发现 '+docFuzzy+' 处模糊表述'});
+    }
+  });
+  // AC可测试性：检查是否包含数字/状态码等可验证要素
+  const hasTestableAC = (doc05.match(/AC-\d+-\d+/g)||[]).length >= 3;
+  verifChecks.push({item:'AC可测试性',result:hasTestableAC?'pass':'warn',note:(doc05.match(/AC-\d+-\d+/g)||[]).length+'条AC定义'});
+  // JSON示例检查
+  const hasJsonExample = (doc09.match(/```json/g)||[]).length > 0;
+  verifChecks.push({item:'09 API JSON示例',result:hasJsonExample?'pass':'fail',note:hasJsonExample?'有JSON请求/响应示例':'缺少JSON示例！'});
+
+  if (verifChecks.length === 0) verifChecks.push({item:'所有文档可验证性',result:'pass',note:'未发现模糊词'});
+  const verifScore = Math.max(0, 25 - Math.min(10, fuzzyTotal));
+  const verifDesc = '共发现 '+fuzzyTotal+' 处模糊词。'+(hasJsonExample?'09有JSON示例 ✓':'')+(hasTestableAC?' AC可测试 ✓':'');
+
+  // 4. 一致性检查
+  let consistChecks = [];
+  // 09与10字段交叉检查
+  const fields09 = (doc09.match(/`(\w+)`/g)||[]).map(s=>s.replace(/`/g,''));
+  const fields10 = ((DOCS['10']||'')).match(/`(\w+)`/g)||[];
+  const commonFields = fields09.filter(f => fields10.some(f10=>f10.includes(f)));
+  consistChecks.push({item:'09↔10 字段一致性',result:commonFields.length>0?'pass':'warn',note:'共同字段: '+(commonFields.length>0?commonFields.slice(0,5).join(', '):'未检测到')});
+  // 检查是否有明显的文档内矛盾（简单的关键词检查）
+  const hasBothReasons = (DOCS['08']||'').includes('无持久化') || (DOCS['10']||'').includes('不持久化');
+  consistChecks.push({item:'08↔10 存储策略一致',result:hasBothReasons?'pass':'warn',note:hasBothReasons?'均声明P0无持久化':'存储策略描述不一致'});
+  // traceId格式一致性
+  const traceIdIn09 = (doc09.match(/tr_\{?uuid/)||[]).length > 0;
+  const traceIdIn07 = ((DOCS['07']||'').match(/tr_\{?uuid/)||[]).length > 0;
+  consistChecks.push({item:'traceId格式一致(07↔09)',result:(traceIdIn09||traceIdIn07)?'pass':'warn',note:(traceIdIn09||traceIdIn07)?'tr_{uuid.hex} 格式一致':'traceId格式待确认'});
+
+  const consistScore = Math.min(20, 10 + commonFields.length*2 + (hasBothReasons?2:0) + ((traceIdIn09||traceIdIn07)?2:0));
+  const consistDesc = commonFields.length+'个共同字段，存储策略'+(hasBothReasons?'一致':'待确认')+'。';
+
+  // 汇总
+  SCORE_DATA = {
+    completeness: {label:'完整性',weight:30,score:compScore,max:30,skill:'mumu-spec-check',desc:compDesc,checks:completenessChecks},
+    traceability: {label:'可追溯性',weight:25,score:traceScore,max:25,skill:'align-trace + align-prd-us',desc:traceDesc,checks:traceChecks},
+    verifiability: {label:'可验证性',weight:25,score:verifScore,max:25,skill:'align-us-api',desc:verifDesc,checks:verifChecks},
+    consistency: {label:'一致性',weight:20,score:consistScore,max:20,skill:'align-api-db',desc:consistDesc,checks:consistChecks},
+  };
+
+  // 重绘面板
+  buildScorePanel();
+  buildVerifyPanel();
+  updateVerifyStatus();
+}
+
+// 根据真实分析更新校验项状态
+function updateVerifyStatus() {
+  const sd = SCORE_DATA;
+  VERIFY_ITEMS.forEach(v => {
+    if (v.id === 'v-check') {
+      const cs = sd.completeness;
+      v.status = cs.score >= cs.max*0.8 ? 'pass' : cs.score >= cs.max*0.5 ? 'issue' : 'pending';
+      v.detail = cs.desc;
+    } else if (v.id === 'v-trace') {
+      v.status = sd.traceability.score >= 20 ? 'pass' : 'issue';
+      v.detail = sd.traceability.desc;
+    } else if (v.id === 'v-us-api') {
+      v.status = sd.verifiability.score >= 20 ? 'pass' : 'issue';
+      v.detail = sd.verifiability.desc;
+    } else if (v.id === 'v-api-db') {
+      v.status = sd.consistency.score >= 15 ? 'pass' : 'issue';
+      v.detail = sd.consistency.desc;
+    }
+  });
+}
+
+// 总分
+function calcScore() {
+  let total=0, max=0;
+  Object.values(SCORE_DATA).forEach(d=>{total+=d.score;max+=d.max;});
+  return {total,max,pct:max>0?Math.round(total/max*100):0};
+}
+
+// 14 Spec 文档节点
+const NODES = [
+  {id:'01',phase:'meta',fill:'special',title:'写作总则',x:60,y:30,sections:['编号对照','基本原则','写作铁律','编号规则','六阶段流程'],docKey:'01'},
+  {id:'02',phase:'meta',fill:false,title:'需求采集',x:60,y:200,sections:['S-01 会议纪要','痛点记录','需求记录'],fillNote:'无素材',docKey:'02'},
+  {id:'03',phase:'proposal',fill:true,title:'立项提案',x:310,y:30,sections:['背景与问题','提案概要','范围边界','成功标准','风险','前置条件'],fillBy:'R1',docKey:'03'},
+  {id:'04',phase:'proposal',fill:true,title:'PRD',x:310,y:220,sections:['愿景与目标','目标用户','核心场景','产品规则','能力优先级'],fillBy:'R1',docKey:'04'},
+  {id:'05',phase:'spec',fill:true,title:'用户故事与AC',x:560,y:20,sections:['US-001 单轮P0','US-002 多轮P0','US-003 错误P0','US-004 流式P1','追溯索引'],fillBy:'R2',docKey:'05'},
+  {id:'06',phase:'spec',fill:true,title:'功能规格FSD',x:560,y:210,sections:['总体结构','Chat API功能','错误处理(5码)','US→FSD对齐'],fillBy:'R3',docKey:'06'},
+  {id:'07',phase:'spec',fill:true,title:'NFR约束',x:560,y:370,sections:['性能P95<30s','可用性','可观测traceId','安全','数据约束'],fillBy:'R3',docKey:'07'},
+  {id:'08',phase:'design',fill:true,title:'架构选型',x:810,y:20,sections:['架构总览','Route→Service→Provider','百炼集成','P0无持久化'],fillBy:'R3',docKey:'08'},
+  {id:'09',phase:'design',fill:true,title:'API契约',x:810,y:190,sections:['端点总览','统一响应规范','POST /api/v1/chat','参数校验规则'],fillBy:'R2',docKey:'09'},
+  {id:'10',phase:'design',fill:true,title:'数据模型',x:810,y:350,sections:['概念模型','存储引擎(无)','DTO映射','P1预留'],fillBy:'R3',docKey:'10'},
+  {id:'11',phase:'design',fill:true,title:'安全设计',x:810,y:480,sections:['安全目标(3)','认证机制','数据安全','外部服务安全'],fillBy:'R3',docKey:'11'},
+  {id:'12',phase:'plan',fill:true,title:'实施计划',x:1080,y:60,sections:['里程碑S1-S3','WBS W1-W5','S×W矩阵','REQ→S→W→TC'],fillBy:'R4',docKey:'12'},
+  {id:'13',phase:'test',fill:true,title:'测试策略',x:1330,y:80,sections:['分层L1/L2','用例原则','TC 9条','门禁4个'],fillBy:'R4',docKey:'13'},
+  {id:'14',phase:'trace',fill:true,title:'RTM追溯',x:1580,y:110,sections:['需求定义(4REQ)','正向追溯','反向追溯','API→TC映射','覆盖率100%'],fillBy:'R4',docKey:'14'},
+];
+
+// Spec 间的追溯连线
+const EDGES_SPEC = [
+  {f:'02',t:'03'},{f:'03',t:'04'},{f:'04',t:'05'},{f:'05',t:'06'},
+  {f:'05',t:'09'},{f:'06',t:'08'},{f:'07',t:'08'},{f:'08',t:'09'},
+  {f:'08',t:'10'},{f:'09',t:'10'},{f:'07',t:'11'},{f:'08',t:'12'},
+  {f:'05',t:'13'},{f:'09',t:'13'},{f:'12',t:'13'},{f:'05',t:'14'},
+  {f:'09',t:'14'},{f:'13',t:'14'},
+];
+
+// 输入文档 → Spec 映射连线（虚线蓝色）
+const EDGES_MAP = [
+  {src:'src-dem',spec:'03',label:'原始需求→立项'},
+  {src:'src-dem',spec:'02',label:''},
+  {src:'src-pm-prd',spec:'03',label:'PRD→立项'},
+  {src:'src-pm-prd',spec:'04',label:'PRD→PRD'},
+  {src:'src-pm-us',spec:'05',label:'US草稿→US'},
+  {src:'src-be-api',spec:'09',label:'API设计→契约'},
+  {src:'src-be-arch',spec:'08',label:'架构→架构'},
+  {src:'src-be-arch',spec:'10',label:''},
+  {src:'src-be-arch',spec:'11',label:''},
+  {src:'src-qa',spec:'13',label:'测试→测试'},
+];
+
+// 校验连线（虚线紫色）
+const EDGES_VERIFY = [
+  {f:'04',t:'05',v:'align-prd-us'},
+  {f:'05',t:'09',v:'align-us-api'},
+  {f:'09',t:'10',v:'align-api-db'},
+  {f:'14',t:'14',v:'align-trace'},
+];
+
+const PHASE_HDR = {meta:'hdr-meta',proposal:'hdr-proposal',spec:'hdr-spec',design:'hdr-design',plan:'hdr-plan',test:'hdr-test',trace:'hdr-trace'};
+const PHASE_LABEL = {meta:'Meta',proposal:'Proposal',spec:'Spec',design:'Design',plan:'Plan',test:'Test',trace:'Trace'};
+const CANVAS_W=1900, CANVAS_H=700;
+
+// Doc content cache
+const DOCS = {};
+const SRC_DOCS = {};
+let LOG_CONTENT = null;
+
+// ═══════════════════════════════════════
+// 文档加载
+// ═══════════════════════════════════════
+async function loadAll() {
+  const specFiles = {'01':'01-Spec写作总则与文档编号索引.md','02':'02-需求来源与采集记录.md','03':'03-立项提案与范围说明.md','04':'04-产品需求说明.md','05':'05-用户故事与验收标准.md','06':'06-功能规格说明.md','07':'07-非功能需求与约束.md','08':'08-系统架构与技术选型.md','09':'09-API接口规格.md','10':'10-数据模型与存储规格.md','11':'11-安全设计规格.md','12':'12-实施计划与里程碑.md','13':'13-测试策略与质量门禁.md','14':'14-需求追踪矩阵.md'};
+  for (const [id, fn] of Object.entries(specFiles)) { try { const r=await fetch(fn); if(r.ok) DOCS[id]=await r.text(); }catch(e){ DOCS[id]=null; } }
+  for (const role of SOURCES) {
+    for (const doc of role.docs) {
+      try { const r=await fetch(doc.path); if(r.ok) SRC_DOCS[doc.id]=await r.text(); }catch(e){ SRC_DOCS[doc.id]=null; }
+    }
+  }
+  try { const r=await fetch('03-操作日志-转换与校验记录.md'); if(r.ok) LOG_CONTENT=await r.text(); }catch(e){ LOG_CONTENT=null; }
+}
+
+// ═══════════════════════════════════════
+// 渲染左侧面板
+// ═══════════════════════════════════════
+function buildLeftPanel() {
+  const lp = document.getElementById('leftPanel');
+  let html = '<div class="lp-section"><div class="lp-title"><span class="lp-icon">📥</span>输入文档 (sources/)</div>';
+  SOURCES.forEach(role => {
+    html += `<div class="lp-role"><div class="lp-role-header" data-role="${role.role}"><span class="lp-role-caret">›</span><span class="lp-role-color" style="background:${role.color}"></span><span class="lp-role-name">${role.role}</span><span class="lp-role-count">${role.docs.length}</span></div><div class="lp-role-docs">`;
+    role.docs.forEach(doc => {
+      html += `<div class="lp-doc" data-src="${doc.id}" data-feeds="${doc.feeds.join(',')}"><span class="lp-doc-icon">📄</span><span class="lp-doc-name" title="${doc.title}">${doc.file}</span><span class="lp-doc-arrow">→${doc.feeds.join(' ')}</span></div>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  // Skill 列表
+  html += '<div class="lp-section"><div class="lp-title"><span class="lp-icon">⚙️</span>Skill 工作流</div>';
+  SKILLS.forEach(s => {
+    html += `<div class="lp-role"><div class="lp-role-header" data-skill="${s.id}"><span class="lp-role-caret">›</span><span class="lp-role-color" style="background:${s.phase==='meta'?'#78909c':s.phase==='proposal'?'#5c6bc0':s.phase==='spec'?'#43a047':s.phase==='design'?'#1e88e5':s.phase==='plan'?'#fb8c00':'#8e24aa'}"></span><span class="lp-role-name">${s.label}</span><span class="lp-role-count" style="font-size:9px">${s.name}</span></div><div class="lp-role-docs" style="padding:4px 14px 4px 34px;font-size:10px;color:var(--text-sec);line-height:1.4">${s.desc}</div></div>`;
+  });
+  html += '</div>';
+
+  // 操作日志入口
+  html += '<div class="lp-section"><div class="lp-title"><span class="lp-icon">📋</span>操作日志</div>';
+  html += '<div class="lp-doc" id="btnLog" style="border-left:none;padding-left:14px;cursor:pointer"><span class="lp-doc-icon">📄</span><span class="lp-doc-name">03-操作日志-转换与校验记录.md</span><span class="lp-doc-arrow">→</span></div>';
+  html += '</div>';
+
+  lp.innerHTML = html;
+
+  // 交互：折叠
+  lp.querySelectorAll('.lp-role-header').forEach(h => {
+    h.addEventListener('click', () => { h.parentElement.classList.toggle('collapsed'); });
+  });
+  // 点击输入文档
+  lp.querySelectorAll('.lp-doc').forEach(d => {
+    d.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const srcId = d.dataset.src;
+      showSrcDoc(srcId);
+      // 高亮相关Spec
+      const feeds = d.dataset.feeds.split(',');
+      highlightConnected(feeds);
+    });
+  });
+  // 点击Skill
+  lp.querySelectorAll('.lp-role-header[data-skill]').forEach(h => {
+    h.addEventListener('click', (e) => {
+      const sid = h.dataset.skill;
+      const skill = SKILLS.find(s => s.id === sid);
+      if (skill) showSkillInfo(skill);
+    });
+  });
+  // 点击日志
+  const btnLog = document.getElementById('btnLog');
+  if (btnLog) {
+    btnLog.addEventListener('click', () => {
+      openViewer('src-skill', '操作日志', '03-操作日志-转换与校验记录.md', LOG_CONTENT);
+    });
+  }
+}
+
+// 高亮关联的Spec节点
+function highlightConnected(specIds) {
+  clearHighlight();
+  const set = new Set(specIds);
+  Object.values(nodeEls).forEach(n => {
+    n.classList.toggle('dim', !set.has(n.dataset.id));
+    if (set.has(n.dataset.id)) n.classList.add('highlight');
+  });
+  svgLayer.querySelectorAll('path').forEach(p => p.classList.add('dim'));
+}
+
+// ═══════════════════════════════════════
+// 渲染画布节点
+// ═══════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const svgLayer = document.getElementById('svgLayer');
+const tooltip = document.getElementById('tooltip');
+const nodeEls = {};
+canvas.style.width = CANVAS_W+'px';
+canvas.style.height = CANVAS_H+'px';
+
+Object.entries({meta:60,proposal:310,spec:560,design:810,plan:1080,test:1330,trace:1580}).forEach(([ph,x]) => {
+  const d = document.createElement('div');
+  d.style.cssText = `position:absolute;top:4px;left:${x}px;font-size:9px;font-weight:700;color:#bbb;letter-spacing:1px;z-index:0;text-transform:uppercase`;
+  d.textContent = PHASE_LABEL[ph];
+  canvas.appendChild(d);
+});
+
+NODES.forEach(n => {
+  const el = document.createElement('div');
+  el.className = 'node' + (n.fill===true?' filled':'') + (n.fill===false?' empty':'');
+  el.id = 'node-'+n.id;
+  el.style.left = n.x+'px';
+  el.style.top = (n.y+28)+'px';
+  el.dataset.id = n.id;
+  const secs = (n.sections||[]).map(s => `<div class="node-sec">${s}</div>`).join('');
+  const fillTag = n.fillBy ? `<div class="fill-by">⬤ ${n.fillBy}</div>` : (n.fill===false ? '<div class="fill-by">⬤ 占位</div>' : '');
+  el.innerHTML = `<div class="node-header ${PHASE_HDR[n.phase]}">${n.id} ${PHASE_LABEL[n.phase]}</div><div class="node-name">${n.title}${fillTag}</div><div class="node-sections">${secs}</div>`;
+  canvas.appendChild(el);
+  nodeEls[n.id] = el;
+});
+
+// 渲染连线
+function drawEdges() {
+  svgLayer.innerHTML = '';
+  svgLayer.setAttribute('width', CANVAS_W);
+  svgLayer.setAttribute('height', CANVAS_H);
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = '<marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" class="edge-arrow"/></marker><marker id="ahHL" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" class="edge-arrow highlight"/></marker>';
+  svgLayer.appendChild(defs);
+
+  function drawEdge(fid, tid, cls) {
+    const fe = nodeEls[fid], te = nodeEls[tid];
+    if (!fe || !te) return;
+    const fx = parseFloat(fe.style.left) + fe.offsetWidth;
+    const fy = parseFloat(fe.style.top) + fe.offsetHeight/2;
+    const tx = parseFloat(te.style.left), ty = parseFloat(te.style.top) + te.offsetHeight/2;
+    const dx = Math.abs(tx-fx)*0.4;
+    const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d', `M${fx},${fy} C${fx+dx},${fy} ${tx-dx},${ty} ${tx},${ty}`);
+    p.setAttribute('class', cls || 'edge node-edge');
+    p.setAttribute('marker-end', 'url(#ah)');
+    p.dataset.from = fid; p.dataset.to = tid;
+    svgLayer.appendChild(p);
+  }
+  EDGES_SPEC.forEach(e => drawEdge(e.f, e.t, 'edge node-edge'));
+  EDGES_VERIFY.forEach(e => drawEdge(e.f, e.t, 'edge verify-line'));
+}
+setTimeout(drawEdges, 100);
+
+// ═══════════════════════════════════════
+// 交互
+// ═══════════════════════════════════════
+let lockedNode = null;
+function clearHighlight() {
+  Object.values(nodeEls).forEach(n => n.classList.remove('highlight','locked','dim'));
+  svgLayer.querySelectorAll('path').forEach(p => p.classList.remove('highlight','dim','step-active','map-line','verify-line'));
+  lockedNode = null;
+}
+
+Object.values(nodeEls).forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    if (lockedNode) return;
+    const id = el.dataset.id;
+    const conn = new Set([id]);
+    EDGES_SPEC.forEach(e => { if (e.f===id||e.t===id) { conn.add(e.f); conn.add(e.t); } });
+    Object.values(nodeEls).forEach(n => n.classList.toggle('dim', !conn.has(n.dataset.id)));
+    svgLayer.querySelectorAll('path').forEach(p => {
+      if (p.dataset.from===id||p.dataset.to===id) { p.classList.add('highlight'); p.setAttribute('marker-end','url(#ahHL)'); }
+      else p.classList.add('dim');
+    });
+    tooltip.style.display='block';
+    const n = NODES.find(x=>x.id===id);
+    tooltip.innerHTML = `<b>${n.id} ${n.title}</b>${n.fillBy?' — 填充: '+n.fillBy:''}`;
+  });
+  el.addEventListener('mouseleave', () => { if (!lockedNode) clearHighlight(); });
+  el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    if (lockedNode === id) { clearHighlight(); document.getElementById('docViewer').classList.remove('open'); return; }
+    lockedNode = id;
+    Object.values(nodeEls).forEach(n => n.classList.remove('locked'));
+    el.classList.add('locked');
+    showSpecDoc(id);
+  });
+});
+
+document.addEventListener('mousemove', e => {
+  if (tooltip.style.display!=='none') { tooltip.style.left=(e.clientX+12)+'px'; tooltip.style.top=(e.clientY+12)+'px'; }
+});
+
+// ═══════════════════════════════════════
+// 文档/源文件预览
+// ═══════════════════════════════════════
+function md2html(md) {
+  if (!md) return '<p style="color:#888;text-align:center;padding:30px">无法加载文档<br><small>请通过 HTTP 服务打开此页面</small></p>';
+  let c = md.replace(/^---\n[\s\S]*?\n---\n*/, '');
+  if (typeof marked !== 'undefined') { marked.setOptions({breaks:true,gfm:true}); return marked.parse(c); }
+  return '<pre>'+c.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>';
+}
+
+function openViewer(sourceClass, sourceLabel, name, content) {
+  const p = document.getElementById('docViewer');
+  document.getElementById('dvSource').textContent = sourceLabel;
+  document.getElementById('dvSource').className = 'doc-source '+sourceClass;
+  document.getElementById('dvName').textContent = name;
+  document.getElementById('dvBody').innerHTML = md2html(content);
+  p.classList.add('open');
+}
+document.getElementById('dvClose').addEventListener('click', () => document.getElementById('docViewer').classList.remove('open'));
+
+function showSpecDoc(id) {
+  const n = NODES.find(x=>x.id===id);
+  openViewer('src-spec', 'Spec '+id, n.title, DOCS[id]||null);
+}
+function showSrcDoc(srcId) {
+  for (const role of SOURCES) {
+    for (const doc of role.docs) {
+      if (doc.id === srcId) {
+        const cls = role.role === '需求方' ? 'src-demand' : role.role === 'PM' ? 'src-pm' : role.role === '后端' ? 'src-dev' : 'src-test';
+        openViewer(cls, role.role + ' › ' + doc.file, doc.title, SRC_DOCS[srcId]||null);
+        return;
+      }
+    }
+  }
+}
+function showSkillInfo(skill) {
+  // 构建产出文档详情
+  let outputsHtml = '';
+  if (skill.outputs.length) {
+    outputsHtml = '\n\n## 📄 产出的 Spec 文档\n\n';
+    skill.outputs.forEach(id => {
+      const n = NODES.find(x=>x.id===id);
+      if (n) {
+        const status = n.fill===true?'✅ 已填充':n.fill==='special'?'📋 框架':'⬜ 占位';
+        outputsHtml += `| ${id} | ${n.title} | ${status} | ${n.fillBy||'—'} |\n`;
+      } else {
+        outputsHtml += `| ${id} | — | — | — |\n`;
+      }
+    });
+    outputsHtml = outputsHtml.replace(/^\n/, '\n| 编号 | 文档名 | 状态 | 填充轮次 |\n|------|--------|------|----------|\n');
+  }
+
+  // 构建输入来源详情
+  let inputsHtml = '';
+  if (skill.inputs.length) {
+    inputsHtml = '\n\n## 📥 输入来源\n\n';
+    skill.inputs.forEach(srcId => {
+      for (const role of SOURCES) {
+        const doc = role.docs.find(d=>d.id===srcId);
+        if (doc) {
+          inputsHtml += `- **${role.role}** › \`${doc.file}\` → 汇入 ${doc.feeds.join(', ')}\n`;
+          break;
+        }
+      }
+      if (!inputsHtml.includes(srcId)) inputsHtml += `- ${srcId}\n`;
+    });
+  } else {
+    inputsHtml = '\n\n## 📥 输入来源\n\n（无外部输入，由框架自动生成）\n';
+  }
+
+  // 相关校验
+  let verifyHtml = '';
+  const relatedVerify = [];
+  if (skill.id==='skill-r1') relatedVerify.push('align-prd-us');
+  if (skill.id==='skill-r2') relatedVerify.push('align-us-api');
+  if (skill.id==='skill-r3') relatedVerify.push('align-api-db');
+  if (skill.id==='skill-r4') relatedVerify.push('align-trace');
+  if (relatedVerify.length) {
+    verifyHtml = '\n\n## 🔍 关联校验 Skill\n\n';
+    relatedVerify.forEach(v => verifyHtml += `- \`/mumu-spec-${v}\` — 执行后刷新页面重新评分\n`);
+  }
+
+  // 操作按钮
+  const cmdPrompt = skill.inputs.length
+    ? `在 Spec-3 目录执行 ${skill.name}。输入来源：${skill.inputs.join(', ')}。产出：${skill.outputs.join(', ')}。项目：百炼Chatbot（M1-BL）`
+    : `在 Spec-3 目录执行 ${skill.name}。项目：百炼Chatbot（M1-BL）`;
+
+  const content = `# ${skill.name}
+
+**${skill.label}** — ${skill.desc}
+
+## 📝 详细说明
+${skill.details}
+${inputsHtml}${outputsHtml}${verifyHtml}
+
+## ⚡ 操作
+
+\`\`\`
+${cmdPrompt}
+\`\`\`
+
+<span style="cursor:pointer;background:var(--active-color);color:#fff;padding:4px 12px;border-radius:4px;font-size:11px" onclick="copyCmd('${cmdPrompt.replace(/'/g,"\\'")}')">📋 复制提示词</span>`;
+
+  // 渲染到侧边栏预览面板
+  document.getElementById('rsPreview').innerHTML = `<div class="rp-preview">${md2html(content)}</div>`;
+  switchRSTab('preview');
+}
+
+// ═══════════════════════════════════════
+// 右侧侧边栏：评分 + 校验扫描 + 输入→Spec + 校验连线
+// ═══════════════════════════════════════
+const rs = document.getElementById('rightSidebar');
+const rsClose = document.getElementById('rsClose');
+let rsTimer = null;
+
+function openSidebar() { rs.classList.add('open'); rsClose.classList.add('show'); }
+function closeSidebar() { rs.classList.remove('open'); rsClose.classList.remove('show'); if(rsTimer){clearTimeout(rsTimer);rsTimer=null;} }
+rsClose.addEventListener('click', closeSidebar);
+
+function switchRSTab(name) {
+  document.querySelectorAll('.rs-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.querySelector(`.rs-tab[data-rstab="${name}"]`);
+  if (tab) tab.classList.add('active');
+  ['rsScore','rsScan','rsMapping','rsVerify','rsWalk','rsTasks','rsPreview','rsFlow','rsChanges','rsVersions'].forEach(id => {
+    document.getElementById(id).style.display = (id === 'rs'+name.charAt(0).toUpperCase()+name.slice(1)) ? 'block' : 'none';
+  });
+  if (name !== 'scan' && rsTimer) { clearTimeout(rsTimer); rsTimer = null; }
+  openSidebar();
+}
+
+document.querySelectorAll('.rs-tab').forEach(t => {
+  t.addEventListener('click', () => switchRSTab(t.dataset.rstab));
+});
+
+// ── 评分面板 ──
+function buildScorePanel() {
+  const el = document.getElementById('rsScore');
+  if (!el) return;
+  const keys = Object.keys(SCORE_DATA);
+  if (keys.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:#888">⏳ 正在加载文档并分析...</div>';
+    return;
+  }
+  const s = calcScore();
+  const cls = s.pct>=90?'good':s.pct>=70?'warn':'bad';
+  let html = `<div class="rs-score-header"><div class="rs-score-num ${cls}">${s.total}<span style="font-size:14px">/${s.max}</span></div><div class="rs-score-label">Spec 健康度 — ${s.pct}%</div></div>`;
+  ['completeness','traceability','verifiability','consistency'].forEach(dimKey=>{
+    const d=SCORE_DATA[dimKey];
+    if (!d) return;
+    const dc=dimKey==='completeness'?'comp':dimKey==='traceability'?'trace':dimKey==='verifiability'?'verif':'consist';
+    html+=`<div class="rs-dim-row" data-dim="${dimKey}"><span class="rs-dim-name">${d.label}</span><span class="rs-dim-bar-wrap"><span class="rs-dim-bar ${dc}" style="width:${Math.round(d.score/d.max*100)}%"></span></span><span class="rs-dim-val">${d.score}/${d.max}</span></div>`;
+  });
+  html+='<div style="font-size:9px;color:#888;margin:6px 0">点击维度或校验项启动真实扫描仪</div>';
+  VERIFY_ITEMS.forEach(v => {
+    const ic=v.status==='pass'?'✓':v.status==='issue'?'✗':'？';
+    const icls=v.status==='pass'?'pass':v.status==='issue'?'issue':'pending';
+    html+=`<div class="rs-vfy-item" data-dim="${v.dim}"><span class="rs-vfy-icon ${icls}">${ic}</span><span class="rs-vfy-name">${v.desc}</span><span class="rs-vfy-badge">${v.status==='pass'?'通过':'待检'}</span></div>`;
+  });
+  // Skill 命令按钮（含上下文提示词）
+  const skillPrompts = [
+    {label:'R1 Proposal', cmd:'/mumu-spec-r1-proposal',
+     prompt:'基于 sources/ 目录下的需求方原始需求和PM的PRD草稿，检查并完善 Spec-3 下的 03-立项提案与范围说明.md 和 04-产品需求说明.md。项目：百炼Chatbot（M1-BL），核心需求是调用阿里云百炼平台API实现Chatbot对话能力。'},
+    {label:'R2 Align', cmd:'/mumu-spec-r2-align',
+     prompt:'基于 sources/PM/用户故事草稿.md 和 sources/后端/API设计.md，检查并完善 Spec-3 下的 05-用户故事与验收标准.md 和 09-API接口规格.md。确保每条AC在API契约中可观测断言，字段名在09中冻结。项目：百炼Chatbot（M1-BL）。'},
+    {label:'R3 Design', cmd:'/mumu-spec-r3-design',
+     prompt:'基于 sources/后端/架构设计.md 和已有 05/09，检查并完善 Spec-3 下的 08-系统架构与技术选型.md、10-数据模型与存储规格.md、06-功能规格说明.md、07-非功能需求与约束.md、11-安全设计规格.md。遵循Route→Service→Provider分层。项目：百炼Chatbot（M1-BL）。'},
+    {label:'R4 Finalize', cmd:'/mumu-spec-r4-finalize',
+     prompt:'基于 sources/测试/测试策略草稿.md 和 R1-R3 已有产出，检查并完善 Spec-3 下的 12-实施计划与里程碑.md、13-测试策略与质量门禁.md、14-需求追踪矩阵.md。确保每条P0 REQ至少1条TC，四向追溯闭环。项目：百炼Chatbot（M1-BL）。'},
+    {label:'Check 检查', cmd:'/mumu-spec-check',
+     prompt:'对 Spec-3 目录下的 01-14 全部 Spec 文档执行全面质量检查：完整性（占位符残留）、编号唯一性、模糊词检测、AC可测试性、API示例完整性。项目：百炼Chatbot（M1-BL）。'},
+  ];
+  html+='<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--card-border)"><div style="font-size:9px;color:#888;margin-bottom:4px">⚡ 运行 Skill（点击复制完整提示词到 Claude Code）</div>';
+  skillPrompts.forEach(sk=>{
+    html+=`<div class="rs-vfy-item" style="cursor:pointer" onclick="copyCmd('${sk.prompt.replace(/'/g,"\\'")}')" title="复制完整提示词"><span style="font-size:10px">📋</span><span class="rs-vfy-name">${sk.label}</span><code style="font-size:8.5px;color:var(--active-color)">${sk.cmd}</code></div>`;
+  });
+  html+='</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('.rs-dim-row, .rs-vfy-item[data-dim]').forEach(row => {
+    row.addEventListener('click', () => startScan(row.dataset.dim));
+  });
+}
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd).then(()=>{showToast('已复制: '+cmd);}).catch(()=>{prompt('复制以下命令:',cmd);});
+}
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;z-index:300;pointer-events:none;transition:opacity .3s';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 300); }, 1800);
+}
+buildScorePanel();
+
+// ── 扫描面板（在侧边栏内） ──
+function startScan(dimKey) {
+  const d = SCORE_DATA[dimKey];
+  if (!d) return;
+  if (rsTimer) clearTimeout(rsTimer);
+  const el = document.getElementById('rsScan');
+  let html = `<div style="text-align:center;padding:4px 0 8px"><b>${d.label}</b> — ${d.skill}<br><span style="font-size:10px;color:#888">权重 ${d.weight}% · ${d.checks.length} 项检查</span></div>`;
+  html += `<div class="rs-scan-bar-wrap"><div class="rs-scan-bar"><div class="rs-scan-bar-fill" id="rsScanFill" style="width:0%"></div></div></div>`;
+  html += `<div class="rs-scan-summary" id="rsScanSum">${d.desc}</div><div id="rsScanItems">`;
+  d.checks.forEach(c => {
+    const icn = c.result==='pass'?'✓':c.result==='warn'?'⚠':'✗';
+    const icls = c.result==='pass'?'pass':c.result==='warn'?'warn':'fail';
+    // 生成修复命令
+    let fixCmd = '';
+    if (c.result !== 'pass') {
+      if (c.item.includes('占位符')||c.item.includes('填充')) fixCmd = '/mumu-spec-r1-proposal 检查并填充 Spec-3 下仍有【填写】占位符的文档章节。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('模糊词')||c.item.includes('模糊')) fixCmd = '检查 Spec-3 文档中的模糊词（尽量/大概/建议/友好等），改为MUST/SHOULD/具体数字。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('编号')||c.item.includes('重复')) fixCmd = '/mumu-spec-check 检查 Spec-3 下所有文档的REQ/US/TC编号唯一性。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('JSON')||c.item.includes('示例')) fixCmd = '/mumu-spec-r2-align 为 09-API接口规格.md 补充完整的JSON请求/响应示例。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('字段')||c.item.includes('一致')) fixCmd = '/mumu-spec-align-api-db 检查09和10字段一致性。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('覆盖')||c.item.includes('追溯')||c.item.includes('TC')) fixCmd = '/mumu-spec-align-trace 检查14追溯矩阵完整性。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('存储')||c.item.includes('策略')) fixCmd = '/mumu-spec-r3-design 检查08和10存储策略一致性。项目：百炼Chatbot（M1-BL）';
+      else if (c.item.includes('交叉引用')||c.item.includes('未引用')) fixCmd = '/mumu-spec-r2-align 补充05与09之间的交叉引用。项目：百炼Chatbot（M1-BL）';
+      else fixCmd = '/mumu-spec-check 对 Spec-3 执行全面质量检查。项目：百炼Chatbot（M1-BL）';
+    }
+    const fixBtn = fixCmd ? `<span style="cursor:pointer;font-size:9px;color:#fff;background:var(--active-color);padding:1px 6px;border-radius:3px;white-space:nowrap;float:right;margin-left:6px" onclick="event.stopPropagation();copyCmd('${fixCmd.replace(/'/g,"\\'")}')">🔧 修复</span>` : '';
+    html += `<div class="rs-scan-item" data-rsi><span class="rs-scan-icon ${icls}">${icn}</span><div class="rs-scan-text">${c.item}${fixBtn}<div class="rs-scan-note">${c.note}</div></div></div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+  switchRSTab('scan');
+
+  const items = el.querySelectorAll('[data-rsi]');
+  let idx = 0;
+  function reveal() {
+    if (idx < items.length) {
+      items[idx].classList.add('show'); idx++;
+      document.getElementById('rsScanFill').style.width = Math.round(idx/items.length*100)+'%';
+      const shown = el.querySelectorAll('.rs-scan-item.show');
+      const passed = el.querySelectorAll('.rs-scan-item.show .rs-scan-icon.pass').length;
+      const warns = el.querySelectorAll('.rs-scan-item.show .rs-scan-icon.warn').length;
+      document.getElementById('rsScanSum').innerHTML = `已扫描 <b>${shown.length}/${items.length}</b> · 通过 <b style="color:var(--green)">${passed}</b> · 提醒 <b style="color:var(--orange)">${warns}</b>`;
+      rsTimer = setTimeout(reveal, 200);
+    } else {
+      document.getElementById('rsScanSum').innerHTML = `✅ 扫描完成 · ${d.score}/${d.max} 分 · 权重 ${d.weight}%`;
+      rsTimer = null;
+    }
+  }
+  rsTimer = setTimeout(reveal, 300);
+}
+
+// ── 输入→Spec 映射面板 ──
+function buildMappingPanel() {
+  const el = document.getElementById('rsMapping');
+  if (!el) return;
+  let html = '<div class="rs-map-group"><div class="rs-map-title">📥 输入文档 → Spec 文档</div>';
+  SOURCES.forEach(role => {
+    role.docs.forEach(doc => {
+      const srcName = doc.file.replace('.md','');
+      html += `<div class="rs-map-row"><span class="rs-map-src" title="${role.role} › ${doc.file}">${srcName}</span><span class="rs-map-arrow">→</span><span class="rs-map-spec">${doc.feeds.join(', ')}</span><span class="rs-map-note">${role.role}</span></div>`;
+    });
+  });
+  html += '</div>';
+  html += '<div class="rs-info-tip">💡 输入文档位于 <code>sources/</code> 目录，作为 Skill 的上下文素材。生成后的 Spec 文档才是唯一真源，应纳入 Git 版本管理。</div>';
+  el.innerHTML = html;
+}
+buildMappingPanel();
+
+// ── 校验连线面板 ──
+function buildVerifyPanel() {
+  const el = document.getElementById('rsVerify');
+  if (!el) return;
+  let html = '<div class="rs-map-group"><div class="rs-map-title">✅ 跨文档校验连线</div>';
+  const pairs = [
+    {f:'04',t:'05',name:'align-prd-us',desc:'PRD能力 → US覆盖',status:'pass'},
+    {f:'05',t:'09',name:'align-us-api',desc:'AC → API断言',status:'pass'},
+    {f:'09',t:'10',name:'align-api-db',desc:'API字段 → 数据模型',status:'pass'},
+    {f:'14',t:'14',name:'align-trace',desc:'四向追溯闭环',status:'pass'},
+  ];
+  pairs.forEach(p => {
+    const ic = p.status==='pass'?'✓':'✗';
+    html += `<div class="rs-map-row"><span class="rs-map-src">${p.f} ↔ ${p.t}</span><span class="rs-map-arrow">${ic}</span><span style="flex:1;font-size:10px">${p.desc}</span><span class="rs-map-note">${p.name}</span></div>`;
+  });
+  html += '</div>';
+  html += '<div class="rs-info-tip">💡 校验连线检查跨文档一致性：<br>• <b>align-prd-us</b>：04的能力是否被05的US全覆盖<br>• <b>align-us-api</b>：05的AC是否在09有可观测断言<br>• <b>align-api-db</b>：09字段与10数据模型是否一致<br>• <b>align-trace</b>：14追溯矩阵四向全闭环</div>';
+  el.innerHTML = html;
+}
+buildVerifyPanel();
+
+// ═══════════════════════════════════════
+// Pan/Zoom
+// ═══════════════════════════════════════
+const wrap = document.getElementById('canvasWrap');
+let scale=0.65, panX=30, panY=20, isPanning=false, psx=0, psy=0;
+function applyTransform() {
+  canvas.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
+  document.getElementById('zoomLabel').textContent = Math.round(scale*100)+'%';
+}
+wrap.addEventListener('mousedown', e => {
+  if (e.target.closest('.node')) return;
+  isPanning=true; psx=e.clientX-panX; psy=e.clientY-panY; wrap.classList.add('panning');
+});
+document.addEventListener('mousemove', e => { if (isPanning) { panX=e.clientX-psx; panY=e.clientY-psy; applyTransform(); } });
+document.addEventListener('mouseup', () => { isPanning=false; wrap.classList.remove('panning'); });
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r=wrap.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top, olds=scale;
+  scale=Math.max(0.2,Math.min(1.5,scale*(e.deltaY>0?0.9:1.1)));
+  panX=mx-(mx-panX)*(scale/olds); panY=my-(my-panY)*(scale/olds); applyTransform();
+},{passive:false});
+document.getElementById('zoomIn').addEventListener('click',()=>{scale=Math.min(1.5,scale*1.2);applyTransform()});
+document.getElementById('zoomOut').addEventListener('click',()=>{scale=Math.max(0.2,scale/1.2);applyTransform()});
+document.getElementById('zoomFit').addEventListener('click',()=>{
+  const ww=wrap.clientWidth, wh=wrap.clientHeight;
+  scale=Math.min(ww/CANVAS_W,wh/CANVAS_H)*0.9; panX=(ww-CANVAS_W*scale)/2; panY=(wh-CANVAS_H*scale)/2; applyTransform();
+});
+
+// ═══════════════════════════════════════
+// 按钮
+// ═══════════════════════════════════════
+let mode = 'all';
+document.getElementById('btnAll').addEventListener('click', function(){
+  mode='all'; clearHighlight();
+  Object.values(nodeEls).forEach(n => n.classList.remove('dim'));
+  svgLayer.querySelectorAll('path').forEach(p => { p.classList.remove('dim'); p.classList.remove('map-line','verify-line'); });
+  this.classList.add('active'); document.getElementById('btnSrcSpec').classList.remove('active'); document.getElementById('btnVerify').classList.remove('active');
+});
+document.getElementById('btnSrcSpec').addEventListener('click', function(){
+  mode='src-spec'; clearHighlight();
+  const mappedSpecs = new Set(EDGES_MAP.map(e=>e.spec));
+  Object.values(nodeEls).forEach(n => n.classList.toggle('dim', !mappedSpecs.has(n.dataset.id)));
+  svgLayer.querySelectorAll('path').forEach(p => p.classList.add('dim'));
+  showLegend('输入→Spec 映射', EDGES_MAP.map(e => `${e.src} → ${e.spec}`));
+  this.classList.add('active'); document.getElementById('btnAll').classList.remove('active'); document.getElementById('btnVerify').classList.remove('active');
+  switchRSTab('mapping');
+});
+document.getElementById('btnVerify').addEventListener('click', function(){
+  mode='verify'; clearHighlight();
+  const vSet = new Set();
+  EDGES_VERIFY.forEach(e => { vSet.add(e.f); vSet.add(e.t); });
+  Object.values(nodeEls).forEach(n => n.classList.toggle('dim', !vSet.has(n.dataset.id)));
+  svgLayer.querySelectorAll('path').forEach(p => {
+    p.classList.add('dim');
+    if (p.dataset.from && p.dataset.to) {
+      const isV = EDGES_VERIFY.some(ve => ve.f===p.dataset.from && ve.t===p.dataset.to);
+      if (isV) { p.classList.remove('dim'); p.classList.add('highlight'); p.setAttribute('marker-end','url(#ahHL)'); }
+    }
+  });
+  showLegend('校验连线 (align-*)', VERIFY_ITEMS.map(v => (v.status==='pass'?'✅':'❌')+' '+v.desc));
+  this.classList.add('active'); document.getElementById('btnAll').classList.remove('active'); document.getElementById('btnSrcSpec').classList.remove('active');
+  switchRSTab('verify');
+});
+document.getElementById('btnClear').addEventListener('click', () => {
+  clearHighlight(); mode='all';
+  document.querySelectorAll('#btnAll,#btnSrcSpec,#btnVerify').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.add('active');
+  hideLegend();
+});
+
+function showLegend(title, items) {
+  const el = document.getElementById('legendFloat');
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:4px;color:var(--text)">${title}</div>`+items.map(i=>`<div class="legend-item">${i}</div>`).join('');
+  el.style.display = 'block';
+}
+function hideLegend() { document.getElementById('legendFloat').style.display = 'none'; }
+
+// ═══════════════════════════════════════
+// Walkthrough — 5步
+// ═══════════════════════════════════════
+const WALK_STEPS = [{
+  label:'Step 1 · mumu-spec-init', title:'骨架初始化',
+  desc:'创建 <em>01-14</em> 全部文档骨架。每篇含元数据表 + 章节标题 + <code>【填写】</code>占位符。01额外写入写作铁律和编号规则。',
+  nodes:['01','02','03','04','05','06','07','08','09','10','11','12','13','14']
+},{
+  label:'Step 2 · mumu-spec-r1-proposal', title:'R1 Proposal — 03 + 04',
+  desc:'读取<em>需求方原始需求</em>和<em>PM的PRD草稿</em>，填充 <em>03 立项提案</em>（痛点/范围/风险）+ <em>04 PRD</em>（场景/规则/优先级）。',
+  nodes:['03','04'], edges:['02-03','03-04']
+},{
+  label:'Step 3 · mumu-spec-r2-align', title:'R2 Align — 05 ↔ 09 互校准',
+  desc:'<em>PM的用户故事草稿</em> → <em>05 用户故事</em>。 <em>后端API设计</em> → <em>09 API契约</em>。每条P0 AC在09可找到可观测断言（状态码/字段/错误码），字段名在09冻结。',
+  nodes:['05','09'], edges:['04-05','05-09']
+},{
+  label:'Step 4 · mumu-spec-r3-design', title:'R3 Design — 08/10/06/07/11',
+  desc:'后端架构设计展开为5篇：<em>08架构</em>分层→<em>10数据</em>模型→<em>06FSD</em>行为→<em>07NFR</em>指标→<em>11安全</em>控制。字段与09保持一致。',
+  nodes:['08','10','06','07','11'], edges:['05-06','06-08','07-08','08-09','09-10','07-11']
+},{
+  label:'Step 5 · mumu-spec-r4-finalize', title:'R4 Finalize — 12/13/14 收口',
+  desc:'<em>12实施计划</em>S1-S3+W1-W5。<em>13测试策略</em>9条TC+4个门禁。<em>14追踪矩阵</em>四向追溯闭环。<br>✅ 终检：P0 US全映射 · REQ≥1TC · API示例齐全 · 覆盖率100%',
+  nodes:['12','13','14'], edges:['08-12','05-13','09-13','12-13','05-14','09-14','13-14']
+}];
+WALK_STEPS.forEach((s,i) => { s.edges = s.edges || []; });
+
+let walkStep = 0;
+// ── 演练面板（侧边栏内，含步骤详情） ──
+function buildWalkPanel() {
+  const el = document.getElementById('rsWalk');
+  if (!el) return;
+  let html = '<div style="display:flex;gap:0;height:100%"><div style="width:55%;overflow-y:auto;padding-right:4px" id="wlSteps">';
+  WALK_STEPS.forEach((s,i) => {
+    html += `<div class="rs-walk-step" data-ws="${i}" onclick="showWalkStep(${i})"><div class="wl-label">${s.label}</div><div class="wl-title">${s.title}</div></div>`;
+  });
+  html += '<div class="rs-walk-nav"><button class="rs-walk-btn" id="wlPrev">← 上一步</button><button class="rs-walk-btn primary" id="wlNext">下一步 →</button></div>';
+  html += '</div><div style="flex:1;overflow-y:auto;padding-left:8px;border-left:1px solid var(--card-border)" id="wlDetail"></div></div>';
+  el.innerHTML = html;
+  el.querySelector('.rs-walk-step').classList.add('active');
+  document.getElementById('wlPrev').addEventListener('click',()=>{ if(walkStep>0) showWalkStep(walkStep-1); });
+  document.getElementById('wlNext').addEventListener('click',()=>{ if(walkStep<WALK_STEPS.length-1) showWalkStep(walkStep+1); });
+  showWalkDetail(0);
+}
+
+function showWalkDetail(i) {
+  const s = WALK_STEPS[i];
+  if (!s) return;
+  const detailEl = document.getElementById('wlDetail');
+  if (!detailEl) return;
+  // 获取产出文档名称
+  const outputs = s.nodes.filter(id => id!=='01'&&id!=='02').map(id => {
+    const n = NODES.find(x=>x.id===id);
+    return n ? `<span style="font-weight:600">${id}</span> ${n.title}` : id;
+  });
+
+  let html = `<div style="font-size:11px;line-height:1.7">`;
+  html += `<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--text)">${s.title}</div>`;
+  html += `<div style="font-size:11px;color:var(--text-sec);margin-bottom:10px;line-height:1.6">${s.desc}</div>`;
+  if (outputs.length) {
+    html += `<div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:4px">📄 产出文档</div>`;
+    html += outputs.map(o => `<div style="font-size:10px;padding:2px 0">${o}</div>`).join('');
+  }
+  // 操作提示
+  html += `<div style="margin-top:10px;padding:8px;background:var(--sidebar-bg);border-radius:6px;font-size:9.5px;color:var(--text-sec);line-height:1.5">💡 <b>操作</b>：点击评分面板底部的 Skill 命令，复制提示词到 Claude Code 执行此步骤</div>`;
+  html += `</div>`;
+  detailEl.innerHTML = html;
+}
+
+function showWalkStep(i) {
+  walkStep = i; const s = WALK_STEPS[i];
+  if (!s) return;
+  clearHighlight();
+  Object.values(nodeEls).forEach(n => { n.classList.remove('step-active','dim'); n.classList.toggle('dim',!s.nodes.includes(n.dataset.id)); });
+  s.nodes.forEach(id => { if(nodeEls[id]) nodeEls[id].classList.add('step-active'); });
+  svgLayer.querySelectorAll('path').forEach(p => {
+    const pair = p.dataset.from+'-'+p.dataset.to;
+    p.classList.remove('step-active','dim'); p.classList.toggle('dim', !s.edges.includes(pair));
+    if (s.edges.includes(pair)) p.classList.add('step-active');
+  });
+  document.querySelectorAll('.rs-walk-step').forEach((el,j) => el.classList.toggle('active', j===i));
+  showWalkDetail(i);
+  // 自动保存快照（演练步骤 = 关键节点）
+  if (i > 0) autoSnapshotAndDiff(WALK_STEPS[i].label);
+}
+buildWalkPanel();
+
+// ── 任务面板（从12-Plan WBS拆分） ──
+const WBS_TASKS = [
+  {id:'W1',name:'Provider 层 — 封装百炼 SDK',desc:'封装百炼 DashScope SDK/HTTP API 调用，错误转换。实现超时30s、错误码映射（502/504）。',phase:'S1',dod:'09 §3 · 08 §4',req:'REQ-M1BL-001',tc:'TC-M1BL-001,003,010,011'},
+  {id:'W2',name:'Route + Service 层',desc:'POST /api/v1/chat 端点。参数校验（query非空、history格式、stream类型）。构造标准响应体。',phase:'S1',dod:'09 §3 · 06 §2',req:'REQ-M1BL-001',tc:'TC-M1BL-001,003'},
+  {id:'W3',name:'错误处理体系',desc:'实现5个错误码（EMPTY_QUERY/INVALID_QUERY/INVALID_API_KEY/UPSTREAM_ERROR/UPSTREAM_TIMEOUT）。降级策略。',phase:'S2',dod:'07 §3.2 · 06 §3',req:'REQ-M1BL-003',tc:'TC-M1BL-004,005,007'},
+  {id:'W4',name:'流式响应（P1）',desc:'stream=true 时 SSE 格式流式返回。Content-Type: text/event-stream。',phase:'S3',dod:'09 §3 · 06 §2',req:'REQ-M1BL-004',tc:'TC-M1BL-006'},
+  {id:'W5',name:'测试门禁',desc:'编写 9 条 TC（7 Integration + 2 Unit）。配置 G-LINT/G-UNIT/G-INT/G-AC 四个门禁。',phase:'S2',dod:'13',req:'REQ-M1BL-001,002,003',tc:'全部TC'},
+];
+
+function buildTaskPanel() {
+  const el = document.getElementById('rsTasks');
+  if (!el) return;
+  let html = '<div style="font-size:10px;color:#888;margin-bottom:8px">📋 从 12-实施计划与里程碑.md 拆分的 WBS 任务</div>';
+
+  // 里程碑条
+  html += '<div class="task-milestone"><div class="task-ms-dot s1">S1 核心对话</div><div class="task-ms-dot s2">S2 完善</div><div class="task-ms-dot s3">S3 增强</div></div>';
+
+  WBS_TASKS.forEach(t => {
+    const phaseCls = t.phase.toLowerCase();
+    html += `<div class="task-card">
+      <div class="task-header"><span class="task-id">${t.id}</span><span class="task-phase ${phaseCls}">${t.phase}</span><span style="font-size:9px;color:#888;margin-left:auto">${t.req}</span></div>
+      <div class="task-name">${t.name}</div>
+      <div class="task-desc">${t.desc}</div>
+      <div class="task-meta"><span>📌 DoD: ${t.dod}</span><span>🧪 TC: ${t.tc}</span></div>
+      <div class="task-actions">
+        <span class="task-btn" onclick="copyJiraCmd('W${t.id}','${t.name.replace(/'/g,"\\'")}','${t.desc.replace(/'/g,"\\'")}','${t.dod.replace(/'/g,"\\'")}')" title="复制Jira MCP创建命令">📋 Jira MCP</span>
+        <span class="task-btn" onclick="copyTeambitionCmd('W${t.id}','${t.name.replace(/'/g,"\\'")}','${t.desc.replace(/'/g,"\\'")}')" title="复制Teambition创建命令">📋 Teambition</span>
+        <span class="task-btn" onclick="openQoder('在Spec-3/12-实施计划与里程碑.md中，${t.id}: ${t.name}。${t.desc} DoD: ${t.dod}。请开始实现此任务。项目：百炼Chatbot（M1-BL）')" title="在Qoder中打开任务">💬 Code</span>
+      </div>
+    </div>`;
+  });
+
+  html += '<div class="rs-info-tip" style="margin-top:8px">💡 <b>MCP 发布</b>：点击 Jira MCP 复制命令 → 粘贴到 Claude Code → 通过 MCP Server 一键创建 Jira Issue。<br>需先配置 Jira MCP Server（<code>mcp__jira__create_issue</code>）。</div>';
+  el.innerHTML = html;
+}
+buildTaskPanel();
+
+// ── 流程面板（可视化架构图） ──
+function buildFlowPanel() {
+  const el = document.getElementById('rsFlow');
+  if (!el) return;
+
+  const phases = [
+    {phase:'📥 需求收集', who:'需求方 / 业务方', color:'#ff9800', skill:'mumu-spec-r1-proposal',
+     items:['提供原始需求文档（一句话/PRD/钉钉/飞书/PDF均可）','存入 sources/需求方/ 目录','明确核心诉求和边界']},
+    {phase:'📝 Proposal 立项', who:'PM / 产品经理', color:'#5c6bc0', skill:'mumu-spec-r1-proposal',
+     items:['运行 R1 Skill → 生成 03 立项提案 + 04 PRD','定义痛点、范围边界、成功标准','拆解核心场景、产品规则、能力优先级']},
+    {phase:'🎯 Spec 规格', who:'PM + 后端', color:'#43a047', skill:'mumu-spec-r2-align',
+     items:['运行 R2 Skill → 生成 05 用户故事 + 09 API契约','PM提供用户故事草稿 → 后端提供API设计','二者互校准：每条AC必须在API中找到可观测断言','字段名在09中冻结']},
+    {phase:'🏗️ Design 设计', who:'后端 + 前端', color:'#1e88e5', skill:'mumu-spec-r3-design',
+     items:['运行 R3 Skill → 展开 08架构/10数据/06FSD/07NFR/11安全','后端提供架构设计 → 生成分层架构 + 数据模型','前端参考FSD → 生成交互行为规格','安全约束对齐07和11']},
+    {phase:'📋 Plan 计划', who:'PM + Tech Lead', color:'#fb8c00', skill:'mumu-spec-r4-finalize',
+     items:['运行 R4 Skill → 生成 12实施计划/13测试策略/14追溯矩阵','WBS任务拆分 → 发布到 Jira/Teambition','每条P0 REQ至少1条TC']},
+    {phase:'🧪 Test 测试', who:'测试工程师', color:'#e53935', skill:'mumu-spec-r4-finalize',
+     items:['基于13测试策略编写测试代码','L1单元测试(Mock) + L2集成测试(HTTP)','质量门禁：G-LINT / G-UNIT / G-INT / G-AC']},
+    {phase:'🔍 校验闭环', who:'全员', color:'#8e24aa', skill:'mumu-spec-align-* + mumu-spec-check',
+     items:['align-prd-us：04↔05覆盖率','align-us-api：05↔09 AC断言','align-api-db：09↔10字段一致','align-trace：14四向追溯闭环','mumu-spec-check：单篇质量检查（占位符/模糊词/编号）']},
+    {phase:'⚡ 代码生成', who:'后端 + 前端', color:'#4caf50', skill:'Claude Code / Qoder',
+     items:['基于09 API契约 → 生成 Route/Service/Provider','基于10数据模型 → 生成 ORM/Storage','基于13测试策略 → 生成测试代码','复制提示词到Claude Code一键生成']},
+    {phase:'📊 持续评估', who:'全员', color:'#00bcd4', skill:'本控制台',
+     items:['刷新页面 → 重新加载文档 → 自动评分','扫描仪逐项检查 → 🔧修复 → 再次评分','导出HTML报告 → 打印PDF归档','Spec通过 → Review → Approved → 冻结版本']},
+  ];
+
+  let html = '<div style="font-weight:700;margin-bottom:10px;font-size:12px">📐 端到端架构图 — 三环流水线</div>';
+
+  // 三层架构图
+  html += `<div style="text-align:center;margin:10px 0">
+    <div style="display:inline-block;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:2px solid #1e88e5;border-radius:10px;padding:8px 14px;margin:2px;font-size:9px;font-weight:700;color:#1565c0">📥 输入层</div>
+    <span style="font-size:18px;color:#1e88e5">→</span>
+    <div style="display:inline-block;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:2px solid #43a047;border-radius:10px;padding:8px 14px;margin:2px;font-size:9px;font-weight:700;color:#2e7d32">⚙️ Skill 处理层</div>
+    <span style="font-size:18px;color:#1e88e5">→</span>
+    <div style="display:inline-block;background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px solid #fb8c00;border-radius:10px;padding:8px 14px;margin:2px;font-size:9px;font-weight:700;color:#e65100">📤 输出层</div>
+  </div>`;
+
+  // 卡片式阶段
+  html += '<div style="margin-top:4px">';
+  phases.forEach((p,i) => {
+    html += `<div style="background:var(--card);border:1px solid ${p.color};border-radius:8px;padding:10px 12px;margin-bottom:6px;border-left:4px solid ${p.color};position:relative">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:16px">${p.phase.slice(0,2)}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--text)">${p.phase.slice(3)}</span>
+        <span style="font-size:9px;background:${p.color};color:#fff;padding:1px 6px;border-radius:8px;margin-left:auto">${p.who}</span>
+      </div>
+      <div style="font-size:9.5px;color:var(--text-sec);line-height:1.6">${p.items.map(it=>`<div style="padding:1px 0">▸ ${it}</div>`).join('')}</div>
+      <div style="font-size:8.5px;color:${p.color};margin-top:3px;font-weight:600">⬤ ${p.skill}</div>`;
+    if (i < phases.length-1) html += `<div style="position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);font-size:14px;color:${p.color};z-index:1">▼</div>`;
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // 角色图例
+  html += '<div class="flow-legend">';
+  [{n:'需求方',c:'#ff9800'},{n:'PM',c:'#5c6bc0'},{n:'后端',c:'#1e88e5'},{n:'前端',c:'#43a047'},{n:'测试',c:'#e53935'},{n:'全员',c:'#8e24aa'}].forEach(r=>{
+    html += `<span class="flow-legend-item"><span class="flow-legend-dot" style="background:${r.c}"></span>${r.n}</span>`;
+  });
+  html += '</div>';
+  html += '<div class="rs-info-tip" style="margin-top:8px">💡 按阶段从上到下推进。左侧面板可复制 Skill 到 Claude Code，完成后刷新页面自动重新评分。</div>';
+  el.innerHTML = html;
+}
+buildFlowPanel();
+
+// ── 变更追踪面板 ──
+const LS_PREFIX = 'spec_console_';
+function lsGet(k) { try { return JSON.parse(localStorage.getItem(LS_PREFIX+k)); } catch(e) { return null; } }
+function lsSet(k,v) { localStorage.setItem(LS_PREFIX+k, JSON.stringify(v)); }
+
+// 保存/读取分数历史
+function saveScoreHistory() {
+  const s = calcScore();
+  const prev = lsGet('score_history') || [];
+  prev.push({time:Date.now(),total:s.total,max:s.max,pct:s.pct,
+    dims:Object.fromEntries(Object.entries(SCORE_DATA).map(([k,d])=>[k,d.score]))});
+  if (prev.length > 30) prev.shift(); // 最多保留30条
+  lsSet('score_history', prev);
+}
+
+// 记录操作日志
+function logAction(skill, desc) {
+  const logs = lsGet('action_log') || [];
+  logs.unshift({time:Date.now(),skill,desc});
+  if (logs.length > 50) logs.pop();
+  lsSet('action_log', logs);
+}
+
+// 文档变更检测（内容哈希）
+function hashContent(content) {
+  if (!content) return 0;
+  let h = 0;
+  for (let i=0; i<Math.min(content.length, 5000); i++) { h = ((h<<5)-h) + content.charCodeAt(i); h |= 0; }
+  return h;
+}
+function detectDocChanges() {
+  const prevHashes = lsGet('doc_hashes') || {};
+  const changes = [];
+  Object.entries(DOCS).forEach(([id, content]) => {
+    const h = hashContent(content||'');
+    if (prevHashes[id] && prevHashes[id] !== h) changes.push({id,changed:true});
+    else if (!prevHashes[id]) changes.push({id,changed:false,first:true});
+    else changes.push({id,changed:false});
+    prevHashes[id] = h;
+  });
+  lsSet('doc_hashes', prevHashes);
+  return changes;
+}
+
+// 需求模糊度分析
+function analyzeFuzziness() {
+  const sourceText = (SRC_DOCS['src-dem']||'') + (DOCS['03']||'') + (DOCS['04']||'');
+  const srcCount = Object.values(SRC_DOCS).filter(v=>v).length;
+
+  const dimensions = [
+    {q:'目标用户明确', re:/用户|角色|角色|persona/i, score: sourceText.match(/用户|角色|persona/i) ? 2 : 0},
+    {q:'核心场景定义', re:/场景|SC-|用户路径|user story/i, score: sourceText.match(/场景|SC-|用户路径/i) ? 2 : 0},
+    {q:'性能要求量化', re:/\d+ms|\d+s|P95|P99|SLO|延迟|QPS/i, score: sourceText.match(/\d+ms|\d+s|P95|延迟/) ? 2 : 0},
+    {q:'技术方案明确', re:/百炼|API|DashScope|SDK|架构/i, score: sourceText.match(/百炼|API|DashScope|架构/) ? 2 : 0},
+    {q:'边界约束清晰', re:/不做|范围外|MUST NOT|限制|禁止/i, score: sourceText.match(/不做|范围外|限制/) ? 2 : 0},
+    {q:'验收标准可测', re:/AC-|验收标准|200|400|401|MUST/i, score: sourceText.match(/AC-|验收标准|MUST/) ? 2 : 0},
+    {q:'成功标准量化', re:/成功标准|可度量|分钟内|百分比/i, score: sourceText.match(/成功标准|可度量/) ? 2 : 0},
+    {q:'风险识别充分', re:/风险|应对|降级|不可用|泄露/i, score: sourceText.match(/风险|应对|降级/) ? 2 : 0},
+  ];
+
+  const totalScore = dimensions.reduce((s,d)=>s+d.score, 0);
+  const maxScore = dimensions.length * 2;
+  const fuzzPct = Math.round((1 - totalScore/maxScore) * 100);
+
+  return {
+    pct: fuzzPct,
+    level: fuzzPct <= 30 ? {label:'低',color:'var(--green)',cls:'low'} : fuzzPct <= 60 ? {label:'中',color:'var(--orange)',cls:'med'} : {label:'高',color:'var(--red)',cls:'high'},
+    dimensions,
+    srcCount,
+    totalScore, maxScore,
+    gaps: dimensions.filter(d=>d.score===0).map(d=>d.q),
+    strengths: dimensions.filter(d=>d.score===2).map(d=>d.q),
+  };
+}
+
+function buildChangesPanel() {
+  const el = document.getElementById('rsChanges');
+  if (!el) return;
+  const s = calcScore();
+  const prev = (lsGet('score_history')||[]).slice(-2);
+  const prevScore = prev.length>=2 ? prev[prev.length-2] : null;
+  const changes = detectDocChanges();
+  const fuzz = analyzeFuzziness();
+  const logs = lsGet('action_log') || [];
+
+  let html = '';
+
+  // 1. 分数变化
+  html += '<div class="change-card"><div class="change-title">📊 分数变化</div>';
+  if (prevScore) {
+    const diff = s.total - prevScore.total;
+    const arrow = diff>0?'▲':diff<0?'▼':'—';
+    const cls = diff>0?'change-up':diff<0?'change-down':'change-same';
+    html += `<div style="text-align:center;font-size:24px;font-weight:800" class="${cls}">${arrow} ${Math.abs(diff)}</div>`;
+    html += `<div style="text-align:center;font-size:10px;color:#888">${s.total}/${s.max} (${s.pct}%) · 上次 ${prevScore.total}/${prevScore.max} (${prevScore.pct||0}%)</div>`;
+    // 维度变化
+    html += '<div class="change-diff">';
+    ['completeness','traceability','verifiability','consistency'].forEach(dk=>{
+      const cur = SCORE_DATA[dk]?.score||0;
+      const old = prevScore.dims?.[dk]||0;
+      const d = cur-old;
+      html += `<div class="change-diff-item ${d>0?'change-up':d<0?'change-down':'change-same'}"><div class="cd-val">${cur}</div><div class="cd-label">${SCORE_DATA[dk]?.label?.slice(0,2)||dk}</div></div>`;
+    });
+    html += '</div>';
+  } else {
+    html += `<div style="text-align:center;padding:8px;font-size:11px;color:#888">首次评分：${s.total}/${s.max} (${s.pct}%)<br>下次刷新后将显示变化趋势</div>`;
+  }
+  html += '</div>';
+
+  // 2. 需求模糊度
+  html += '<div class="change-card"><div class="change-title">🔍 需求明确度评估</div>';
+  html += `<div style="text-align:center;font-size:10px;color:#888">输入来源: ${fuzz.srcCount} 份文档 · ${fuzz.gaps.length>0?'仍有不足':'较为完整'}</div>`;
+  html += '<div class="fuzz-meter">';
+  for (let i=0; i<8; i++) {
+    const filled = i < fuzz.dimensions.filter(d=>d.score===2).length;
+    const partial = !filled && i < fuzz.dimensions.filter(d=>d.score===2).length + fuzz.dimensions.filter(d=>d.score===1).length;
+    html += `<div class="fuzz-seg ${filled?'filled low':partial?'filled med':''}"></div>`;
+  }
+  html += `</div><div style="text-align:center;font-size:12px;font-weight:700;color:${fuzz.level.color}">${fuzz.level.label}模糊度 · ${fuzz.pct}%</div>`;
+
+  if (fuzz.strengths.length) {
+    html += '<div style="font-size:9px;margin-top:4px"><span style="color:var(--green)">✅ 已明确:</span> '+fuzz.strengths.slice(0,3).join(' · ')+'</div>';
+  }
+  if (fuzz.gaps.length) {
+    html += '<div style="font-size:9px;color:var(--orange);margin-top:2px">⚠️ 需补充: '+fuzz.gaps.join(' · ')+'</div>';
+    html += `<div style="margin-top:4px"><span style="cursor:pointer;font-size:9px;background:var(--orange);color:#fff;padding:2px 8px;border-radius:3px" onclick="copyCmd('针对百炼Chatbot项目，请补充以下信息：${fuzz.gaps.join('、')}。当前需求：调用百炼实现Chatbot。项目：M1-BL')">📋 复制追问清单</span></div>`;
+  }
+  html += '</div>';
+
+  // 3. 文档变更检测
+  html += '<div class="change-card"><div class="change-title">📑 文档变更检测</div>';
+  const changedDocs = changes.filter(c=>c.changed);
+  const firstDocs = changes.filter(c=>c.first);
+  if (changedDocs.length > 0) {
+    changedDocs.forEach(c => {
+      const n = NODES.find(x=>x.id===c.id);
+      html += `<div class="doc-change-item"><span class="doc-change-dot" style="background:var(--green)"></span><b>${c.id}</b> ${n?.title||''} <span style="color:var(--green);font-size:9px">🟢 已修改</span></div>`;
+    });
+  } else if (firstDocs.length > 0) {
+    html += `<div style="font-size:10px;color:#888">首次加载，${firstDocs.length}篇文档已检测</div>`;
+  } else {
+    html += '<div style="font-size:10px;color:#888">与上次相比无变更</div>';
+  }
+  html += `<div style="font-size:9px;color:#888;margin-top:4px">已追踪 ${Object.keys(lsGet('doc_hashes')||{}).length} 篇文档</div>`;
+  html += '</div>';
+
+  // 4. 操作日志
+  html += '<div class="change-card"><div class="change-title">📝 操作日志</div>';
+  if (logs.length === 0) {
+    html += '<div style="font-size:10px;color:#888;padding:8px;text-align:center">暂无操作记录<br><span style="font-size:9px">复制 Skill 命令时将自动记录</span></div>';
+  } else {
+    logs.slice(0, 10).forEach(l => {
+      const d = new Date(l.time);
+      const time = d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+      html += `<div class="log-item"><span class="log-time">${time}</span><span class="log-skill" style="background:var(--hover-bg)">${l.skill}</span><span class="log-desc">${l.desc}</span></div>`;
+    });
+  }
+  html += `<div style="margin-top:6px;display:flex;gap:4px">
+    <span style="cursor:pointer;font-size:9px;color:var(--active-color)" onclick="lsSet('action_log',[]);buildChangesPanel();">清空日志</span>
+    <span style="cursor:pointer;font-size:9px;color:var(--active-color)" onclick="exportChangeLog()">📋 导出变更日志</span>
+  </div>`;
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// 重写 copyCmd，自动记录日志
+const _origCopyCmd = copyCmd;
+copyCmd = function(cmd) {
+  // 检测是哪个Skill
+  const skillMatch = cmd.match(/\/mumu-spec-\S+/);
+  const skillName = skillMatch ? skillMatch[0] : '操作';
+  const desc = cmd.length > 60 ? cmd.substring(0,60)+'...' : cmd;
+  logAction(skillName, desc);
+  _origCopyCmd(cmd);
+};
+
+// 导出变更日志
+function exportChangeLog() {
+  const logs = lsGet('action_log')||[];
+  const history = lsGet('score_history')||[];
+  let md = '# 变更日志 — 百炼Chatbot\n\n';
+  md += '## 操作记录\n\n';
+  logs.forEach(l => { md += `- ${new Date(l.time).toISOString().slice(0,16)} ${l.skill}: ${l.desc}\n`; });
+  md += '\n## 评分历史\n\n';
+  history.forEach((h,i) => { md += `- ${new Date(h.time).toISOString().slice(0,16)}: ${h.total}/${h.max} (${h.pct}%)\n`; });
+  md += '\n---\n*由 Spec Console 自动生成*';
+  navigator.clipboard.writeText(md).then(()=>showToast('📋 变更日志已复制'));
+}
+
+// 初始化：保存首次分数
+const _origRunRealChecks2 = runRealChecks;
+runRealChecks = function() {
+  _origRunRealChecks2();
+  saveScoreHistory();
+  buildChangesPanel();
+  buildVersionPanel();
+};
+
+// ── 版本时间线面板 ──
+const VERSION_STEPS = [
+  {ver:'v0.0',label:'Init 骨架',skill:'mumu-spec-init',docs:['01'],changed:['01'],desc:'创建01-14全部文档骨架，仅含元数据+章节标题+占位符。01额外写入写作铁律和编号规则。',type:'skill'},
+  {ver:'v0.1',label:'R1 Proposal',skill:'mumu-spec-r1-proposal',docs:['03','04'],changed:['03','04'],desc:'基于需求方原始需求和PM的PRD草稿，填充03立项提案（痛点/范围/风险/成功标准）+04 PRD（场景/规则/优先级）。02无素材保持占位。',type:'skill'},
+  {ver:'v0.2',label:'R2 Align',skill:'mumu-spec-r2-align',docs:['05','09'],changed:['05','09'],desc:'PM用户故事草稿+后端API设计 → 填充05用户故事（3P0+1P1，完整AC）+09 API契约（POST /api/v1/chat，请求/响应/错误码）。AC与API互校准。字段名在09冻结。',type:'skill'},
+  {ver:'v0.3',label:'R3 Design',skill:'mumu-spec-r3-design',docs:['06','07','08','10','11'],changed:['06','07','08','10','11'],desc:'后端架构设计展开为5篇：08 Route→Service→Provider分层架构、10 P0无持久化+DTO映射、06 Chat API功能+5个错误码、07 P95<30s+NFR约束、11 API Key保护+3个风险点。',type:'skill'},
+  {ver:'v0.4',label:'R4 Finalize',skill:'mumu-spec-r4-finalize',docs:['12','13','14'],changed:['12','13','14'],desc:'收口：12 S1-S3里程碑+W1-W5 WBS、13 L1/L2测试分层+9条TC+4个门禁、14 四向追溯矩阵（4REQ→4US→1API→9TC，100%覆盖）。终检全部通过。',type:'skill'},
+];
+
+// 分析每个文档的状态
+function analyzeDocStatus(docId) {
+  const content = DOCS[docId];
+  if (!content) return 'empty';
+  const stripped = content.replace(/^---[\s\S]*?---/, '');
+  const placeholders = (stripped.match(/【[^】]*填写[^】]*】/g) || []).length;
+  if (placeholders > 3) return 'manual'; // 大量占位 → 需开发者自己处理
+  if (placeholders > 0) return 'attention'; // 少量占位 → 需核对
+  const fuzzyWords = ['尽量','大概','可能','建议','友好','应该','适当','酌情'];
+  let fuzzyCount = 0;
+  fuzzyWords.forEach(w => { const m = stripped.match(new RegExp(w,'g')); if(m) fuzzyCount+=m.length; });
+  if (fuzzyCount > 2) return 'attention'; // 模糊词多 → 需核对
+  return 'done'; // 填充完成
+}
+
+function buildVersionPanel() {
+  const el = document.getElementById('rsVersions');
+  if (!el) return;
+
+  let html = '<div style="font-size:10px;font-weight:700;margin-bottom:8px;color:var(--text)">📜 Spec 文档版本演进</div>';
+
+  // 1. 文档状态总览网格
+  const statusLabels = {done:'✅ 已完成',attention:'⚠️ 需核对',manual:'❌ 需人工',empty:'⬜ 未变动'};
+  const statusColors = {done:'#e8f5e9',attention:'#fff3e0',manual:'#ffebee',empty:'#f5f5f5'};
+  html += '<div class="status-grid">';
+  NODES.slice(0,14).forEach(n => {
+    const s = analyzeDocStatus(n.id);
+    html += `<div class="status-cell ${s}" style="background:${statusColors[s]}" title="${n.id} ${n.title}: ${statusLabels[s]}">${n.id}<br>${n.title.slice(0,4)}</div>`;
+  });
+  html += '</div>';
+
+  // 图例
+  html += '<div style="display:flex;gap:8px;font-size:8px;color:#888;margin:4px 0 8px">';
+  Object.entries(statusLabels).forEach(([k,v])=>{
+    html += `<span style="display:flex;align-items:center;gap:2px"><span style="width:8px;height:8px;border-radius:2px;background:${statusColors[k]}"></span>${v}</span>`;
+  });
+  html += '</div>';
+
+  // 2. 版本时间线
+  html += '<div class="version-timeline">';
+  VERSION_STEPS.forEach((v,i) => {
+    const isLast = i === VERSION_STEPS.length-1;
+    html += `<div class="ver-node${isLast?' current':''}">
+      <div class="ver-header">
+        <span class="ver-badge">${v.ver}</span>
+        <span class="ver-skill-tag">${v.type==='skill'?'⚡ Skill':'👤 人工'}</span>
+        <span class="ver-time">${v.skill}</span>
+      </div>
+      <div style="font-size:9.5px;color:var(--text-sec);margin-bottom:4px">${v.desc}</div>
+      <div style="font-size:9px;font-weight:600;color:var(--text)">变更文档：</div>
+      <div class="ver-docs">`;
+    v.changed.forEach(docId => {
+      const s = analyzeDocStatus(docId);
+      const cls = s==='done'?'done':s==='attention'?'partial':s==='manual'?'todo':'untouched';
+      const n = NODES.find(x=>x.id===docId);
+      html += `<span class="ver-doc ${cls}" title="${n?.title||''}: ${statusLabels[s]}">${docId} ${n?.title||''}</span>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  // 3. 待办摘要
+  const manualDocs = NODES.filter(n => analyzeDocStatus(n.id)==='manual');
+  const attentionDocs = NODES.filter(n => analyzeDocStatus(n.id)==='attention');
+  const doneDocs = NODES.filter(n => analyzeDocStatus(n.id)==='done');
+  html += `<div class="ver-summary">
+    <div style="font-weight:700;margin-bottom:4px">📋 当前待办</div>
+    <div class="ver-summary-row"><span style="color:#2e7d32">✅</span> Skill自动完成：<b>${doneDocs.length}</b> 篇 — ${doneDocs.slice(0,4).map(n=>n.id).join(', ')}</div>
+    <div class="ver-summary-row"><span style="color:#e65100">⚠️</span> 需与开发者核对：<b>${attentionDocs.length}</b> 篇 — ${attentionDocs.map(n=>n.id).join(', ')||'无'}</div>
+    <div class="ver-summary-row"><span style="color:#c62828">❌</span> 需开发者自己填充：<b>${manualDocs.length}</b> 篇 — ${manualDocs.map(n=>n.id).join(', ')||'无'}</div>`;
+  if (manualDocs.length>0) {
+    html += `<div style="margin-top:4px;font-size:9px;color:#888">建议运行对应的 Skill 自动填充，或开发者手动编辑 .md 文件后刷新页面重新评估</div>`;
+  } else if (attentionDocs.length>0) {
+    html += `<div style="margin-top:4px;font-size:9px;color:#888">少量模糊词或占位符，建议 Review 后修正</div>`;
+  } else {
+    html += `<div style="margin-top:4px;font-size:9px;color:var(--green)">🎉 所有文档已完成！可进入 Review → Approved 流程</div>`;
+  }
+  // 4. 自动快照区域
+  html += '<div style="margin-top:8px;display:flex;gap:4px">';
+  html += '<span style="cursor:pointer;font-size:9px;background:var(--active-color);color:#fff;padding:3px 10px;border-radius:4px" onclick="saveSnapshot(\'手动\')">📸 手动快照</span>';
+  html += '<span style="cursor:pointer;font-size:9px;color:var(--text-sec);padding:3px 10px;border:1px solid var(--card-border);border-radius:4px" onclick="showDiffView()">🔍 查看最新Diff</span>';
+  html += '</div>';
+
+  // 5. 自动快照列表
+  const snaps = lsGet('snapshots') || [];
+  if (snaps.length > 0) {
+    html += '<div style="margin-top:6px;font-size:9px;color:#888;font-weight:600">📸 自动快照（'+snaps.length+'个）</div>';
+    snaps.slice(-10).reverse().forEach((sn,i) => {
+      const realIdx = snaps.length-1-i;
+      const isAuto = sn.label?.startsWith('auto:');
+      const icon = isAuto ? '⚡' : '📸';
+      html += `<div style="padding:2px 0;font-size:9px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="viewSnapshot(${realIdx})">
+        <span>${icon} ${(sn.label||'').replace('auto:','')}</span><span style="color:#888;font-size:8px">${new Date(sn.time).toISOString().slice(5,16).replace('T',' ')}</span>
+        ${i===0&&snaps.length>=2?'<span style="color:var(--green);font-size:8px">← 最新</span>':''}
+      </div>`;
+    });
+    html += '<span style="cursor:pointer;font-size:8px;color:var(--red);margin-top:2px;display:inline-block" onclick="lsSet(\'snapshots\',[]);buildVersionPanel()">清空全部</span>';
+  } else {
+    html += '<div style="font-size:9px;color:#888;margin-top:6px;text-align:center">运行 Skill 或点击演练步骤后<br>将自动保存快照并显示Diff</div>';
+  }
+
+  el.innerHTML = html;
+}
+buildVersionPanel();
+
+// 保存快照（type: 'auto'/'manual'）
+function saveSnapshot(type) {
+  const snap = {
+    time: Date.now(),
+    label: (type==='auto'?'auto:':'') + (type||'manual'),
+    docs: {},
+    scores: calcScore(),
+    dims: Object.fromEntries(Object.entries(SCORE_DATA).map(([k,d])=>[k,d.score]))
+  };
+  Object.entries(DOCS).forEach(([id,content])=>{
+    if (content) snap.docs[id] = content;
+  });
+  const snaps = lsGet('snapshots') || [];
+  snaps.push(snap);
+  if (snaps.length > 20) snaps.shift();
+  lsSet('snapshots', snaps);
+}
+
+// 自动快照 + 显示Diff
+function autoSnapshotAndDiff(label) {
+  saveSnapshot('auto:'+label);
+  buildVersionPanel();
+  // 延迟显示diff，等快照保存完
+  setTimeout(() => {
+    showDiffView();
+    switchRSTab('versions');
+  }, 200);
+}
+
+// 查看快照 → 高亮画布 + 显示Diff
+let activeSnapshot = null;
+function viewSnapshot(idx) {
+  const snaps = lsGet('snapshots')||[];
+  const snap = snaps[idx];
+  if (!snap) return;
+  activeSnapshot = snap;
+
+  const changedIds = [];
+  Object.entries(snap.docs).forEach(([id, oldContent]) => {
+    if (oldContent !== (DOCS[id]||'')) changedIds.push(id);
+  });
+
+  clearHighlight();
+  Object.values(nodeEls).forEach(n => {
+    n.classList.toggle('dim', !changedIds.includes(n.dataset.id));
+    if (changedIds.includes(n.dataset.id)) n.classList.add('highlight');
+  });
+
+  const scoreDiff = calcScore().total - (snap.scores?.total || 0);
+  showToast(`📸 ${changedIds.length}篇变化 · 分数 ${scoreDiff>=0?'+':''}${scoreDiff}`);
+
+  // 显示Diff — 把diff内容插入版本面板下方
+  const diffHtml = buildDiffHtml(idx);
+  const verEl = document.getElementById('rsVersions');
+  if (verEl && diffHtml) {
+    // 追加到版本面板后面
+    const existing = verEl.querySelector('.diff-inline');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.className = 'diff-inline';
+    div.style.cssText = 'margin-top:10px;padding-top:8px;border-top:2px solid var(--card-border)';
+    div.innerHTML = diffHtml;
+    verEl.appendChild(div);
+    div.scrollIntoView({behavior:'smooth'});
+  }
+}
+
+// 生成 Diff HTML
+function buildDiffHtml(idx) {
+  const snaps = lsGet('snapshots')||[];
+  const snap = snaps[idx];
+  if (!snap) return null;
+  const curDocs = DOCS;
+  const diffs = [];
+  Object.entries(snap.docs).forEach(([id, oldContent]) => {
+    const curContent = curDocs[id] || '';
+    if (oldContent !== curContent) diffs.push({id, oldContent, curContent});
+  });
+
+  if (diffs.length === 0) return '<div style="color:#888;text-align:center;padding:16px">✅ 与快照一致，无变化</div>';
+
+  let html = `<div style="font-size:10px;font-weight:700;margin-bottom:6px">🔍 Diff: ${snap.label?.replace('auto:','')||'快照'} → 当前</div>`;
+  html += `<div style="font-size:9px;color:#888;margin-bottom:8px">${diffs.length}篇文档有变化 · 分数差 ${(calcScore().total-(snap.scores?.total||0))>=0?'+':''}${calcScore().total-(snap.scores?.total||0)}分</div>`;
+
+  diffs.slice(0, 6).forEach(d => {
+    const n = NODES.find(x=>x.id===d.id);
+    const addedLines = []; const removedLines = []; const changedLines = [];
+    const oldLines = d.oldContent.split('\n');
+    const newLines = d.curContent.split('\n');
+    const maxLen = Math.max(oldLines.length, newLines.length);
+
+    for (let i=0; i<Math.min(maxLen, 40); i++) {
+      const ol = oldLines[i] || '';
+      const nl = newLines[i] || '';
+      if (ol !== nl) {
+        if (ol && !nl) removedLines.push(ol);
+        else if (!ol && nl) addedLines.push(nl);
+        else changedLines.push({old:ol, nu:nl});
+      }
+    }
+
+    html += `<div style="margin-bottom:8px;border:1px solid var(--card-border);border-radius:6px;overflow:hidden">
+      <div style="background:var(--sidebar-bg);padding:5px 8px;font-size:10px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+        <span>${d.id} ${n?.title||''}</span>
+        <span style="font-size:9px">${addedLines.length>0?`<span style="color:#2e7d32">+${addedLines.length}</span> `:''}${removedLines.length>0?`<span style="color:#c62828">−${removedLines.length}</span> `:''}${changedLines.length>0?`<span style="color:#e65100">~${changedLines.length}</span> `:''}行变化</span>
+      </div>`;
+
+    // 新增行
+    addedLines.slice(0, 5).forEach(l => {
+      html += `<div style="background:#e8f5e9;font-size:8.5px;padding:1px 8px;line-height:1.5;font-family:monospace"><span style="color:#2e7d32;font-weight:700">+ </span>${escapeHtml(l.substring(0,100))}</div>`;
+    });
+    if (addedLines.length > 5) html += `<div style="background:#e8f5e9;font-size:8px;padding:1px 8px;color:#888">... 共 ${addedLines.length} 行新增</div>`;
+
+    // 删除行
+    removedLines.slice(0, 3).forEach(l => {
+      html += `<div style="background:#ffebee;font-size:8.5px;padding:1px 8px;line-height:1.5;font-family:monospace"><span style="color:#c62828;font-weight:700">− </span>${escapeHtml(l.substring(0,100))}</div>`;
+    });
+    if (removedLines.length > 3) html += `<div style="background:#ffebee;font-size:8px;padding:1px 8px;color:#888">... 共 ${removedLines.length} 行删除</div>`;
+
+    // 修改行
+    changedLines.slice(0, 3).forEach(l => {
+      html += `<div style="background:#fff9c4;font-size:8.5px;padding:1px 8px;line-height:1.5;font-family:monospace"><span style="color:#e65100;font-weight:700">~ </span>${escapeHtml(l.nu.substring(0,100))}</div>`;
+    });
+    if (changedLines.length > 3) html += `<div style="background:#fff9c4;font-size:8px;padding:1px 8px;color:#888">... 共 ${changedLines.length} 行修改</div>`;
+
+    html += '</div>';
+  });
+  return html;
+}
+
+// 显示指定快照的diff（变更面板用）
+function showSnapshotDiff(idx) {
+  const html = buildDiffHtml(idx);
+  if (html) {
+    const el = document.getElementById('rsChanges');
+    if (el) el.innerHTML = html;
+  }
+}
+
+function showDocInPreview(id) {
+  const n = NODES.find(x=>x.id===id);
+  document.getElementById('rsPreview').innerHTML = `<div class="rp-preview">${md2html(DOCS[id]||null)}</div>`;
+  switchRSTab('preview');
+}
+
+// 显示Diff视图
+function showDiffView() {
+  const snaps = lsGet('snapshots')||[];
+  if (snaps.length === 0) { showToast('⚠️ 请先保存快照'); return; }
+  const snap = snaps[snaps.length-1];
+  const changedIds = [];
+  const diffs = [];
+
+  Object.entries(snap.docs).forEach(([id, oldContent]) => {
+    const curContent = DOCS[id] || '';
+    if (oldContent !== curContent) {
+      changedIds.push(id);
+      diffs.push({id, oldContent, curContent});
+    }
+  });
+
+  // 生成diff HTML
+  let html = '<div style="font-size:10px;font-weight:700;margin-bottom:8px">🔍 快照对比 — ' + changedIds.length + '篇文档有变化</div>';
+
+  if (diffs.length === 0) {
+    html += '<div style="color:#888;text-align:center;padding:20px">✅ 所有文档与快照一致，无变化</div>';
+  }
+
+  diffs.slice(0, 4).forEach(d => {
+    const n = NODES.find(x=>x.id===d.id);
+    html += `<div style="margin-bottom:6px;border:1px solid var(--card-border);border-radius:6px;overflow:hidden">
+      <div style="background:var(--sidebar-bg);padding:4px 8px;font-size:10px;font-weight:700">${d.id} ${n?.title||''}</div>`;
+    // 简单行diff
+    const oldLines = d.oldContent.split('\n');
+    const newLines = d.curContent.split('\n');
+    const maxLen = Math.max(oldLines.length, newLines.length);
+    let diffLines = '';
+    for (let i=0; i<Math.min(maxLen, 30); i++) {
+      const ol = oldLines[i] || '';
+      const nl = newLines[i] || '';
+      if (ol !== nl) {
+        if (ol && !nl) diffLines += `<div style="background:#ffebee;font-size:9px;padding:1px 6px"><span style="color:#c62828">−</span> ${escapeHtml(ol.substring(0,80))}</div>`;
+        else if (!ol && nl) diffLines += `<div style="background:#e8f5e9;font-size:9px;padding:1px 6px"><span style="color:#2e7d32">+</span> ${escapeHtml(nl.substring(0,80))}</div>`;
+        else diffLines += `<div style="background:#fff9c4;font-size:9px;padding:1px 6px"><span style="color:#e65100">~</span> ${escapeHtml(nl.substring(0,80))}</div>`;
+      }
+    }
+    html += diffLines || '<div style="font-size:9px;color:#888;padding:4px 8px">（无显著行级差异）</div>';
+    html += '</div>';
+  });
+
+  document.getElementById('rsPreview').innerHTML = `<div class="rp-preview">${html}</div>`;
+  switchRSTab('preview');
+}
+
+function escapeHtml(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyJiraCmd(id, name, desc, dod) {
+  const cmd = `通过 MCP 创建 Jira Issue：
+- 项目: BL (百炼Chatbot)
+- 标题: ${id}: ${name}
+- 描述: ${desc}\\n\\nDoD: ${dod}\\n项目: 百炼Chatbot（M1-BL）
+- 类型: Task
+- 优先级: ${id==='W4'?'Low':'High'}`;
+  navigator.clipboard.writeText(cmd).then(()=>showToast('📋 Jira MCP 命令已复制'));
+}
+
+function copyTeambitionCmd(id, name, desc) {
+  const cmd = `在 Teambition 中创建任务：
+- 项目: 百炼Chatbot
+- 任务名: ${id}: ${name}
+- 描述: ${desc}\\n项目: 百炼Chatbot（M1-BL）
+- 阶段: ${id.startsWith('W1')||id.startsWith('W2')?'开发':id.startsWith('W5')?'测试':'增强'}`;
+  navigator.clipboard.writeText(cmd).then(()=>showToast('📋 Teambition 命令已复制'));
+}
+
+document.getElementById('btnWalk').addEventListener('click', () => { switchRSTab('walk'); showWalkStep(0); });
+
+// ═══════════════════════════════════════
+// Dark mode
+// ═══════════════════════════════════════
+document.getElementById('btnDark').addEventListener('click',()=>{
+  document.body.classList.toggle('dark');
+  document.getElementById('btnDark').textContent=document.body.classList.contains('dark')?'☀️':'🌙';
+});
+
+// ═══════════════════════════════════════
+// Init
+// ═══════════════════════════════════════
+buildLeftPanel();
+applyTransform();
+loadAll().then(() => {
+  const snaps = lsGet('snapshots') || [];
+
+  // 首次访问预置 Mock 快照（演示版本演进）
+  if (snaps.length === 0 && Object.keys(DOCS).length > 0) {
+    const skeletonDocs = {}; // v0.0: 纯骨架（只有占位符）
+    ['03','04','05','06','07','08','09','10','11','12','13','14'].forEach(id => {
+      const doc = NODES.find(n=>n.id===id);
+      skeletonDocs[id] = `---\nmodule: M1-BL-百炼Chatbot\nversion: v1.0\nstatus: Draft\n---\n\n# ${id}-${doc?.title||''}\n\n## 元数据\n\n| 字段 | 值 |\n|------|-----|\n| 模块编号 | M1-BL |\n| 模块名称 | 百炼Chatbot |\n\n## 【填写：章节标题】\n\n【填写：具体内容】\n`;
+    });
+    skeletonDocs['01'] = DOCS['01']||''; // 01 总是完整的
+    skeletonDocs['02'] = DOCS['02']||'';
+
+    // R1 之后的文档（03、04 已填充）
+    const r1Docs = {...skeletonDocs};
+    if (DOCS['03']) r1Docs['03'] = DOCS['03'];
+    if (DOCS['04']) r1Docs['04'] = DOCS['04'];
+
+    // R2 之后的文档（+ 05、09）
+    const r2Docs = {...r1Docs};
+    if (DOCS['05']) r2Docs['05'] = DOCS['05'];
+    if (DOCS['09']) r2Docs['09'] = DOCS['09'];
+
+    // R3 之后的文档（+ 06、07、08、10、11）
+    const r3Docs = {...r2Docs};
+    ['06','07','08','10','11'].forEach(id => { if (DOCS[id]) r3Docs[id] = DOCS[id]; });
+
+    const mockSnaps = [
+      {time: Date.now()-3600000*4, label:'auto:v0.0 Init 骨架', docs:skeletonDocs, scores:{total:45,max:100,pct:45}, dims:{completeness:6,traceability:10,verifiability:14,consistency:15}},
+      {time: Date.now()-3600000*3, label:'auto:v0.1 R1 Proposal', docs:r1Docs, scores:{total:58,max:100,pct:58}, dims:{completeness:12,traceability:12,verifiability:18,consistency:16}},
+      {time: Date.now()-3600000*2, label:'auto:v0.2 R2 Align', docs:r2Docs, scores:{total:72,max:100,pct:72}, dims:{completeness:18,traceability:16,verifiability:20,consistency:18}},
+      {time: Date.now()-3600000, label:'auto:v0.3 R3 Design', docs:r3Docs, scores:{total:85,max:100,pct:85}, dims:{completeness:24,traceability:20,verifiability:22,consistency:19}},
+    ];
+    lsSet('snapshots', mockSnaps);
+    showToast('📸 已加载演示快照（Init→R1→R2→R3），点击 📜版本 查看演进');
+  }
+
+  // 对比上次快照，有变化则自动显示
+  const currentSnaps = lsGet('snapshots') || [];
+  if (currentSnaps.length >= 2) {
+    const lastSnap = currentSnaps[currentSnaps.length-1];
+    const changedCount = Object.entries(lastSnap.docs||{}).filter(([id,c])=>c!==(DOCS[id]||'')).length;
+    if (changedCount > 0) {
+      saveSnapshot('auto:🔄 检测到'+changedCount+'篇变化');
+      buildVersionPanel();
+    }
+  }
+  runRealChecks();
+  buildVersionPanel();
+});
+
+// ═══════════════════════════════════════
+// 设置（API Key localStorage）
+// ═══════════════════════════════════════
+function getApiKey() { return localStorage.getItem('bailian_apikey')||''; }
+function getModel() { return localStorage.getItem('bailian_model')||'qwen-plus'; }
+function loadSettings() {
+  document.getElementById('setApiKey').value = getApiKey();
+  document.getElementById('setModel').value = getModel();
+}
+document.getElementById('btnSettings').addEventListener('click', ()=>{
+  loadSettings(); document.getElementById('settingsOverlay').classList.add('open');
+});
+document.getElementById('setCancel').addEventListener('click', ()=>{
+  document.getElementById('settingsOverlay').classList.remove('open');
+});
+document.getElementById('setClear').addEventListener('click', ()=>{
+  localStorage.removeItem('bailian_apikey'); loadSettings(); showToast('API Key 已清除');
+});
+document.getElementById('setSave').addEventListener('click', ()=>{
+  localStorage.setItem('bailian_apikey', document.getElementById('setApiKey').value.trim());
+  localStorage.setItem('bailian_model', document.getElementById('setModel').value.trim()||'qwen-plus');
+  document.getElementById('settingsOverlay').classList.remove('open');
+  showToast('✅ API Key 已保存');
+});
+
+// ═══════════════════════════════════════
+// LLM 增强语义校验（调用百炼）
+// ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// 校验 Skill：复制到 Claude Code 执行
+// ═══════════════════════════════════════
+function openAlignSkills() {
+  switchRSTab('scan');
+  const el = document.getElementById('rsScan');
+  const s = calcScore();
+  const alignPrompts = [
+    {skill:'/mumu-spec-align-prd-us', label:'PRD ↔ US 覆盖率', icon:'📊',
+     prompt:'检查 Spec-3 目录下 04-产品需求说明.md 的功能列表是否被 05-用户故事与验收标准.md 的 US 全覆盖。列出未被覆盖的04能力条目。项目：百炼Chatbot（M1-BL）。'},
+    {skill:'/mumu-spec-align-us-api', label:'US ↔ API AC断言', icon:'🔗',
+     prompt:'检查 Spec-3 目录下 05-用户故事与验收标准.md 的每条验收标准(AC)，是否能在 09-API接口规格.md 中找到可观测断言（HTTP状态码、响应字段、错误码）。逐条AC列出对应关系。项目：百炼Chatbot（M1-BL）。'},
+    {skill:'/mumu-spec-align-api-db', label:'API ↔ 数据字段一致', icon:'🔄',
+     prompt:'检查 Spec-3 目录下 09-API接口规格.md 和 10-数据模型与存储规格.md 的字段名和类型是否一致。列出不一致的字段。项目：百炼Chatbot（M1-BL），P0阶段无持久化。'},
+    {skill:'/mumu-spec-align-trace', label:'追溯矩阵闭环', icon:'🔍',
+     prompt:'检查 Spec-3 目录下 14-需求追踪矩阵.md 的完整性：每条 REQ 是否有 US、API、TC 对应行；每条 P0 US 是否有 TC；是否存在孤立项。项目：百炼Chatbot（M1-BL）。'},
+    {skill:'/mumu-spec-check', label:'单篇质量检查', icon:'✅',
+     prompt:'对 Spec-3 目录下的 01-14 全部 Spec 文档执行完整质量检查：是否有【填写】残留、模糊词（尽量/大概/建议）、编号是否唯一、AC是否可测试。项目：百炼Chatbot（M1-BL）。'},
+  ];
+
+  let html = `<div style="text-align:center;padding:8px 0;font-weight:700;color:var(--blue)">📋 复制校验 Skill 到 Claude Code 执行</div>`;
+  html += `<div style="text-align:center;font-size:10px;color:#888;margin-bottom:8px">这些 Skill 内置 MumuSpec 专用校验逻辑，比通用 LLM 更准确</div>`;
+  html += `<div style="font-size:10px;color:var(--text-sec);margin-bottom:10px;padding:8px;background:var(--sidebar-bg);border-radius:6px">当前评分: <b style="font-size:18px">${s.total}/${s.max}</b>（${s.pct}%）。建议按顺序逐个执行以下 Skill 校验：</div>`;
+
+  alignPrompts.forEach((ap, i) => {
+    html += `<div style="margin-bottom:8px;padding:8px;border:1px solid var(--card-border);border-radius:6px;background:var(--sidebar-bg)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:13px">${ap.icon}</span>
+        <b style="font-size:12px">${i+1}. ${ap.label}</b>
+        <code style="font-size:9px;color:var(--active-color);margin-left:auto">${ap.skill}</code>
+      </div>
+      <div style="font-size:10px;color:var(--text-sec)">${ap.prompt}</div>
+      <div style="text-align:right;margin-top:4px">
+        <span style="cursor:pointer;font-size:10px;color:var(--white);background:var(--active-color);padding:2px 10px;border-radius:4px;color:#fff" onclick="copyCmd('${ap.prompt.replace(/'/g,"\\'")}')">📋 复制提示词</span>
+      </div>
+    </div>`;
+  });
+
+  html += `<div class="rs-info-tip" style="margin-top:10px">💡 <b>工作流</b>：点击上方按钮复制提示词 → 粘贴到 Claude Code → Skill 自动分析并输出 Issue 清单 → 修复 Issue → 刷新此页面重新评分</div>`;
+  el.innerHTML = html;
+}
+document.getElementById('btnAlignSkills').addEventListener('click', openAlignSkills);
+
+// ═══════════════════════════════════════
+// 百炼 API 语义校验（可选增强）
+// ═══════════════════════════════════════
+async function llmVerify() {
+  const apiKey = getApiKey();
+  if (!apiKey) { showToast('⚠️ 请先配置百炼 API Key（点击 ⚙️）'); document.getElementById('btnSettings').click(); return; }
+  switchRSTab('scan');
+  const el = document.getElementById('rsScan');
+  const doc05 = (DOCS['05']||'').replace(/^---[\s\S]*?---/,'').substring(0,2000);
+  const doc09 = (DOCS['09']||'').replace(/^---[\s\S]*?---/,'').substring(0,2000);
+  const doc04 = (DOCS['04']||'').replace(/^---[\s\S]*?---/,'').substring(0,1000);
+
+  el.innerHTML = `<div class="llm-loading"><span class="spinner"></span>百炼正在分析 Spec 文档...<br><span style="font-size:10px;color:#888">AC↔API 对齐 · 覆盖缺口 · 一致性</span></div>`;
+
+  const prompt = `你是Spec文档质量审查专家。项目：百炼Chatbot（M1-BL），封装阿里云百炼Chat API。
+分析以下文档，只输出JSON（不要markdown包裹）：
+
+## 05 用户故事
+${doc05}
+
+## 09 API接口
+${doc09}
+
+## 04 PRD（参考）
+${doc04}
+
+输出格式：{"acApiAlignment":[{"ac":"AC标识","status":"aligned|partial|missing","apiField":"09字段","note":"说明"}],"coverageGaps":["缺口"],"consistencyIssues":["不一致"],"suggestions":["建议"],"overallScore":85}`;
+
+  try {
+    const resp = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:getModel(),messages:[{role:'system',content:'只输出JSON，不要markdown包裹'},{role:'user',content:prompt}],temperature:0.1,max_tokens:2000})
+    });
+    if (!resp.ok) { el.innerHTML=`<div style="color:var(--red);padding:20px">❌ API调用失败 (${resp.status})<br><span style="font-size:10px">请检查Key/模型（当前: ${getModel()}）</span></div>`; return; }
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    let result;
+    try { result = JSON.parse(content); } catch(e) { const m=content.match(/\{[\s\S]*\}/); result=m?JSON.parse(m[0]):{raw:content}; }
+
+    let html = '<div style="font-weight:700;margin-bottom:6px;color:var(--green)">🤖 百炼语义分析 (模型: '+getModel()+')</div>';
+    if (result.overallScore) html+=`<div style="text-align:center;font-size:22px;font-weight:800;color:var(--blue);margin:6px 0">${result.overallScore}<span style="font-size:11px;color:#888">/100</span></div>`;
+    (result.acApiAlignment||[]).forEach(a=>{const ic=a.status==='aligned'?'✅':a.status==='partial'?'⚠️':'❌';html+=`<div class="llm-result-item"><span class="llm-icon">${ic}</span><b>${a.ac}</b>→${a.apiField||'无'}<br><span style="font-size:9px;color:#888">${a.note}</span></div>`;});
+    if(result.coverageGaps?.length) html+='<div style="font-weight:600;margin:8px 0 4px;color:var(--orange)">⚠️ 覆盖缺口</div>'+result.coverageGaps.map(g=>`<div class="llm-result-item">• ${g}</div>`).join('');
+    if(result.consistencyIssues?.length) html+='<div style="font-weight:600;margin:8px 0 4px;color:var(--red)">❌ 不一致</div>'+result.consistencyIssues.map(i=>`<div class="llm-result-item">• ${i}</div>`).join('');
+    if(result.suggestions?.length) html+='<div style="font-weight:600;margin:8px 0 4px;color:var(--blue)">💡 建议</div>'+result.suggestions.map(s=>`<div class="llm-result-item">• ${s}</div>`).join('');
+    el.innerHTML=html;
+  } catch(e) { el.innerHTML=`<div style="color:var(--red);padding:20px">❌ ${e.message}</div>`; }
+}
+document.getElementById('btnLLM').addEventListener('click', llmVerify);
+
+// ═══════════════════════════════════════
+// 导出 JSON
+// ═══════════════════════════════════════
+function exportJSON() {
+  const data = {
+    project:'百炼Chatbot', module:'M1-BL', exportedAt:new Date().toISOString(),
+    score: calcScore(),
+    dimensions: SCORE_DATA,
+    verifyItems: VERIFY_ITEMS.map(v=>({id:v.id,name:v.name,desc:v.desc,status:v.status})),
+    docsStatus: NODES.map(n=>({id:n.id,title:n.title,phase:n.phase,filled:n.fill,fillBy:n.fillBy||null}))
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'spec-score-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  showToast('✅ JSON 已导出');
+}
+document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
+
+// ═══════════════════════════════════════
+// 导出 Markdown 评估报告
+// ═══════════════════════════════════════
+function exportReport() {
+  const s = calcScore();
+  let md = `# Spec 评估报告 — 百炼Chatbot\n\n> 模块 M1-BL · ${new Date().toISOString().slice(0,10)} · 健康度 ${s.pct}%\n\n## 总分: ${s.total}/${s.max} (${s.pct}%)\n\n`;
+  Object.entries(SCORE_DATA).forEach(([k,d])=>{
+    md += `### ${d.label} (${d.score}/${d.max}) — ${d.skill}\n${d.desc}\n\n`;
+    d.checks.forEach(c=>{
+      const ic=c.result==='pass'?'✅':c.result==='warn'?'⚠️':'❌';
+      md += `- ${ic} ${c.item} — ${c.note}\n`;
+    });
+    md += '\n';
+  });
+  md += `## 校验项\n\n`;
+  VERIFY_ITEMS.forEach(v=>{ md += `- ${v.status==='pass'?'✅':'❌'} ${v.name}: ${v.desc} — ${v.detail}\n`; });
+  md += `\n## 文档填充状态\n\n`;
+  NODES.forEach(n=>{ md += `- ${n.fill===true?'✅':n.fill==='special'?'📋':'⬜'} ${n.id} ${n.title} ${n.fillBy?'('+n.fillBy+')':''}\n`; });
+  md += `\n---\n*由 Spec Console 自动生成*`;
+
+  const blob = new Blob([md], {type:'text/markdown'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'spec-report-'+new Date().toISOString().slice(0,10)+'.md'; a.click();
+  showToast('✅ 报告已导出');
+}
+document.getElementById('btnExportRpt').addEventListener('click', exportReport);
+document.getElementById('btnExportHTML').addEventListener('click', exportHTML);
+
+// ═══════════════════════════════════════
+// 导出独立 HTML 报告（可打印 PDF）
+// ═══════════════════════════════════════
+function exportHTML() {
+  const s = calcScore();
+  const date = new Date().toISOString().slice(0,10);
+  let rows = '';
+  Object.entries(SCORE_DATA).forEach(([k,d])=>{
+    const pct = Math.round(d.score/d.max*100);
+    const barColor = k==='completeness'?'#1e88e5':k==='traceability'?'#43a047':k==='verifiability'?'#ff9800':'#8e24aa';
+    rows += `<tr><td><b>${d.label}</b><br><span style="font-size:11px;color:#888">${d.skill}</span></td>
+      <td style="text-align:center"><span style="font-size:24px;font-weight:800;color:${barColor}">${d.score}</span><span style="color:#888">/${d.max}</span></td>
+      <td><div style="background:#e9ecef;border-radius:4px;height:8px;width:120px"><div style="background:${barColor};height:100%;width:${pct}%;border-radius:4px"></div></div></td>
+      <td style="font-size:11px">${d.desc}</td></tr>`;
+  });
+
+  let checkRows = '';
+  Object.entries(SCORE_DATA).forEach(([k,d])=>{
+    d.checks.forEach(c=>{
+      const ic = c.result==='pass'?'✅':c.result==='warn'?'⚠️':'❌';
+      checkRows += `<tr><td>${ic}</td><td>${c.item}</td><td style="font-size:10px;color:#888">${c.note}</td></tr>`;
+    });
+  });
+
+  let verifyRows = '';
+  VERIFY_ITEMS.forEach(v=>{
+    verifyRows += `<tr><td>${v.status==='pass'?'✅':'❌'}</td><td><b>${v.name}</b></td><td>${v.desc}</td><td style="font-size:10px">${v.detail}</td></tr>`;
+  });
+
+  let docRows = '';
+  NODES.forEach(n=>{
+    const icon = n.fill===true?'✅':n.fill==='special'?'📋':'⬜';
+    docRows += `<tr><td>${icon}</td><td>${n.id}</td><td>${n.title}</td><td>${n.fillBy||'—'}</td></tr>`;
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>Spec评估报告 - 百炼Chatbot</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f7fa;color:#2c3e50;padding:40px;max-width:900px;margin:0 auto}
+h1{font-size:24px;margin-bottom:4px}h2{font-size:18px;margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid #e0e0e0}
+.header{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08);text-align:center}
+.score-circle{display:inline-block;width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#4caf50,#81c784);color:#fff;font-size:36px;font-weight:800;line-height:100px;margin:12px 0}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #eee}th{background:#fafbfc;font-weight:600;font-size:11px;color:#888;text-transform:uppercase}
+.footer{text-align:center;color:#999;font-size:11px;margin-top:30px;padding:20px}
+.btn-print{position:fixed;top:20px;right:20px;padding:10px 20px;background:#1e88e5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:999}
+.btn-print:hover{background:#1565c0}
+@media print{.btn-print{display:none}body{background:#fff;padding:20px}}
+</style></head><body>
+<button class="btn-print" onclick="window.print()">🖨️ 导出PDF / 打印</button>
+<div class="header">
+  <h1>📋 Spec 评估报告</h1>
+  <p style="color:#888;font-size:14px">百炼Chatbot · M1-BL · ${date}</p>
+  <div class="score-circle">${s.pct}</div>
+  <p style="font-size:16px;font-weight:600">健康度 ${s.pct}% · 总分 ${s.total}/${s.max}</p>
+</div>
+<h2>📊 四维评分</h2>
+<table>${rows}</table>
+<h2>🔍 逐项检查明细</h2>
+<table><tr><th></th><th>检查项</th><th>备注</th></tr>${checkRows}</table>
+<h2>✅ 校验结果</h2>
+<table><tr><th></th><th>校验项</th><th>说明</th><th>详情</th></tr>${verifyRows}</table>
+<h2>📑 文档填充状态</h2>
+<table><tr><th></th><th>编号</th><th>文档名</th><th>填充轮次</th></tr>${docRows}</table>
+<h2>💡 后续建议</h2>
+<div style="background:#fff;border-radius:8px;padding:16px;font-size:13px;line-height:1.8;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+${s.pct>=90?'✅ <b>质量优秀</b>，可进入 Review 流程冻结文档。':'⚠️ <b>存在改进空间</b>，建议根据上方检查明细修复问题后重新评估。'}
+</div>
+<div class="footer">由 Spec Console 自动生成 · ${date}</div>
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  showToast('✅ HTML报告已在新标签页打开（可打印PDF）');
+}
+
+// ═══════════════════════════════════════
+// Qoder 跳转 + 代码生成
+// ═══════════════════════════════════════
+function openQoder(prompt) {
+  const encoded = encodeURIComponent(prompt);
+  // 尝试 Qoder 自定义协议
+  const urls = [
+    'qoder://chat?prompt='+encoded,
+    'https://qoder.alibaba.com/chat?prompt='+encoded
+  ];
+  for (const url of urls) {
+    try { window.open(url, '_blank'); return; } catch(e) {}
+  }
+  // 兜底：复制到剪贴板
+  navigator.clipboard.writeText(prompt).then(()=>showToast('📋 已复制提示词（Qoder未检测到）'));
+}
+
+// 一键生成代码提示词
+const CODE_GEN_PROMPTS = [
+  {label:'生成 Route/Service', icon:'🔌',
+   prompt:`基于 Spec-3 目录下的 Spec 文档，生成百炼Chatbot的后端代码：
+
+1. 阅读 09-API接口规格.md → 生成 routes/chat.py（POST /api/v1/chat 端点、参数校验、错误响应）
+2. 阅读 08-系统架构与技术选型.md → 生成 services/chat_service.py（业务编排、上下文管理）
+3. 阅读 08 分层结构 → 生成 providers/bailian.py（封装百炼DashScope SDK调用）
+4. 阅读 07-非功能需求与约束.md → 实现 traceId 生成、30s超时、错误码体系
+5. 阅读 11-安全设计规格.md → 环境变量读取 BAILIAN_API_KEY
+
+要求：Python FastAPI，严格按 Spec 契约实现，字段名与09一致，不自行扩展。`},
+  {label:'生成数据模型', icon:'🗄️',
+   prompt:`基于 Spec-3 目录下的 10-数据模型与存储规格.md，生成百炼Chatbot的数据层代码。
+
+P0阶段：无持久化存储，但需要：
+1. 定义 Pydantic models（ChatRequest、ChatResponse、ErrorResponse），字段与09 API契约完全一致
+2. 预留 P1 阶段的 Conversation/Message ORM 模型（SQLAlchemy）
+3. 字段类型约束严格遵循 07 §5.2
+
+要求：Python，Pydantic v2，SQLAlchemy（P1预留），字段名严格对齐09。`},
+  {label:'生成测试代码', icon:'🧪',
+   prompt:`基于 Spec-3 目录下的 13-测试策略与质量门禁.md，生成完整的测试代码：
+
+1. L1 Unit测试（tests/unit/）：Mock百炼API，测试Provider和Service逻辑
+2. L2 Integration测试（tests/integration/）：使用FastAPI TestClient测试chat端点
+3. 覆盖13中定义的9条TC：TC-M1BL-001~007, 010, 011
+4. 实现4个质量门禁（G-LINT/G-UNIT/G-INT/G-AC）
+
+要求：pytest + pytest-asyncio，每个TC对应一个test函数，断言与13一致。`},
+  {label:'生成前端调用示例', icon:'🖥️',
+   prompt:`基于 Spec-3 目录下的 09-API接口规格.md，生成前端调用百炼Chatbot的示例代码：
+
+1. JavaScript fetch 调用 POST /api/v1/chat 的完整示例
+2. 包含单轮对话、多轮对话（带history）、流式调用三种场景
+3. 错误处理示例（400/401/502/504）
+4. TypeScript 类型定义（ChatRequest、ChatResponse、ErrorResponse）
+
+要求：纯前端示例代码，可直接在浏览器中使用。`},
+];
+
+// 构建代码生成面板
+function buildCodeGenPanel() {
+  const el = document.getElementById('rsScore');
+  if (!el || !Object.keys(SCORE_DATA).length) return;
+  // 追加到评分面板底部
+  let html = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--card-border)"><div style="font-size:9px;color:#888;margin-bottom:4px">⚡ 生成代码（点击跳转 Qoder）</div>';
+  CODE_GEN_PROMPTS.forEach(cg=>{
+    const safePrompt = cg.prompt.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    html += `<div class="rs-vfy-item" style="cursor:pointer" onclick="openQoder('${safePrompt.replace(/\n/g,'\\n')}')" title="在Qoder中打开"><span style="font-size:11px">${cg.icon}</span><span class="rs-vfy-name">${cg.label}</span><span style="font-size:9px;color:var(--active-color)">生成代码</span></div>`;
+  });
+  html += '</div>';
+  el.insertAdjacentHTML('beforeend', html);
+}
+
+// 在文档加载完成后构建代码生成面板
+const _origRunRealChecks = runRealChecks;
+runRealChecks = function() {
+  _origRunRealChecks();
+  buildCodeGenPanel();
+};
+
+// ═══════════════════════════════════════
+// 下一步行动面板（基于检查结果）
+// ═══════════════════════════════════════
+function buildActionPanel() {
+  const el = document.getElementById('rsVerify');
+  if (!el || !Object.keys(SCORE_DATA).length) return;
+  let actions = [];
+  const compChecks = SCORE_DATA.completeness?.checks || [];
+  const fuzzyWarns = compChecks.filter(c=>c.result==='warn'&&c.note?.includes('占位符'));
+  const fuzzyTotal = compChecks.filter(c=>c.result==='warn'&&c.note?.includes('模糊词'));
+
+  if (fuzzyWarns.length) actions.push({icon:'📝', text:`${fuzzyWarns.length}篇文档有占位符残留 → 运行 R1-R4 Skill 补充`, cmd:'/mumu-spec-r1-proposal', ctx:'检查并填充 Spec-3 下仍有【填写】占位符的文档'});
+  if (fuzzyTotal.length) actions.push({icon:'✏️', text:`${fuzzyTotal.length}篇文档含模糊词 → 修改为可量化表述`, cmd:'', ctx:'移除模糊词（尽量/大概/建议/友好），改为MUST/SHOULD/具体数字'});
+  const traceScore = SCORE_DATA.traceability?.score || 0;
+  if (traceScore < 20) actions.push({icon:'🔗', text:'追溯链路不完整 → 运行 R2 Align 校准 05↔09', cmd:'/mumu-spec-r2-align', ctx:'重新校准05用户故事与09API契约的AC断言对应关系'});
+  const consistScore = SCORE_DATA.consistency?.score || 0;
+  if (consistScore < 15) actions.push({icon:'🔄', text:'跨文档一致性不足 → 检查 09↔10 字段、08↔10 存储策略', cmd:'', ctx:'逐字段对比09 API和10数据模型的字段名和类型是否一致'});
+
+  if (actions.length === 0) {
+    actions.push({icon:'✅', text:'全部检查通过！可以进入 Review 流程或生成代码', cmd:'', ctx:''});
+  }
+
+  let html = '<div style="margin-top:12px;padding-top:8px;border-top:2px solid var(--green)"><div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:6px">🎯 下一步行动建议</div>';
+  actions.forEach(a=>{
+    html += `<div class="llm-result-item" style="cursor:${a.cmd?'pointer':'default'}"><span style="font-size:12px">${a.icon}</span> ${a.text}</div>`;
+    if (a.cmd) html += `<div style="text-align:right;margin-top:-2px;margin-bottom:2px"><code style="font-size:9px;color:var(--active-color);cursor:pointer" onclick="copyCmd('${a.cmd} ${a.ctx}')">📋 复制: ${a.cmd} ${a.ctx}</code></div>`;
+  });
+  html += '</div>';
+  el.insertAdjacentHTML('beforeend', html);
+}
+
+const _origBuildVerifyPanel = buildVerifyPanel;
+buildVerifyPanel = function() {
+  _origBuildVerifyPanel();
+  setTimeout(buildActionPanel, 100);
+};
+</script>
+</body>
+</html>

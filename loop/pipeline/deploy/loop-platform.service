@@ -1,0 +1,46 @@
+# loop-platform 一键交付 · webhook 常驻服务(systemd 单元模板)
+#
+# 作用:把 trigger/webhook.py 跑成开机自启、崩溃自拉起的后台服务。
+#      服务提供:GET /(按钮页) · GET /health · POST /trigger(跑一批)。
+#
+# 安装(推荐用 setup_ecs.sh --with-service 自动完成;也可手动):
+#   1) 把本文件里的 __APP_DIR__ / __USER__ 替换为实际值,拷到:
+#        sudo cp loop-platform.service /etc/systemd/system/loop-platform.service
+#   2) sudo systemctl daemon-reload
+#   3) sudo systemctl enable --now loop-platform
+#   4) systemctl status loop-platform     # 看是否 running
+#      journalctl -u loop-platform -f      # 看实时日志
+#
+# 安全:默认绑 127.0.0.1(见下 HARNESS_TRIGGER_HOST),只能本机/SSH 隧道访问。
+#      要对外暴露改成 0.0.0.0,并**务必**在 .env 里设 HARNESS_TRIGGER_TOKEN,
+#      且安全组只放行你的 IP 到该端口。
+#
+# 说明:ExecStart 用 bash -lc 包一层,先 source config.env + .env(密钥/开关),
+#      再启动 webhook —— 这样触发出来的每一批都拿得到 DEEPSEEK/FEISHU/GITHUB 凭证。
+
+[Unit]
+Description=loop-platform one-button delivery webhook
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__
+# 触发形态开关(可按需增删);密钥一律从 __APP_DIR__/.env 读,不写在这里
+Environment=HARNESS_BACKLOG_SOURCE=feishu
+Environment=HARNESS_MODE=real
+Environment=HARNESS_AUTOCOMMIT=1
+Environment=HARNESS_GIT_PUSH=1
+Environment=HARNESS_GIT_SUBDIR_AUTO=1
+Environment=HARNESS_GIT_REMOTE=github.com/lvzhaobo/loop-sample.git
+Environment=HARNESS_TRIGGER_HOST=127.0.0.1
+Environment=HARNESS_TRIGGER_PORT=8787
+ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . delivery-loop/config.env; exec .venv/bin/python delivery-loop/trigger/webhook.py'
+Restart=on-failure
+RestartSec=3
+# 一批可能跑一两分钟(真实 LLM + 推送),给足停止宽限
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

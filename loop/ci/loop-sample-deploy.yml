@@ -1,0 +1,111 @@
+# loop-sample 通用自动部署到 ECS(拉取式,B 方案:多样例 sampleN)
+#
+# 存放位置(仓库根):.github/workflows/deploy.yml
+# 触发:任意 sample<N>/ 变更推到 main(含 PR 合并) 或手动触发。
+# 认证:ECS SSH 密码,存为仓库 Secrets(见下)。仓库为公开仓,ECS 侧 git 拉取无需 token。
+#
+# 一个 workflow 覆盖所有样例:自动识别本次改动的 sample<N> 目录,
+# 端口 = 1000 + N(sample1→1001, sample7→1007),部署后只保留最近 5 个进程存活。
+# 新增 sample8/sample9… 无需改本文件。
+#
+# 需在 GitHub 仓库 Settings → Secrets and variables → Actions 添加:
+#   ECS_HOST          例:<your-server-ip>
+#   ECS_SSH_USER      例:root
+#   ECS_SSH_PORT      例:22
+#   ECS_SSH_PASSWORD  ECS 登录密码
+#
+# 与本地 delivery-loop 的部署互不影响:两者都是"拉取式 + app.pid 隔离 + 端口=1000+N",幂等可共存。
+name: Deploy samples to ECS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sample*/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-ecs
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute target sample dirs
+        id: targets
+        run: |
+          BEFORE="${{ github.event.before }}"
+          CHANGED=""
+          if [ -n "$BEFORE" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" | grep -oE '^sample[0-9]+' | sort -u)
+          fi
+          # 手动触发 / 首次推送 / 强推等取不到 diff 时,回退部署当前最高编号样例
+          if [ -z "$CHANGED" ]; then
+            CHANGED=$(ls -d sample*/ 2>/dev/null | sed 's#/##' | grep -E '^sample[0-9]+$' \
+              | while read -r d; do echo "${d#sample} $d"; done | sort -n | tail -1 | awk '{print $2}')
+          fi
+          TARGETS=$(echo $CHANGED | tr '\n' ' ')
+          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
+          echo "本次部署目标:$TARGETS"
+
+      - name: Pull-style deploy over SSH
+        if: steps.targets.outputs.targets != ''
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          TARGETS: ${{ steps.targets.outputs.targets }}
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_SSH_USER }}
+          password: ${{ secrets.ECS_SSH_PASSWORD }}
+          port: ${{ secrets.ECS_SSH_PORT }}
+          command_timeout: 10m
+          envs: TARGETS
+          script: |
+            set -e
+            BASE=~/apps
+            REPO=loop-sample
+            BRANCH=main
+            RETAIN=5
+            URL="https://github.com/${{ github.repository }}.git"
+            mkdir -p "$BASE" && cd "$BASE"
+            if [ -d "$REPO/.git" ]; then
+              cd "$REPO"
+              git -c http.version=HTTP/1.1 remote set-url origin "$URL"
+              git -c http.version=HTTP/1.1 fetch -q origin "$BRANCH"
+              git -c http.version=HTTP/1.1 reset -q --hard "origin/$BRANCH"
+            else
+              git -c http.version=HTTP/1.1 clone -q -b "$BRANCH" "$URL" "$REPO"
+              cd "$REPO"
+            fi
+            # 逐个部署本次改动的样例:端口 = 1000 + N
+            for D in $TARGETS; do
+              N="${D#sample}"
+              PORT=$((1000 + N))
+              echo "=== 部署 $D → 端口 $PORT ==="
+              cd "$BASE/$REPO/$D"
+              python3 -m pip install -q -r requirements.txt || pip3 install -q -r requirements.txt
+              if [ -f app.pid ]; then kill "$(cat app.pid)" 2>/dev/null || true; sleep 1; fi
+              PORT="$PORT" setsid nohup python3 app.py > app.log 2>&1 &
+              echo $! > app.pid
+              sleep 2
+              if kill -0 "$(cat app.pid)" 2>/dev/null; then
+                echo "DEPLOY_OK $D pid=$(cat app.pid) port=$PORT"
+              else
+                echo "DEPLOY_FAIL $D"; tail -n 20 app.log; exit 1
+              fi
+              cd "$BASE/$REPO"
+            done
+            # B 方案清理:只保留最近 RETAIN 个样例进程存活,其余停进程(目录仍留 git,不删)
+            cd "$BASE/$REPO"
+            for D in $(ls -d sample*/ 2>/dev/null | sed 's#/##' | grep -E '^sample[0-9]+$' \
+              | while read -r d; do echo "${d#sample} $d"; done | sort -n | head -n -"$RETAIN" | awk '{print $2}'); do
+              if [ -f "$D/app.pid" ]; then
+                kill "$(cat "$D/app.pid")" 2>/dev/null || true; rm -f "$D/app.pid"; echo "RETIRE $D"
+              fi
+            done

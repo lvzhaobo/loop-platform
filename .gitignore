@@ -1,0 +1,27 @@
+# 环境与密钥(禁止提交)
+.env
+harness/.deepseek_key
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 运行中间态与产物(机器生成,不入源码仓;含 .askpass.sh 临时密码文件)
+.last_ts
+output/
+delivery-loop/.trigger.lock/
+*.log
+.DS_Store
+
+# 本地归档(旧版本/旧产物/过程笔记,含历史明文配置,只留本地)
+_archived/
+
+# 仅推平台源码:文档/笔记/实验样例/本地开发配置不入仓
+docs/
+memory/
+sample/
+sample-new/
+0.md
+.claude/
+pyrightconfig.json

@@ -1,0 +1,20 @@
+{
+  "archetype": "spec",
+  "name": "fs_003",
+  "title": "图书电商Dashboard",
+  "tech": {
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/index.html",
+    "static/js/dashboard.js",
+    "static/css/style.css",
+    "dashboard_core.py",
+    "tests/test_dashboard_core.py"
+  ]
+}

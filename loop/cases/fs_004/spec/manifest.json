@@ -1,0 +1,20 @@
+{
+  "archetype": "spec",
+  "name": "fs_004",
+  "title": "图书管理后台",
+  "tech": {
+    "framework": "flask",
+    "language": "python",
+    "port_env": "PORT"
+  },
+  "required_files": [
+    "app.py",
+    "requirements.txt",
+    "README.md",
+    "templates/index.html",
+    "static/js/app.js",
+    "static/css/style.css",
+    "books_core.py",
+    "tests/test_books_core.py"
+  ]
+}

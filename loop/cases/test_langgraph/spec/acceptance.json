@@ -1,0 +1,19 @@
+{
+  "name": "test_langgraph",
+  "ready_route": "/",
+  "acceptance": [
+    {
+      "id": "TC1",
+      "type": "http_status",
+      "route": "/",
+      "expect": 200,
+      "desc": "首页可访问"
+    },
+    {
+      "id": "TC2",
+      "type": "unit_test",
+      "test": "tests/test_app.py",
+      "desc": "单测全绿"
+    }
+  ]
+}

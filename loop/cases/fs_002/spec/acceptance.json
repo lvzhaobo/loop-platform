@@ -1,0 +1,72 @@
+{
+  "name": "fs_002",
+  "ready_route": "/api/meta",
+  "acceptance": [
+    {
+      "id": "TC1",
+      "type": "http_status",
+      "route": "/api/meta",
+      "expect": 200,
+      "desc": "元数据接口应正常返回"
+    },
+    {
+      "id": "TC2",
+      "type": "http_body_contains",
+      "route": "/api/meta",
+      "needle": "Loop-20260723",
+      "desc": "元数据响应必须包含固定标识"
+    },
+    {
+      "id": "TC3",
+      "type": "http_status",
+      "route": "/api/sort",
+      "expect": 200,
+      "desc": "排序接口接收合法请求应返回200",
+      "options": {
+        "method": "POST",
+        "body": {
+          "algorithm": "bubble",
+          "array": [
+            5,
+            3,
+            8,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "TC4",
+      "type": "http_body_contains",
+      "route": "/api/sort",
+      "needle": "steps",
+      "desc": "排序响应体必须包含步骤数组",
+      "options": {
+        "method": "POST",
+        "body": {
+          "algorithm": "bubble",
+          "array": [
+            5,
+            3,
+            8,
+            1
+          ]
+        }
+      }
+    },
+    {
+      "id": "TC5",
+      "type": "http_status",
+      "route": "/api/array?size=20",
+      "expect": 200,
+      "desc": "获取随机数组应返回200"
+    },
+    {
+      "id": "TC6",
+      "type": "http_status",
+      "route": "/api/array?size=abc",
+      "expect": 400,
+      "desc": "非法size参数应返回400错误"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# loop-spa 平台前端 · SPA 静态托管(systemd 单元模板)
+#
+# 作用:把 loop-platform/index.html(单文件 SPA:Dashboard/需求/Trace/一键交付)
+#      用 Python 内置 http.server 跑成开机自启、崩溃自拉起的静态服务。
+#
+# 与另两个服务的关系:
+#   - loop-studio  (:5100)= 真后端 API(SPA 前端就是打这个)
+#   - loop-platform(:8787)= 极简"跑一批"按钮页(webhook)
+#   - loop-spa     (:5200)= 本单元,托管那个精美 SPA(浏览器入口)
+#
+# 安装(推荐用 setup_ecs.sh --with-service 自动完成):
+#   1) 把 __APP_DIR__ / __USER__ 替换为实际值,拷到:
+#        sudo cp loop-spa.service /etc/systemd/system/loop-spa.service
+#   2) sudo systemctl daemon-reload && sudo systemctl enable --now loop-spa
+#   3) systemctl status loop-spa
+#
+# 安全:绑 127.0.0.1,只能本机/SSH 隧道访问。前端 API 基址硬编码 127.0.0.1:5100,
+#      所以本机浏览器需同时开 5200(打开页面)+ 5100(接后端)两条隧道:
+#        ssh -L 5200:127.0.0.1:5200 -L 5100:127.0.0.1:5100 <你>@<ECS>
+#      然后浏览器打开 http://127.0.0.1:5200
+
+[Unit]
+Description=loop-spa platform front-end (loop-platform SPA static host)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__
+# 用 Python 内置静态服务器托管 SPA 目录(index.html 会作为 / 的默认页)。
+# 绑 127.0.0.1:5200,零公网暴露;--directory 指定 SPA 所在目录。
+ExecStart=/usr/bin/env python3 -m http.server 5200 --bind 127.0.0.1 --directory __APP_DIR__/loop-platform
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

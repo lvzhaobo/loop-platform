@@ -1,0 +1,51 @@
+# loop-studio 配置平台 · studio 常驻服务(systemd 单元模板)
+#
+# 作用:把 harness-4/studio/server.py(Flask 配置工作台)跑成开机自启、崩溃自拉起的后台服务。
+#      提供:约束/用例编辑 · 一致性预检 · 页面上的「🚀 开始交付」按钮(→ 完整 run_backlog.sh)。
+#
+# 与 loop-platform.service 的区别:
+#   - loop-platform(:8787)= 极简"跑一批"按钮页(webhook)
+#   - loop-studio  (:5100)= 完整配置平台(本单元)
+#
+# 安装(推荐用 setup_ecs.sh 自动完成;也可手动):
+#   1) 把 __APP_DIR__ / __USER__ 替换为实际值,拷到:
+#        sudo cp loop-studio.service /etc/systemd/system/loop-studio.service
+#   2) sudo systemctl daemon-reload && sudo systemctl enable --now loop-studio
+#   3) systemctl status loop-studio   /   journalctl -u loop-studio -f
+#
+# 访问:默认绑 0.0.0.0(公网可达),靠 STUDIO_TOKEN 口令鉴权(/api/* 与页面走登录守卫)。
+#   - 直接公网打开 http://<ECS_IP>:5100 即可(需在 .env 设 STUDIO_TOKEN)。
+#   - 要收紧为仅本机/隧道:设 Environment=STUDIO_HOST=127.0.0.1,再 daemon-reload + restart。
+#   - 安全提醒:这是配置管理台,公网暴露务必设强口令 STUDIO_TOKEN,并建议安全组只放行可信 IP。
+#
+# 说明:用 `flask run` 而非 `python server.py`,以关闭 debug 的自动重载(reloader 会 fork 子进程、
+#      让 systemd 跟错 PID)。server.py 本身不改,__main__ 里的 debug=True 只影响本地直跑。
+
+[Unit]
+Description=loop-studio config platform (harness-4 studio)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__APP_DIR__
+# 交付开关(studio 的 /api/trigger 内部也会 setdefault,这里显式声明保持与 webhook 一致)
+Environment=HARNESS_BACKLOG_SOURCE=feishu
+Environment=HARNESS_MODE=real
+Environment=HARNESS_AUTOCOMMIT=1
+Environment=HARNESS_GIT_PUSH=1
+Environment=HARNESS_GIT_SUBDIR_AUTO=1
+Environment=HARNESS_GIT_REMOTE=github.com/lvzhaobo/loop-sample.git
+Environment=STUDIO_PORT=5100
+# 监听地址:默认 0.0.0.0(公网可达,靠 STUDIO_TOKEN 鉴权);设 127.0.0.1 可收紧为仅本机/隧道
+Environment=STUDIO_HOST=0.0.0.0
+# 先 source .env + config.env(密钥/开关),再用 flask run 启动(关 reloader,PID 稳定)
+# 注:$$ 是给 systemd 的转义,展开后 bash 收到 ${STUDIO_HOST:-0.0.0.0}/${STUDIO_PORT:-5100}(systemd 自身不支持 :- 默认值语法)
+ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . delivery-loop/config.env; exec .venv/bin/flask --app harness-4/studio/server.py run --host $${STUDIO_HOST:-0.0.0.0} --port $${STUDIO_PORT:-5100}'
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,41 @@
+{
+  "FS-001": {
+    "status": "done",
+    "started_at": "2026-07-21 00:36:36",
+    "finished_at": "2026-07-21 00:38:59",
+    "output_dir": "output/20260721-003636-education",
+    "attempts": 3,
+    "determinism": "drift",
+    "publish": {
+      "committed": true,
+      "pushed": true,
+      "branch": "main",
+      "sample_n": 2,
+      "port": "1002",
+      "subdir": "sample2",
+      "commit": "73b29b1",
+      "remote": "github.com/lvzhaobo/loop-sample.git",
+      "path": "sample2/ @ main"
+    },
+    "deploy": {
+      "deployed": true,
+      "host": "47.76.211.100",
+      "url": "http://47.76.211.100:1002/",
+      "workdir": "~/apps/loop-sample/sample2"
+    }
+  },
+  "FS-006": {
+    "status": "fetched",
+    "finished_at": "2026-07-25 20:01:23",
+    "spec_path": "data/specs/FS-006.md",
+    "note": "Spec 已落地;spec 编译未通过门禁,暂不生成:spec 编译或契约门禁未通过(详见上方输出)"
+  },
+  "FS-002": {
+    "status": "failed",
+    "started_at": "2026-07-26 00:09:40",
+    "finished_at": "2026-07-26 00:19:13",
+    "output_dir": null,
+    "attempts": null,
+    "reason": "引擎验收未通过,详见产物目录 _verify.log"
+  }
+}
