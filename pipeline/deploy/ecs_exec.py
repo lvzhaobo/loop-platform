@@ -32,7 +32,11 @@ def main() -> int:
     with open(script_path, encoding="utf-8") as f:
         script = f.read()
 
-    load_env(os.path.join(ROOT, ".env"))
+    # .env 优先取 ROOT(loop/)，其次取上一级(工作区根,本地开发布局)
+    env_path = os.path.join(ROOT, ".env")
+    if not os.path.isfile(env_path):
+        env_path = os.path.join(os.path.dirname(ROOT), ".env")
+    load_env(env_path)
     host = os.environ.get("ECS_HOST", "").strip()
     user = os.environ.get("ECS_SSH_USER", "root").strip() or "root"
     port = os.environ.get("ECS_SSH_PORT", "22").strip() or "22"

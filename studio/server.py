@@ -13,6 +13,23 @@ sys.path.insert(0, ENGINE_DIR)
 sys.path.insert(0, os.path.join(ENGINE_DIR, "tools"))
 sys.path.insert(0, os.path.join(LOOP_DIR, "pipeline"))
 
+# ── 加载 .env(必须在读 STUDIO_TOKEN/STUDIO_SECRET 之前)：优先仓库上级(本地开发布局)，其次 loop 目录本身(loop 作为仓库根克隆时) ──
+def _load_env():
+    env_file = os.path.join(REPO_ROOT, ".env")
+    if not os.path.exists(env_file):
+        env_file = os.path.join(LOOP_DIR, ".env")
+    if not os.path.exists(env_file):
+        return
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("export "): line = line[7:]
+            if "=" in line and not line.startswith("#"):
+                k, _, v = line.partition("=")
+                os.environ[k.strip()] = v.strip().strip('"').strip("'")
+
+_load_env()
+
 # ── 注册 API Blueprint ──
 from api.maker_api import maker_bp
 from api.checker_api import checker_bp
@@ -23,6 +40,46 @@ app.register_blueprint(maker_bp, url_prefix="/api/maker")
 app.register_blueprint(checker_bp, url_prefix="/api/checker")
 app.secret_key = os.environ.get("STUDIO_SECRET") or os.urandom(24)
 STUDIO_TOKEN = os.environ.get("STUDIO_TOKEN", "").strip()
+
+# ── 鉴权守卫：设了 STUDIO_TOKEN 即全站拦截(页面跳登录、API 返 401)，未设则开发模式直接放行 ──
+_AUTH_EXEMPT = {"/login", "/logout", "/healthz", "/favicon.ico"}
+
+@app.before_request
+def _auth_guard():
+    if not STUDIO_TOKEN:
+        return None
+    p = request.path
+    if p in _AUTH_EXEMPT or p.startswith("/static/"):
+        return None
+    if session.get("authed"):
+        return None
+    # API 调用支持 Bearer token(给脚本/webhook 用)
+    auth = request.headers.get("Authorization", "")
+    if auth == f"Bearer {STUDIO_TOKEN}":
+        return None
+    if p.startswith("/api/") or p.startswith("/output/"):
+        return jsonify({"error": "unauthorized"}), 401
+    return redirect(url_for("login", next=p))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not STUDIO_TOKEN or session.get("authed"):
+        return redirect("/")
+    error = None
+    if request.method == "POST":
+        if request.form.get("token", "") == STUDIO_TOKEN:
+            session["authed"] = True
+            session.permanent = True
+            return redirect(request.args.get("next") or "/")
+        error = "口令错误，请重试"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.pop("authed", None)
+    return redirect(url_for("login"))
 
 # ── 页面路由 ──
 @app.route("/")
@@ -543,18 +600,6 @@ def swagger_ui():
 
 # ── 启动 ──
 if __name__ == "__main__":
-    # .env 优先取仓库上级(本地开发布局)，其次取 loop 目录本身(loop 作为仓库根克隆时)
-    env_file = os.path.join(REPO_ROOT, ".env")
-    if not os.path.exists(env_file):
-        env_file = os.path.join(LOOP_DIR, ".env")
-    if os.path.exists(env_file):
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("export "): line = line[7:]
-                if "=" in line and not line.startswith("#"):
-                    k, _, v = line.partition("=")
-                    os.environ[k.strip()] = v.strip().strip('"').strip("'")
     port = int(os.environ.get("STUDIO_PORT", "5100"))
     host = os.environ.get("STUDIO_HOST", "127.0.0.1")
     debug = os.environ.get("STUDIO_DEBUG", "0") == "1"
