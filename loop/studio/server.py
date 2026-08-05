@@ -395,6 +395,443 @@ def run_generate():
     return _start_engine("generate", [sys.executable, GENERATE_PY], extra)
 
 
+# ── Better Harness 流程分析 ──
+_QODER_CLI = None
+
+def _find_qodercli():
+    """查找 Qoder Desktop 内置的 qodercli（v1.x），fallback 到 PATH 里的旧版。"""
+    global _QODER_CLI
+    if _QODER_CLI and os.path.isfile(_QODER_CLI):
+        return _QODER_CLI
+    candidates = [
+        "/Applications/QoderWork.app/Contents/Resources/bin/qodercli",
+        "/Applications/QoderWake.app/Contents/Resources/payload/qodercli",
+        "/usr/local/bin/qodercli",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            _QODER_CLI = c
+            return c
+    # 最后试 which
+    import shutil
+    found = shutil.which("qodercli")
+    if found:
+        _QODER_CLI = found
+    return _QODER_CLI
+
+_bh_state = {"running": False, "log": "", "success": False, "error": None}
+_bh_lock = __import__("threading").Lock()
+
+
+def _run_bh_bg(target_dir=None):
+    """后台线程：调 Qoder CLI 在指定目录跑 /better-harness。
+    target_dir: 要分析的项目目录（Loop 生成的代码），留空则分析平台自身。"""
+    import subprocess as _sp
+    cwd = os.path.abspath(target_dir) if target_dir else REPO_ROOT
+    cli = _find_qodercli()
+    state = _bh_state
+    if not cli:
+        state["error"] = "未找到 qodercli（请安装 Qoder Desktop 或将 qodercli 加入 PATH）"
+        state["running"] = False
+        return
+    try:
+        state["log"] = f"[$ qodercli /better-harness] 开始分析（cwd={cwd}）…\n"
+        proc = _sp.Popen(
+            [cli, "-p", "--permission-mode", "bypass_permissions", "-w", cwd, "/better-harness"],
+            cwd=cwd, stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True, bufsize=1,
+        )
+        for line in proc.stdout or ():
+            state["log"] += line
+        proc.wait()
+        state["success"] = proc.returncode == 0
+        if proc.returncode != 0:
+            state["error"] = f"qodercli 退出码 {proc.returncode}"
+        # 检查产物
+        bh_dir = os.path.join(cwd, ".qoder", "better-harness")
+        if os.path.isdir(bh_dir):
+            state["log"] += f"\n✅ 诊断产物目录: {bh_dir}"
+        else:
+            state["log"] += "\n⚠ 未找到 .qoder/better-harness 产物目录"
+    except FileNotFoundError:
+        state["error"] = f"qodercli 不可用: {cli}"
+    except Exception as exc:
+        state["error"] = str(exc)
+    finally:
+        state["running"] = False
+        state["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        _bh_lock.release()
+
+
+@app.route("/api/better-harness/analyze", methods=["POST"])
+def bh_analyze():
+    """触发 Better Harness 流程分析（后台运行 qodercli /better-harness）。
+    body(可选): {"dir": "output/maker-xxx"} → 分析指定目录（生成的代码项目）
+              留空 → 分析 Loop 平台自身"""
+    if not _bh_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "busy": True, "message": "上一次分析尚未完成"}), 409
+    import threading as _th
+    body = request.get_json(silent=True) or {}
+    target_dir = body.get("dir", "").strip() or None
+    _bh_state.update({"running": True, "log": "", "success": False, "error": None,
+                       "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                       "target_dir": target_dir or str(REPO_ROOT)})
+    _th.Thread(target=_run_bh_bg, args=(target_dir,), daemon=True).start()
+    return jsonify({"ok": True, "started_at": _bh_state["started_at"],
+                    "target_dir": _bh_state["target_dir"]})
+
+
+@app.route("/api/better-harness/status", methods=["GET"])
+def bh_status():
+    """查询 Better Harness 分析状态"""
+    return jsonify(_bh_state)
+
+
+@app.route("/api/better-harness/report", methods=["GET"])
+def bh_report():
+    """返回 Better Harness 诊断报告。
+    ?dir=<path> → 查指定生成项目目录
+    无参 → 查 Loop 平台本身"""
+    target_dir = request.args.get("dir", "").strip()
+    if target_dir:
+        # 相对路径 → 绝对路径
+        if not os.path.isabs(target_dir):
+            target_dir = os.path.join(REPO_ROOT, target_dir)
+        if not os.path.isdir(target_dir):
+            return jsonify({"ok": False, "error": f"目录不存在: {target_dir}", "findings": None, "canvas": None}), 404
+        search_root = target_dir
+    else:
+        search_root = REPO_ROOT
+
+    report_data = {"ok": False, "error": "未找到 Better Harness 诊断报告", "findings": None, "canvas": None, "dir": target_dir or REPO_ROOT}
+    bh_dir = os.path.join(search_root, ".qoder", "better-harness")
+
+    # 查找最新 findings.json
+    findings_path = None
+    findings_ts = ""
+    if os.path.isdir(bh_dir):
+        for date_dir in sorted(os.listdir(bh_dir), reverse=True):
+            dp = os.path.join(bh_dir, date_dir)
+            if not os.path.isdir(dp):
+                continue
+            for ts_dir in sorted(os.listdir(dp), reverse=True):
+                fp = os.path.join(dp, ts_dir, "findings.json")
+                if os.path.isfile(fp) and ts_dir > findings_ts:
+                    findings_ts = ts_dir
+                    findings_path = fp
+
+    if findings_path:
+        try:
+            with open(findings_path, encoding="utf-8") as f:
+                report_data["findings"] = json.load(f)
+            canvas_path = os.path.join(os.path.dirname(findings_path), "canvas.json")
+            if os.path.isfile(canvas_path):
+                with open(canvas_path, encoding="utf-8") as f:
+                    report_data["canvas"] = json.load(f)
+            report_data["ok"] = True
+            report_data["error"] = None
+            report_data["report_time"] = os.path.basename(os.path.dirname(findings_path))
+        except (json.JSONDecodeError, OSError) as e:
+            report_data["error"] = f"读取报告文件失败: {e}"
+            return jsonify(report_data), 500
+    return jsonify(report_data)
+
+
+@app.route("/api/better-harness/projects", methods=["GET"])
+def bh_projects():
+    """扫描 output/ 目录，返回有 findings.json 的生成项目列表。
+    前端拿来自动选最新项目显示报告。"""
+    output_dir = os.path.join(REPO_ROOT, "output")
+    projects = []
+    if not os.path.isdir(output_dir):
+        return jsonify({"ok": True, "projects": projects})
+    for entry in sorted(os.listdir(output_dir), reverse=True):
+        dp = os.path.join(output_dir, entry)
+        if not os.path.isdir(dp):
+            continue
+        bh_dir = os.path.join(dp, ".qoder", "better-harness")
+        if not os.path.isdir(bh_dir):
+            continue
+        # 找最新 findings.json
+        latest_ts = ""
+        latest_path = None
+        for date_dir in sorted(os.listdir(bh_dir), reverse=True):
+            ddp = os.path.join(bh_dir, date_dir)
+            if not os.path.isdir(ddp):
+                continue
+            for ts_dir in sorted(os.listdir(ddp), reverse=True):
+                fp = os.path.join(ddp, ts_dir, "findings.json")
+                if os.path.isfile(fp) and ts_dir > latest_ts:
+                    latest_ts = ts_dir
+                    latest_path = fp
+        if latest_path:
+            try:
+                with open(latest_path, encoding="utf-8") as f:
+                    findings = json.load(f)
+                dims = findings.get("summary", {}).get("dimensions", [])
+                avg_score = int(sum(d.get("score", 0) for d in dims) / len(dims)) if dims else 0
+                projects.append({
+                    "name": entry,
+                    "dir": os.path.relpath(dp, REPO_ROOT),
+                    "score": avg_score,
+                    "findings_count": len(findings.get("findings", [])),
+                    "report_time": latest_ts,
+                })
+            except (json.JSONDecodeError, OSError):
+                pass
+    return jsonify({"ok": True, "projects": projects})
+
+
+@app.route("/api/output/projects", methods=["GET"])
+def output_projects():
+    """扫描 output/ 目录，返回所有生成项目列表（_prompt 需求、文件列表、Git/部署状态、BH 报告）。"""
+    output_dir = os.path.join(REPO_ROOT, "output")
+    projects = []
+    if not os.path.isdir(output_dir):
+        return jsonify({"ok": True, "projects": projects})
+
+    # 读 runs.jsonl 元数据（按 dir 名索引，也索引 case 名用于模糊匹配 maker-*）
+    runs_meta = {}
+    runs_by_case = {}
+    runs_path = os.path.join(output_dir, "runs.jsonl")
+    if os.path.isfile(runs_path):
+        try:
+            with open(runs_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        run = json.loads(line)
+                        d = run.get("dir", "")
+                        d = d.replace("output/", "") if d.startswith("output/") else d
+                        entry_meta = {
+                            "case": run.get("case", ""),
+                            "result": run.get("result", ""),
+                            "attempts": run.get("attempts", 0),
+                            "determinism": run.get("determinism", ""),
+                            "model": run.get("model", ""),
+                            "cost_yuan": run.get("cost_yuan"),
+                            "finished_at": run.get("finished_at", run.get("ts", "")),
+                            "dir": d,
+                        }
+                        runs_meta[d] = entry_meta
+                        # 也按 case 名索引（取最后一次）
+                        c = run.get("case", "")
+                        if c:
+                            runs_by_case[c] = entry_meta
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            pass
+
+    for entry in sorted(os.listdir(output_dir), reverse=True):
+        dp = os.path.join(output_dir, entry)
+        if not os.path.isdir(dp):
+            continue
+
+        # Better Harness 报告（先检查，决定是否保留该项目）
+        better_harness_score = None
+        better_harness_findings_count = None
+        better_harness_report_time = None
+        has_better_harness = False
+        better_harness_dir = os.path.join(dp, ".qoder", "better-harness")
+        if os.path.isdir(better_harness_dir):
+            for date_dir in sorted(os.listdir(better_harness_dir), reverse=True):
+                ddp = os.path.join(better_harness_dir, date_dir)
+                if not os.path.isdir(ddp):
+                    continue
+                for ts_dir in sorted(os.listdir(ddp), reverse=True):
+                    fp = os.path.join(ddp, ts_dir, "findings.json")
+                    if os.path.isfile(fp):
+                        try:
+                            with open(fp, encoding="utf-8") as f:
+                                findings = json.load(f)
+                            dims = findings.get("summary", {}).get("dimensions", [])
+                            better_harness_score = int(sum(d.get("score", 0) for d in dims) / len(dims)) if dims else 0
+                            better_harness_findings_count = len(findings.get("findings", []))
+                            better_harness_report_time = ts_dir
+                            has_better_harness = True
+                        except (json.JSONDecodeError, OSError):
+                            pass
+                        break
+                if has_better_harness:
+                    break
+
+        # 只显示 maker-* 目录，或有 BH 报告的旧格式目录
+        is_maker = entry.startswith("maker-")
+        if not is_maker and not has_better_harness:
+            continue
+
+        # 文件数 + 文件列表（顶层文件）
+        try:
+            all_files = []
+            for root, _, files in os.walk(dp):
+                for f in files:
+                    all_files.append(os.path.relpath(os.path.join(root, f), dp))
+            file_count = len(all_files)
+        except OSError:
+            all_files = []
+            file_count = 0
+
+        # 技术栈检测
+        top_files = [f for f in all_files if "/" not in f]
+        has_app_py = "app.py" in top_files
+        has_requirements = "requirements.txt" in top_files
+        has_index_html = "index.html" in top_files
+        if has_app_py and has_requirements:
+            tech_stack = "Python Flask"
+        elif has_index_html and not has_app_py:
+            tech_stack = "HTML 单页"
+        elif has_app_py:
+            tech_stack = "Python"
+        elif has_index_html:
+            tech_stack = "HTML + Flask"
+        else:
+            tech_stack = "通用"
+
+        # 读取 _prompt.txt → 需求描述
+        requirement = ""
+        prompt_path = os.path.join(dp, "_prompt.txt")
+        if os.path.isfile(prompt_path):
+            try:
+                with open(prompt_path, encoding="utf-8") as f:
+                    raw = f.read(2048)
+                # 统一处理真实换行和字面 \n
+                raw = raw.replace("\\n", "\n")
+                lines = raw.split("\n")
+                # 取第一个有效行（跳过系统提示行、空白行）
+                for line in lines:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    if stripped.startswith("你是代码生成器") or stripped.startswith("你是一个") or stripped.startswith("你是"):
+                        continue
+                    if stripped.startswith("<<<FILE") or stripped.startswith("<<<ENDFILE"):
+                        continue
+                    if stripped.startswith("用 <<<FILE") or stripped.startswith("请用"):
+                        continue
+                    requirement = stripped[:200]
+                    break
+                if not requirement:
+                    # 回退：取第一个非空行
+                    for line in lines:
+                        s = line.strip()
+                        if s:
+                            requirement = s[:200]
+                            break
+            except OSError:
+                pass
+
+        # 生成时间戳：从目录名提取
+        # maker-20260729-234132-xxx → 2026-07-29 23:41
+        # 20260724-193006-education → 2026-07-24 19:30
+        gen_time = ""
+        ts_part = entry.replace("maker-", "")  # 处理 maker- 和旧格式
+        if len(ts_part) >= 15 and ts_part[8] == "-":
+            # maker-YYYYMMDD-HHMMSS-hash
+            try:
+                date_str = ts_part[:8]
+                time_str = ts_part[9:15]
+                gen_time = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]} {time_str[:2]}:{time_str[2:4]}"
+            except (ValueError, IndexError):
+                pass
+        elif len(ts_part) >= 13 and ts_part[8] == "-":
+            # YYYYMMDD-HHMMSS-case (旧格式)
+            try:
+                date_str = ts_part[:8]
+                time_str = ts_part[9:15]
+                gen_time = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]} {time_str[:2]}:{time_str[2:4]}"
+            except (ValueError, IndexError):
+                pass
+
+        # LLM 原始输出大小（粗略成本指标）
+        llm_size = 0
+        llm_path = os.path.join(dp, "_llm_raw.txt")
+        if os.path.isfile(llm_path):
+            try:
+                llm_size = os.path.getsize(llm_path)
+            except OSError:
+                pass
+
+        # 验证结果（_verify.log 存在则读取）
+        verify_result = ""
+        verify_path = os.path.join(dp, "_verify.log")
+        if os.path.isfile(verify_path):
+            try:
+                with open(verify_path, encoding="utf-8") as f:
+                    vtext = f.read(1024)
+                if "PASS" in vtext.upper():
+                    verify_result = "pass"
+                elif "FAIL" in vtext.upper():
+                    verify_result = "fail"
+                else:
+                    verify_result = "partial"
+            except OSError:
+                pass
+
+        # Git 提交状态 + remote URL（检查 .git 目录）
+        git_dir = os.path.join(dp, ".git")
+        git_committed = os.path.isdir(git_dir)
+        git_remote_url = ""
+        if git_committed:
+            git_config = os.path.join(git_dir, "config")
+            if os.path.isfile(git_config):
+                try:
+                    with open(git_config, encoding="utf-8") as f:
+                        in_remote = False
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("[remote"):
+                                in_remote = True
+                            elif line.startswith("[") and in_remote:
+                                in_remote = False
+                            elif in_remote and line.startswith("url "):
+                                url = line.split("=", 1)[-1].strip()
+                                # 处理各种 URL 格式
+                                if url.startswith("https://") or url.startswith("http://"):
+                                    git_remote_url = url.rstrip("/")
+                                elif url.startswith("git@"):
+                                    # git@github.com:user/repo.git → https://github.com/user/repo
+                                    git_remote_url = "https://" + url.replace(":", "/", 1).replace("git@", "").replace(".git", "")
+                                break
+                except OSError:
+                    pass
+
+        # 尝试匹配 runs.jsonl（先精确匹配目录名，再按 case 名模糊匹配）
+        meta = runs_meta.get(entry, {})
+        if not meta and requirement:
+            # 模糊匹配：用 _prompt 关键词在 runs_by_case 中找
+            for case_name, case_meta in runs_by_case.items():
+                if case_name.lower() in requirement.lower():
+                    meta = case_meta
+                    break
+
+        projects.append({
+            "name": entry,
+            "dir": os.path.relpath(dp, REPO_ROOT),
+            "case": meta.get("case", ""),
+            "result": meta.get("result", ""),
+            "attempts": meta.get("attempts", 0),
+            "determinism": meta.get("determinism", ""),
+            "model": meta.get("model", ""),
+            "cost_yuan": meta.get("cost_yuan"),
+            "finished_at": meta.get("finished_at", ""),
+            "file_count": file_count,
+            "gen_time": gen_time,
+            "requirement": requirement,
+            "tech_stack": tech_stack,
+            "llm_size": llm_size,
+            "verify_result": verify_result,
+            "git_committed": git_committed,
+            "git_remote_url": git_remote_url,
+            "has_better_harness": has_better_harness,
+            "better_harness_score": better_harness_score,
+            "better_harness_findings_count": better_harness_findings_count,
+            "better_harness_report_time": better_harness_report_time,
+        })
+    return jsonify({"ok": True, "projects": projects})
+
+
 @app.route("/api/gate/status", methods=["GET"])
 def gate_status():
     return jsonify(_engine_state["gate"])

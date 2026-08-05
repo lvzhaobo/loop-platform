@@ -14,9 +14,9 @@ venv/
 output/
 dist-repos/
 .last_ts
-delivery-loop/backlog/feishu_state.json
-delivery-loop/backlog/feishu_docs.json
-delivery-loop/backlog/backlog.jsonl
+loop/backlog/feishu_state.json
+loop/backlog/feishu_docs.json
+loop/backlog/backlog.jsonl
 *.log
 
 # ---- OS / 编辑器 ----

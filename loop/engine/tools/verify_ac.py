@@ -37,7 +37,7 @@ acceptance.json 结构:
   unit_test        {test?}                          跑 unittest(指定文件或 discover)
   manual           {}                               人工抽检,不自动判定,报告里单列
 
-用法: python harness-4/tools/verify_ac.py <case> <产物目录>
+用法: python loop/engine/tools/verify_ac.py <case> <产物目录>
 退出码: 全部可自动判定项通过=0,否则=1(manual 项不影响退出码,单独列出)。
 """
 import json
@@ -289,7 +289,7 @@ def write_reports(out, name):
 
 def main():
     if len(sys.argv) < 3:
-        sys.exit("用法: python harness-4/tools/verify_ac.py <case> <产物目录>")
+        sys.exit("用法: python loop/engine/tools/verify_ac.py <case> <产物目录>")
     case_name, out = sys.argv[1], sys.argv[2]
 
     ac_path = os.path.join(LOOP_DIR, "cases", case_name, "spec", "acceptance.json")

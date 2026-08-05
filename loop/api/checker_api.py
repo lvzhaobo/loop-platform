@@ -10,11 +10,18 @@ sys.path.insert(0, os.path.join(LOOP_DIR, "engine"))
 
 @checker_bp.route("/<name>", methods=["POST"])
 def checker_run(name):
-    """运行指定 Checker。"""
+    """运行指定 Checker。process checker 不需要 dir 参数（读项目根目录）。"""
     data = request.get_json(force=True) or {}
     out_dir = data.get("dir", "")
-    if not out_dir or not os.path.isdir(out_dir):
-        return jsonify({"ok": False, "error": "dir 参数无效"}), 400
+    # process checker 不需要 dir，用项目根目录即可
+    if name == "process":
+        if not out_dir:
+            out_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if not os.path.isdir(out_dir):
+            out_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    else:
+        if not out_dir or not os.path.isdir(out_dir):
+            return jsonify({"ok": False, "error": "dir 参数无效"}), 400
     try:
         from checkers import load_checker
         checker = load_checker(name)

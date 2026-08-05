@@ -1,6 +1,6 @@
 # loop-studio 配置平台 · studio 常驻服务(systemd 单元模板)
 #
-# 作用:把 harness-4/studio/server.py(Flask 配置工作台)跑成开机自启、崩溃自拉起的后台服务。
+# 作用:把 loop/studio/server.py(Flask 配置工作台)跑成开机自启、崩溃自拉起的后台服务。
 #      提供:约束/用例编辑 · 一致性预检 · 页面上的「🚀 开始交付」按钮(→ 完整 run_backlog.sh)。
 #
 # 与 loop-platform.service 的区别:
@@ -22,7 +22,7 @@
 #      让 systemd 跟错 PID)。server.py 本身不改,__main__ 里的 debug=True 只影响本地直跑。
 
 [Unit]
-Description=loop-studio config platform (harness-4 studio)
+Description=loop-studio config platform (loop studio)
 After=network-online.target
 Wants=network-online.target
 
@@ -36,13 +36,13 @@ Environment=HARNESS_MODE=real
 Environment=HARNESS_AUTOCOMMIT=1
 Environment=HARNESS_GIT_PUSH=1
 Environment=HARNESS_GIT_SUBDIR_AUTO=1
-Environment=HARNESS_GIT_REMOTE=github.com/lvzhaobo/loop-sample.git
+Environment=HARNESS_GIT_REMOTE=github.com/<your-org>/loop-sample.git
 Environment=STUDIO_PORT=5100
 # 监听地址:默认 0.0.0.0(公网可达,靠 STUDIO_TOKEN 鉴权);设 127.0.0.1 可收紧为仅本机/隧道
 Environment=STUDIO_HOST=0.0.0.0
 # 先 source .env + config.env(密钥/开关),再用 flask run 启动(关 reloader,PID 稳定)
 # 注:$$ 是给 systemd 的转义,展开后 bash 收到 ${STUDIO_HOST:-0.0.0.0}/${STUDIO_PORT:-5100}(systemd 自身不支持 :- 默认值语法)
-ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . delivery-loop/config.env; exec .venv/bin/flask --app harness-4/studio/server.py run --host $${STUDIO_HOST:-0.0.0.0} --port $${STUDIO_PORT:-5100}'
+ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . loop/config.env; exec .venv/bin/flask --app loop/studio/server.py run --host $${STUDIO_HOST:-0.0.0.0} --port $${STUDIO_PORT:-5100}'
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=30

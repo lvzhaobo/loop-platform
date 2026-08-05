@@ -2,14 +2,14 @@
 # ============================================================
 #  push_repos.sh — 建私有仓 + 加 remote + 推送(对外动作,需交互确认)
 #  前置:先跑 build_repos.sh 生成 dist-repos/。GITHUB_TOKEN 从仓库根 .env 读。
-#  用法: bash delivery-loop/publish/push_repos.sh
+#  用法: bash loop/pipeline/publish/push_repos.sh
 # ============================================================
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUT="$ROOT/dist-repos"
-OWNER="lvzhaobo"
+OWNER="${GITHUB_OWNER:-your-github-user}"
 REPOS=("loop-platform" "loop-specs")   # 均建为私有
 
 # 载入 token(不回显)

@@ -4,11 +4,11 @@
 #  安全:排除密钥与运行时状态;只做本地 git commit,不推远端(推送用 push_repos.sh)。
 #  非破坏:保留各发布仓库的 .git 历史与远端,用 rsync --delete 增量清理,
 #         有变化才增量提交(不再 rm -rf + git init 推倒重建)。
-#  用法: bash delivery-loop/publish/build_repos.sh
+#  用法: bash loop/pipeline/publish/build_repos.sh
 # ============================================================
 set -euo pipefail
 
-# 定位工作区根(本脚本在 <root>/delivery-loop/publish/ 下)
+# 定位工作区根(本脚本在 <root>/loop/pipeline/publish/ 下)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 TPL="$HERE/templates"
@@ -31,17 +31,17 @@ EXCLUDES=(
 
 echo "==> 准备目录 $OUT(保留各仓库 .git 历史与远端)"
 mkdir -p "$PLATFORM" "$SPECS/cases"
-# specs 的 cases 整体重建以清理已删用例;platform 的 harness-4/delivery-loop
+# specs 的 cases 整体重建以清理已删用例;platform 的 loop/engine/loop/pipeline
 # 由下方 rsync --delete 增量清理。两者都不动各自的 .git。
 rm -rf "$SPECS/cases"
 mkdir -p "$SPECS/cases"
 
 # ---------------- loop-platform ----------------
 echo "==> 组装 loop-platform"
-rsync -a --delete "${EXCLUDES[@]}" "$ROOT/harness-4"      "$PLATFORM/"
-rsync -a --delete "${EXCLUDES[@]}" "$ROOT/delivery-loop"  "$PLATFORM/"
+rsync -a --delete "${EXCLUDES[@]}" "$ROOT/loop/engine"      "$PLATFORM/"
+rsync -a --delete "${EXCLUDES[@]}" "$ROOT/loop/pipeline"  "$PLATFORM/"
 
-# 12 菜单 Loop Platform 前端(单文件自包含 HTML):harness-4/studio/server.py 的 /
+# 12 菜单 Loop Platform 前端(单文件自包含 HTML):loop/studio/server.py 的 /
 # 路由从 <repo>/loop-platform/index.html serve,故须随仓发布,克隆后即可复现平台。
 # 只收 index.html,不带同目录的规划稿/副本(那些是本地笔记,不入仓)。
 mkdir -p "$PLATFORM/loop-platform"
@@ -52,20 +52,20 @@ cp "$TPL/platform.gitignore"   "$PLATFORM/.gitignore"
 cp "$TPL/platform.env.example" "$PLATFORM/.env.example"
 
 # backlog 只保留 .example(真实态已被 rsync 排除)
-mkdir -p "$PLATFORM/delivery-loop/backlog"
-cp "$TPL/feishu_docs.example.json" "$PLATFORM/delivery-loop/backlog/feishu_docs.example.json"
-cp "$TPL/backlog.example.jsonl"    "$PLATFORM/delivery-loop/backlog/backlog.example.jsonl"
+mkdir -p "$PLATFORM/loop/pipeline/backlog"
+cp "$TPL/feishu_docs.example.json" "$PLATFORM/loop/pipeline/backlog/feishu_docs.example.json"
+cp "$TPL/backlog.example.jsonl"    "$PLATFORM/loop/pipeline/backlog/backlog.example.jsonl"
 
 # ---------------- loop-specs ----------------
 echo "==> 组装 loop-specs"
-for c in "$ROOT"/harness-4/cases/*/; do
+for c in "$ROOT"/loop/cases/*/; do
   name="$(basename "$c")"
   if [ -d "$c/spec" ]; then
     mkdir -p "$SPECS/cases/$name/spec"
     cp "$c"/spec/*.md "$SPECS/cases/$name/spec/"
   fi
 done
-[ -f "$ROOT/harness-4/checklist.md" ] && cp "$ROOT/harness-4/checklist.md" "$SPECS/checklist.md"
+[ -f "$ROOT/loop/engine/checklist.md" ] && cp "$ROOT/loop/engine/checklist.md" "$SPECS/checklist.md"
 cp "$TPL/specs.README.md"  "$SPECS/README.md"
 cp "$TPL/specs.gitignore"  "$SPECS/.gitignore"
 
@@ -79,7 +79,7 @@ commit_repo () {
     if git diff --cached --quiet; then
       echo "  ⏭  $name: 无变化,跳过提交(保留历史 $(git rev-list --count HEAD 2>/dev/null || echo 0) commit)"
     else
-      git -c user.name="吕昭波" -c user.email="lvzhaobo@gmail.com" \
+      git -c user.name="Loop Platform" -c user.email="loop@platform.dev" \
           commit -q -m "$msg"
       echo "  ✅ $name: 已增量提交 → 现 $(git rev-list --count HEAD) commit, $(git ls-files | wc -l | tr -d ' ') files"
     fi
@@ -106,4 +106,4 @@ fi
 echo "  ✅ 无真实密钥、无 .env 混入"
 echo ""
 echo "完成。产物在: $OUT"
-echo "下一步(确认后):bash delivery-loop/publish/push_repos.sh"
+echo "下一步(确认后):bash loop/pipeline/publish/push_repos.sh"

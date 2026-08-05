@@ -5,7 +5,7 @@
      又不想把凭证散落各处。脚本从文件读取(避免多行转义地狱),base64 后远端执行。
 
 用法(在仓库根执行):
-  .venv/bin/python delivery-loop/deploy/ecs_exec.py <脚本文件路径> [超时秒]
+  .venv/bin/python loop/pipeline/deploy/ecs_exec.py <脚本文件路径> [超时秒]
 
 凭证:从仓库根 .env 读 ECS_HOST / ECS_SSH_PASSWORD;用户/端口默认 root/22,
      可用 ECS_HOST / ECS_SSH_USER / ECS_SSH_PORT 覆盖(与 sync_to_ecs 一致)。

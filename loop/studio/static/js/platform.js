@@ -128,12 +128,14 @@ function lpRun(){
 }
 function onPageEnter(page){
   if(page==='harness')loadConstraints(false);
-  else if(page==='dashboard')loadDashboard();
+  else if(page==='dashboard'){loadDashboard();loadBetterHarnessDashPreview();}
   else if(page==='reqs')loadReqs();
   else if(page==='monitor')loadMonitor();
-  else if(page==='loop'){loadTrigReqs();loadPipeline();loadChecks();}
+  else if(page==='loop'){loadTrigReqs();loadPipeline();loadChecks();updateBetterHarnessBtnLabel();}
   else if(page==='apps')loadApps();
   else if(page==='setting'){loadSettings();}
+  else if(page==='betterHarnessReport')loadBetterHarnessReport();
+  else if(page==='genlist')loadGenlist();
 }
 
 /* ===== API Layer ===== */
@@ -439,11 +441,13 @@ async function lpRunReal(){
           links+='<div style="margin:4px 0">📄 '+esc(fs[fi])+' <a href="'+furl+'" target="_blank" class="lnk">打开 ↗</a></div>';
         }
         document.getElementById('outputLinks').innerHTML=links||'无文件';
-        // 后续步骤共用 output_dir
+        // 后续步骤共用 output_dir，并记录最后生成的目录供 Better Harness 报告页使用
         var od=s.output_dir;
+        window._lastGenDir = od;
+        try { localStorage.setItem('loop-last-gen-dir', od); } catch(e) {}
         var okCount=0,failCount=0;
 
-        // 3-5: Checker 三步
+        // 3-5: Checker 三步（生成代码验证）
         var checks=['security','runtime','e2e'];
         var clIds=['cl-security','cl-runtime','cl-e2e'];
         for(var ci=0;ci<checks.length;ci++){
@@ -460,6 +464,14 @@ async function lpRunReal(){
             }
           }catch(e){step(clIds[ci],'❌',e.message);failCount++;}
         }
+
+        // 生成代码流程诊断（Better Harness ProcessChecker → 项目结构、依赖健康等）
+        log.textContent+='[流程] Better Harness 流程诊断...\\n';
+        try{
+          var pc=await apiPost('/api/checker/process',{dir:od});
+          if(pc.json&&pc.json.ok){log.textContent+='  ✅ 流程诊断: '+(pc.json.pass_count||0)+'/'+(pc.json.total_count||0)+' 通过\\n';}
+          else{log.textContent+='  ⚠ 流程诊断: '+(pc.json&&(pc.json.error||'无结果'))+'\\n';}
+        }catch(e){log.textContent+='  ⚠ 流程诊断失败: '+e.message+'\\n';}
 
         // 6. 推送
         log.textContent+='[6/7] 推送 GitHub...\\n';
@@ -572,8 +584,77 @@ async function addBacklog(){
   }
 }
 
+/* Better Harness 流程分析：一键触发 qodercli /better-harness → 轮询 → 刷新 */
+var _betterHarnessPollTimer=null;
+var _betterHarnessRunning=false;
+function updateBetterHarnessBtnLabel(){
+  var btn=document.getElementById('betterHarnessAnalyzeBtn');if(!btn)return;
+  if(window._lastGenDir){
+    var dirName=window._lastGenDir.split('/').pop()||window._lastGenDir;
+    btn.textContent='🔬 分析 '+dirName.substring(0,20);
+  } else {
+    btn.textContent='🔬 流程分析';
+  }
+}
+async function triggerBetterHarnessAnalysis(){
+  if(_betterHarnessRunning){toast('上一次分析仍在运行，请稍候');return;}
+  var btn=document.getElementById('betterHarnessAnalyzeBtn');
+  if(!btn)return;
+  _betterHarnessRunning=true;btn.disabled=true;btn.textContent='⏳ 分析中…';
+  var note=document.getElementById('checksRunNote');
+  if(note)note.textContent='🔬 Better Harness 流程分析运行中，请稍候…';
+  try{
+    var body={};
+    if(window._lastGenDir){ body.dir = window._lastGenDir; }
+    var r=await apiPost('/api/better-harness/analyze',body);
+    if(r.ok&&r.json&&r.json.ok){toast('流程分析已启动（约 60-120 秒）');_pollBetterHarnessStatus();}
+    else if(r.ok&&r.json&&r.json.busy){toast('上一次分析尚未完成');_betterHarnessRunning=false;btn.disabled=false;btn.textContent='🔬 流程分析';}
+    else{toast('启动失败: '+(r.json&&r.json.error||'未知'));_betterHarnessRunning=false;btn.disabled=false;btn.textContent='🔬 流程分析';}
+  }catch(e){toast('网络错误');_betterHarnessRunning=false;btn.disabled=false;btn.textContent='🔬 流程分析';}
+}
+function _pollBetterHarnessStatus(){
+  var btn=document.getElementById('betterHarnessAnalyzeBtn');
+  var note=document.getElementById('checksRunNote');
+  _betterHarnessPollTimer=setInterval(async function(){
+    try{
+      var r=await apiGet('/api/better-harness/status');
+      var s=r||{};
+      if(!s.running){
+        clearInterval(_betterHarnessPollTimer);_betterHarnessPollTimer=null;_betterHarnessRunning=false;
+        if(btn){btn.disabled=false;btn.textContent='🔬 流程分析';}
+        if(s.success){
+          if(note)note.textContent='✅ 流程分析完成，正在刷新检查结果…';
+          toast('✅ 流程分析完成');
+          await runChecker('process');
+          await loadChecks();
+          if(note)note.textContent='✅ 流程分析已完成（五维度评分已更新）';
+        }else{
+          if(note)note.textContent='⚠ 流程分析异常：'+(s.error||'未知错误');
+          toast('⚠ 流程分析异常: '+(s.error||'未知'));
+        }
+      }else{
+        var elapsed=Math.round((Date.now()/1000)-(new Date(s.started_at).getTime()/1000));
+        if(btn)btn.textContent='⏳ '+elapsed+'s';
+      }
+    }catch(e){/* 轮询忽略网络抖动 */}
+  },3000);
+}
+/* 运行单个 checker（调 /api/checker/<name>）*/
+async function runChecker(name){
+  if(!name){console.error('runChecker: missing name');return;}
+  try{
+    var r=await apiPost('/api/checker/'+name,{});
+    return r;
+  }catch(e){
+    console.error('runChecker error:', e);
+    throw e;
+  }
+}
+
 /* 初始化 */
 // 页面刷新保持状态
+// 恢复上次生成的目录（供 Better Harness 报告页使用）
+try { var stored = localStorage.getItem('loop-last-gen-dir'); if(stored) window._lastGenDir = stored; } catch(e) {}
 try{var lastPage=localStorage.getItem('loop-page');if(lastPage){
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
   var nav=document.querySelector('[data-page="'+lastPage+'"]');if(nav)go(nav);}
@@ -583,3 +664,414 @@ if(!document.querySelector('.page.active')){
 }
 renderGraph('lgConsole',{});
 probeLive(false);
+
+/* ===== Better Harness 诊断报告 ===== */
+
+var _DIM_LABELS_BETTER_HARNESS = {
+  'task-understanding': '目标清晰度',
+  'controlled-execution': '执行可控性',
+  'change-validation': '变更验证',
+  'reliable-delivery': '可靠交付',
+  'learning-capture': '经验沉淀'
+};
+var _DIM_ORDER = ['task-understanding','controlled-execution','change-validation','reliable-delivery','learning-capture'];
+var _SEV_COLORS = {Critical:'var(--red)',High:'var(--orange)',Medium:'var(--yellow, #c9a000)',Low:'var(--muted)'};
+var _SEV_ORDER = ['Critical','High','Medium','Low'];
+
+/* Dashboard 预览：加载报告摘要 */
+async function loadBetterHarnessDashPreview(){
+  var el = document.getElementById('betterHarnessDashPreview'); if(!el) return;
+  try{
+    var dir = window._lastGenDir;
+    // 自动发现最新有 findings.json 的生成项目
+    if(!dir){
+      var projResp = await apiGet('/api/better-harness/projects');
+      if(projResp && projResp.projects && projResp.projects.length){
+        dir = projResp.projects[0].dir;
+        window._lastGenDir = dir;
+      }
+    }
+    var url = '/api/better-harness/report';
+    if(dir){ url += '?dir=' + encodeURIComponent(dir); }
+    var r = await apiGet(url);
+    if(!r.ok || !r.findings){ el.textContent = dir ? '该项目暂无诊断，前往 Loop 引擎点击「🔬 分析」生成' : '暂无生成记录，前往 Loop 引擎生成项目'; return; }
+    var dims = r.findings.summary && r.findings.summary.dimensions || [];
+    var scores = dims.map(function(d){ return d.score||0; });
+    var avg = scores.length ? Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length) : 0;
+    var passed = dims.filter(function(d){ return (d.score||0) >= 60; }).length;
+    var projectLabel = dir ? ('<span style="font-size:11px;color:var(--muted)">'+r.findings.summary.projectName+'</span> · ') : '';
+    el.innerHTML = projectLabel+'综合评分 <b style="color:'+(avg>=60?'var(--green)':'var(--orange)')+'">'+avg+'</b> / 100 · '+passed+'/'+dims.length+' 维度达标 · '+
+      (r.findings.findings||[]).length+' 条漏洞';
+  }catch(e){ el.textContent = '加载失败，请检查后端服务'; }
+}
+
+/* 主报告加载 */
+async function loadBetterHarnessReport(){
+  var loading = document.getElementById('betterHarnessReportLoading');
+  var empty = document.getElementById('betterHarnessReportEmpty');
+  var error = document.getElementById('betterHarnessReportError');
+  var body = document.getElementById('betterHarnessReportBody');
+  var summary = document.getElementById('betterHarnessReportSummary');
+  
+  setState('loading');
+  try{
+    var dir = window._lastGenDir;
+    // 自动发现最新有 findings.json 的生成项目
+    if(!dir){
+      var projResp = await apiGet('/api/better-harness/projects');
+      if(projResp && projResp.projects && projResp.projects.length){
+        dir = projResp.projects[0].dir;
+        window._lastGenDir = dir;
+      }
+    }
+    var url = '/api/better-harness/report';
+    if(dir){ url += '?dir=' + encodeURIComponent(dir); }
+    var r = await apiGet(url);
+    if(!r.ok || !r.findings){
+      // 有目标目录但无报告 → 显示分析按钮
+      var hasDir = !!window._lastGenDir;
+      if(hasDir){
+        var emptyDiv = document.getElementById('betterHarnessReportEmpty');
+        if(emptyDiv){
+          emptyDiv.innerHTML = '<div style="font-size:40px;margin-bottom:12px">📭</div>'+
+            '<div style="font-size:16px;font-weight:700;margin-bottom:8px">该项目暂无诊断报告</div>'+
+            '<span class="hint" id="betterHarnessAnalyzeStatus" style="display:block;margin-bottom:14px">点击下方按钮启动 Better Harness 流程分析</span>'+
+            '<button class="btn primary" id="betterHarnessAnalyzeBtn" onclick="triggerBetterHarnessReportAnalysis()" style="font-size:14px;padding:10px 24px">🔬 分析此项目</button>';
+          setState('empty');
+        } else { setState('empty'); }
+      } else {
+        setState('empty');
+      }
+      summary.textContent = '未找到诊断报告';
+      return;
+    }
+    var f = r.findings;
+    var s = f.summary || {};
+    var dims = s.dimensions || [];
+    var findings = f.findings || [];
+    
+    // 概览
+    setText('betterHarnessProjectName', s.projectName || '-');
+    setText('betterHarnessProjectName2', s.projectName || '-');
+    setText('betterHarnessOverviewText', s.overview || '-');
+    setText('betterHarnessModelId', s.modelId || '-');
+    setText('betterHarnessReportTime', r.report_time || '-');
+    var avgScore = dims.length ? Math.round(dims.reduce(function(a,b){return a+(b.score||0);},0)/dims.length) : 0;
+    setText('betterHarnessAvgScore', avgScore);
+    var avgEl = document.getElementById('betterHarnessAvgScore');
+    if(avgEl) avgEl.style.color = avgScore>=60 ? 'var(--green)' : (avgScore>=40 ? 'var(--orange)' : 'var(--red)');
+    summary.textContent = (s.overview||'').substring(0,120)+'…';
+    
+    // 五维度雷达
+    renderRadar(dims);
+    renderDimLegends(dims);
+    
+    // AI Agent 资产覆盖
+    renderAIAgentAssets(s.aiAgentPractice);
+    
+    // 漏洞清单
+    renderFindings(findings);
+    
+    // Canvas 证据
+    if(r.canvas && r.canvas.summary && Object.keys(r.canvas.summary).length){
+      var cc = document.getElementById('betterHarnessCanvasCard'); if(cc) cc.style.display = '';
+      setText('betterHarnessCanvas', '<pre style="font-size:11px;max-height:200px;overflow:auto">'+esc(JSON.stringify(r.canvas.summary,null,2))+'</pre>');
+    } else {
+      var cc2 = document.getElementById('betterHarnessCanvasCard'); if(cc2) cc2.style.display = 'none';
+    }
+    
+    setState('body');
+  }catch(e){
+    setState('error');
+    setText('betterHarnessReportErrorMsg', e.message||'网络错误');
+    summary.textContent = '加载失败';
+  }
+  
+  function setState(st){
+    loading.style.display = st==='loading' ? '' : 'none';
+    empty.style.display = st==='empty' ? '' : 'none';
+    error.style.display = st==='error' ? '' : 'none';
+    body.style.display = st==='body' ? '' : 'none';
+  }
+  function setText(id, txt){
+    var el = document.getElementById(id); if(el) el.textContent = txt;
+  }
+}
+
+/* 五维度评分雷达图（纯 SVG） */
+function renderRadar(dims){
+  var svg = document.getElementById('betterHarnessRadar'); if(!svg) return;
+  var cx=150, cy=150, r=100, n=dims.length||5, levels=4;
+  var html = '';
+  // 同心多边形
+  for(var l=1; l<=levels; l++){
+    var lr = r * l / levels;
+    var pts = [];
+    for(var i=0; i<n; i++){
+      var angle = -Math.PI/2 + 2*Math.PI*i/n;
+      pts.push((cx + lr*Math.cos(angle)).toFixed(1)+','+(cy + lr*Math.sin(angle)).toFixed(1));
+    }
+    html += '<polygon points="'+pts.join(' ')+'" fill="none" stroke="var(--border-2)" stroke-width="0.8" opacity="0.6"/>';
+  }
+  // 轴线
+  for(var i=0; i<n; i++){
+    var angle = -Math.PI/2 + 2*Math.PI*i/n;
+    var ex = (cx + r*Math.cos(angle)).toFixed(1), ey = (cy + r*Math.sin(angle)).toFixed(1);
+    html += '<line x1="'+cx+'" y1="'+cy+'" x2="'+ex+'" y2="'+ey+'" stroke="var(--border-2)" stroke-width="0.6" opacity="0.5"/>';
+  }
+  // 维度标签
+  for(var i=0; i<n; i++){
+    var angle = -Math.PI/2 + 2*Math.PI*i/n;
+    var lx = (cx + (r+22)*Math.cos(angle)).toFixed(1), ly = (cy + (r+22)*Math.sin(angle)).toFixed(1);
+    var ta = 'middle';
+    if(angle > Math.PI/2-0.2 && angle < Math.PI/2+0.2) ta = 'middle';
+    else if(Math.cos(angle) > 0) ta = 'start';
+    else ta = 'end';
+    html += '<text x="'+lx+'" y="'+ly+'" text-anchor="'+ta+'" dominant-baseline="middle" fill="var(--text-sec)" font-size="10">'+
+      esc(_DIM_LABELS_BETTER_HARNESS[dims[i]&&dims[i].id]||dims[i]&&dims[i].id||('维'+(i+1)))+'</text>';
+  }
+  // 数据多边形
+  var dpts = [];
+  for(var i=0; i<n; i++){
+    var score = dims[i] ? dims[i].score||0 : 0;
+    var dr = r * score / 100;
+    var angle = -Math.PI/2 + 2*Math.PI*i/n;
+    dpts.push((cx + dr*Math.cos(angle)).toFixed(1)+','+(cy + dr*Math.sin(angle)).toFixed(1));
+  }
+  html += '<polygon points="'+dpts.join(' ')+'" fill="var(--blue-soft, rgba(59,130,246,0.15))" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round"/>';
+  // 数据点
+  for(var i=0; i<n; i++){
+    var score2 = dims[i] ? dims[i].score||0 : 0;
+    var dr2 = r * score2 / 100;
+    var angle2 = -Math.PI/2 + 2*Math.PI*i/n;
+    html += '<circle cx="'+(cx + dr2*Math.cos(angle2)).toFixed(1)+'" cy="'+(cy + dr2*Math.sin(angle2)).toFixed(1)+
+      '" r="3.5" fill="var(--blue)" stroke="#fff" stroke-width="1.5"/>';
+  }
+  svg.innerHTML = html;
+}
+
+/* 维度图例 */
+function renderDimLegends(dims){
+  var el = document.getElementById('betterHarnessDimLegends'); if(!el) return;
+  var html = '';
+  _DIM_ORDER.forEach(function(did){
+    var dim = null;
+    for(var i=0; i<dims.length; i++){ if(dims[i].id===did){ dim=dims[i]; break; } }
+    if(!dim) return;
+    var score = dim.score||0;
+    var pass = score >= 60;
+    var color = pass ? 'var(--green)' : (score>=40 ? 'var(--orange)' : 'var(--red)');
+    html += '<div style="display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;font-size:12px">'+
+      '<span style="width:8px;height:8px;border-radius:2px;background:'+color+'"></span>'+
+      esc(dim.label||(_DIM_LABELS_BETTER_HARNESS[did]||did))+' <b style="color:'+color+'">'+score+'</b></div>';
+  });
+  el.innerHTML = html;
+}
+
+/* AI Agent 资产覆盖 */
+function renderAIAgentAssets(aap){
+  var el = document.getElementById('betterHarnessAgentAssets'); if(!el) return;
+  if(!aap || !aap.coverageRows || !aap.coverageRows.length){
+    el.innerHTML = '<span class="hint">无资产覆盖数据</span>'; return;
+  }
+  var surfaces = aap.inspectedSurfaces || [];
+  var html = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">已检查: '+esc(surfaces.join('、')||'无')+'</div>';
+  aap.coverageRows.forEach(function(row){
+    var pct = surfaces.length ? Math.round(row.count/Math.max(1,surfaces.length)*100) : 0;
+    var color = row.count>0 ? 'var(--green)' : 'var(--muted)';
+    html += '<div class="cl-item" style="padding:6px 0">'+
+      '<span class="cl-icon">'+(row.count>0 ? '✅' : '⬜')+'</span>'+
+      '<span class="cl-label"><b>'+esc(row.surface)+'</b>'+
+      ' <span class="badge" style="background:'+color+';color:#fff;font-size:10px">'+row.count+' 条</span>'+
+      (row.paths&&row.paths.length ? ' <span style="font-size:11px;color:var(--muted)">'+esc(row.paths.join(', '))+'</span>' : '')+
+      '</span></div>';
+  });
+  el.innerHTML = html;
+}
+
+/* 漏洞清单 */
+function renderFindings(findings){
+  var countEl = document.getElementById('betterHarnessFindingCount');
+  var listEl = document.getElementById('betterHarnessFindings');
+  if(!listEl) return;
+  if(!findings || !findings.length){
+    if(countEl) countEl.textContent = '0 条';
+    listEl.innerHTML = '<span class="hint" style="color:var(--green)">✅ 未发现流程漏洞</span>';
+    return;
+  }
+  // 按严重度排序
+  var sorted = findings.slice().sort(function(a,b){
+    return (_SEV_ORDER.indexOf(a.severity) - _SEV_ORDER.indexOf(b.severity));
+  });
+  if(countEl) countEl.textContent = findings.length + ' 条';
+  var html = '';
+  sorted.forEach(function(f){
+    var sev = f.severity||'Low';
+    var sevColor = _SEV_COLORS[sev]||'var(--muted)';
+    var dimLabels = (f.dimensionRefs||[]).map(function(d){return _DIM_LABELS_BETTER_HARNESS[d]||d;}).join('、');
+    html += '<div class="better-harness-finding" style="border-left:3px solid '+sevColor+';margin-bottom:12px;padding:12px 16px;background:var(--bg-2);border-radius:0 8px 8px 0">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'+
+        '<span class="badge" style="background:'+sevColor+';color:#fff;font-size:10px">'+esc(sev)+'</span>'+
+        '<b style="font-size:14px">'+esc(f.title||f.id||'?')+'</b>'+
+        (dimLabels ? '<span class="badge gray" style="font-size:10px">'+esc(dimLabels)+'</span>' : '')+
+      '</div>'+
+      '<div style="font-size:13px;color:var(--text-sec);margin-bottom:8px;line-height:1.6">'+esc(f.reason||'')+'</div>';
+    // expectedOutput
+    if(f.expectedOutput && f.expectedOutput.length){
+      html += '<div style="margin-bottom:8px"><b style="font-size:12px;color:var(--text)">期望输出：</b>'+
+        '<ul style="margin:4px 0 0 16px;font-size:12px;color:var(--text-sec)">';
+      f.expectedOutput.forEach(function(eo){ html += '<li>'+esc(eo)+'</li>'; });
+      html += '</ul></div>';
+    }
+    // aiFixPrompt
+    if(f.aiFixPrompt){
+      html += '<details style="margin-top:6px;font-size:12px"><summary style="cursor:pointer;color:var(--blue);font-weight:700">🤖 AI 修复提示</summary>'+
+        '<pre style="margin-top:8px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:6px;font-size:11px;max-height:200px;overflow:auto;white-space:pre-wrap">'+
+        esc(f.aiFixPrompt)+'</pre></details>';
+    }
+    html += '</div>';
+  });
+  listEl.innerHTML = html;
+}
+
+/* 生成历史列表 - 卡片布局 */
+async function loadGenlist(){
+  var grid = document.getElementById('genlistGrid');
+  var meta = document.getElementById('genlistMeta');
+  if(!grid) return;
+  grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">加载中…</div>';
+  try{
+    var r = await apiGet('/api/output/projects');
+    if(!r || !r.projects || !r.projects.length){
+      grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">暂无生成记录</div>';
+      if(meta) meta.textContent = '0 个项目';
+      return;
+    }
+    if(meta) meta.textContent = r.projects.length + ' 个项目';
+    var html = '';
+    r.projects.forEach(function(p){
+      var dirName = p.name.length > 28 ? p.name.substring(0,28)+'…' : p.name;
+      var timeLabel = p.gen_time || '-';
+      var fileLabel = p.file_count ? p.file_count + ' 文件' : '空';
+      
+      // 需求文本（截断显示）
+      var reqText = p.requirement || '';
+      var reqDisplay = reqText.length > 120 ? reqText.substring(0,120)+'…' : reqText;
+      
+      // 生成结果徽章
+      var resultBadge = '';
+      if(p.result === 'pass') resultBadge = '<span class="badge badge-green">✅ 通过</span>';
+      else if(p.result === 'fail') resultBadge = '<span class="badge badge-red">❌ 失败</span>';
+      else if(p.verify_result === 'pass') resultBadge = '<span class="badge badge-green">✅ 验证通过</span>';
+      else if(p.verify_result === 'fail') resultBadge = '<span class="badge badge-red">❌ 验证失败</span>';
+      else resultBadge = '<span class="badge" style="background:var(--muted)">—</span>';
+      
+      // Better Harness 评分
+      var betterHarnessCell = '';
+      if(p.has_better_harness){
+        var sc = p.better_harness_score||0;
+        var scColor = sc>=60 ? 'var(--green)' : 'var(--orange)';
+        betterHarnessCell = '<span class="genlist-bh-score" style="color:'+scColor+'">Better Harness <b>'+sc+'</b>/100</span>';
+      } else {
+        betterHarnessCell = '<span class="genlist-bh-score" style="color:var(--muted)">Better Harness 未诊断</span>';
+      }
+      
+      // Git 提交状态 + 链接
+      var gitCell = '';
+      if(p.git_remote_url){
+        // 有远程仓库地址 → 可点击跳转 GitHub
+        var gitLabel = p.git_remote_url.replace('https://','').substring(0,30);
+        gitCell = '<a href="'+esc(p.git_remote_url)+'" target="_blank" rel="noopener" class="lnk genlist-ext-link" title="在 GitHub 打开">📦 '+esc(gitLabel)+' ↗</a>';
+      } else if(p.git_committed){
+        gitCell = '<span class="badge badge-green" title="已本地 Git 提交（未推送远程）">📦 Git 已提交</span>';
+      } else {
+        gitCell = '<span class="badge" style="background:var(--muted)" title="无 .git 目录">未提交</span>';
+      }
+      
+      // 额外信息行
+      var extraTags = [];
+      if(p.tech_stack) extraTags.push(p.tech_stack);
+      if(p.model) extraTags.push(p.model);
+      if(p.attempts > 1) extraTags.push(p.attempts + ' 次尝试');
+      if(p.cost_yuan != null && p.cost_yuan > 0) extraTags.push('¥' + p.cost_yuan.toFixed(3));
+      else if(p.llm_size) extraTags.push((p.llm_size/1024).toFixed(1) + ' KB 输出');
+      if(p.case) extraTags.push('case: ' + p.case);
+      var extraLine = extraTags.length ? '<div class="genlist-tags">'+extraTags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('')+'</div>' : '';
+
+      var actions = '<a href="javascript:void(0)" onclick="openBetterHarnessReport(\''+esc(p.dir)+'\')" class="btn sm">'+(p.has_better_harness?'📊 Better Harness 报告':'🔬 分析')+'</a>';
+      
+      html += '<div class="genlist-card">'+
+        '<div class="genlist-card-hd">'+
+          '<div class="genlist-card-name" title="'+esc(p.name)+'">'+esc(dirName)+'</div>'+
+          '<div class="genlist-card-time">'+esc(timeLabel)+'</div>'+
+          '<div class="genlist-card-res">'+resultBadge+'</div>'+
+        '</div>'+
+        '<div class="genlist-card-req" title="'+esc(reqText)+'">'+esc(reqDisplay || '(无需求描述)')+'</div>'+
+        '<div class="genlist-card-row">'+
+          '<span>📁 '+fileLabel+'</span>'+
+          betterHarnessCell+
+          gitCell+
+        '</div>'+
+        extraLine+
+        '<div class="genlist-card-act">'+actions+'</div>'+
+      '</div>';
+    })
+    grid.innerHTML = html;
+  }catch(e){
+    grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">加载失败: '+esc(e.message)+'</div>';
+  }
+}
+
+function openBetterHarnessReport(dir){
+  window._lastGenDir = dir;
+  var nav = document.querySelector('[data-page="betterHarnessReport"]');
+  if(nav) go(nav);
+}
+
+/* 在 BH 报告详情页内触发分析并轮询 */
+async function triggerBetterHarnessReportAnalysis(){
+  if(_betterHarnessRunning){ toast('上一次分析仍在运行，请稍候'); return; }
+  var dir = window._lastGenDir; if(!dir){ toast('未指定项目目录'); return; }
+  var btn = document.getElementById('betterHarnessAnalyzeBtn');
+  var statusEl = document.getElementById('betterHarnessAnalyzeStatus');
+  _betterHarnessRunning = true;
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 启动中…'; }
+  if(statusEl) statusEl.textContent = '正在启动 Better Harness…';
+  try{
+    var r = await apiPost('/api/better-harness/analyze', {dir: dir});
+    if(r.ok && r.json && r.json.ok){
+      if(statusEl) statusEl.textContent = '分析运行中（约 60-120 秒）…';
+      if(btn) btn.textContent = '⏳ 分析中…';
+      var timer = setInterval(async function(){
+        try{
+          var s = await apiGet('/api/better-harness/status');
+          if(!s.running){
+            clearInterval(timer); _betterHarnessRunning = false;
+            if(s.success){
+              if(statusEl) statusEl.textContent = '✅ 分析完成，加载报告…';
+              loadBetterHarnessReport();
+            } else {
+              if(statusEl) statusEl.textContent = '⚠ 分析异常: '+(s.error||'未知');
+              if(btn){ btn.disabled = false; btn.textContent = '🔬 重新分析'; }
+            }
+          } else {
+            var elapsed = Math.round((Date.now()/1000)-(new Date(s.started_at).getTime()/1000));
+            if(btn) btn.textContent = '⏳ '+elapsed+'s';
+          }
+        }catch(e){}
+      }, 3000);
+    } else if(r.ok && r.json && r.json.busy){
+      _betterHarnessRunning = false;
+      if(statusEl) statusEl.textContent = '上一次分析尚未完成，请稍候';
+      if(btn){ btn.disabled = false; btn.textContent = '🔬 分析此项目'; }
+    } else {
+      _betterHarnessRunning = false;
+      if(statusEl) statusEl.textContent = '启动失败: '+(r.json&&r.json.error||'未知');
+      if(btn){ btn.disabled = false; btn.textContent = '🔬 重新分析'; }
+    }
+  }catch(e){
+    _betterHarnessRunning = false;
+    if(statusEl) statusEl.textContent = '网络错误';
+    if(btn){ btn.disabled = false; btn.textContent = '🔬 重新分析'; }
+  }
+}

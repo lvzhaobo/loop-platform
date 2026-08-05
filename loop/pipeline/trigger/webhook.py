@@ -1,4 +1,4 @@
-"""delivery-loop / trigger / webhook.py —— 事件式自动触发器(Event-driven Loop)。
+"""loop/pipeline / trigger / webhook.py —— 事件式自动触发器(Event-driven Loop)。
 
 作用
 ----
@@ -10,7 +10,7 @@
 定位
 ----
 纯外挂。本服务只做一件事——收到合法请求后 **子进程调用 run_backlog.sh**,
-不 import orchestrator.py,不碰 harness-4/5 的任何代码或产物。零第三方依赖(只用 stdlib)。
+不 import orchestrator.py,不碰 loop/engine 的任何代码或产物。零第三方依赖(只用 stdlib)。
 
 接口
 ----
@@ -26,7 +26,7 @@
 用法
 ----
   # 启动(前台;默认 sample 离线模式,零密钥)
-  python delivery-loop/trigger/webhook.py
+  python loop/pipeline/trigger/webhook.py
   # 另开一个终端手动触发一批:
   curl -X POST http://127.0.0.1:8787/trigger
   # 带密钥时:

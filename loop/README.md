@@ -1,23 +1,29 @@
 # Loop — 自主交付应用平台
 
-从一句话需求到可运行应用的全自动交付流水线。
+从一句话需求到可运行应用的全自动交付流水线。支持多 AI Maker（DeepSeek / Claude / Qoder），内置 Better Harness 质量诊断。
 
 ## 一句话理解
 
 > 告诉它"做一个招聘职位列表页"，它自动生成代码、自动验收、出来的就是一个能跑的应用。
+>
+> Better Harness 再对产出的代码做一次深度诊断：安全性、可维护性、可观测性… 出评分 + 问题清单。
 
 ## 架构
 
 ```
 需求输入                 编排层                      引擎
 ───────────────────    ───────────────────────    ─────────────────
-飞书文档 / 直接输入  →  orchestrator.py         →  generate.sh
-                        │                           ├─ run_model.py   (LLM 生成)
-                        │                           ├─ verify.py      (20 项硬验收)
-                        │                           └─ spec_compiler  (自由文本→结构化契约)
+飞书文档 / 直接输入  →  orchestrator.py         →  generate.py
+                        │                           ├─ Maker (多 AI)
+                        │                           │   ├─ DeepSeek API
+                        │                           │   ├─ Claude CLI
+                        │                           │   └─ Qoder CLI
+                        │                           ├─ Checker (20+ 硬验收)
+                        │                           └─ spec_compiler
                         │
                         ├─ publisher.py   →  GitHub
-                        └─ deployer.py    →  ECS
+                        ├─ deployer.py    →  ECS
+                        └─ Better Harness  →  质量诊断报告
 ```
 
 三层边界：
@@ -69,7 +75,7 @@ output/                  # 产物
 
 ```bash
 # 1. 环境准备
-bash loop/setup.sh
+python loop/setup.py
 source .venv/bin/activate
 
 # 2. 配置 API Key（仓库根 .env）
@@ -82,7 +88,7 @@ python loop/studio/server.py
 # 4. 添加需求 → 点"开始交付"
 
 # 或命令行直接跑：
-source .env && bash loop/pipeline/run.sh
+source .env && python loop/pipeline/run.py
 ```
 
 ## 工作流程
@@ -124,7 +130,53 @@ verify.py 执行硬验收：
 - **契约驱动**：生成和验证同一份事实源，不漂移
 - **可执行验收**：不靠人工"看对不对"，真起 Flask、真打路由、真跑 unittest
 - **黑盒解耦**：编排层不 import 引擎，引擎可独立跑 `gate.sh`
+- **多 Maker 可插拔**：同一套 Checker 体系不动，Maker 随意换（API 型 DeepSeek / CLI 型 Claude + Qoder）
 - **零密钥自测**：`HARNESS_MODE=sample` 离线模式，无需 API Key 即可跑通
+
+## Better Harness 质量诊断
+
+Loop 集成了 [Better Harness](https://github.com/anthropics/better-harness) —— 对生成的代码做**第二层深度诊断**，补充硬验收覆盖不到的维度：
+
+| 维度 | 检查什么 | 硬验收做不到的 |
+|---|---|---|
+| 任务理解 | 生成的代码是否真正解决了需求 | 硬验收只查字段/文件存在性 |
+| 可控执行 | 代码运行行为是否可预测 | 硬验收只查一进一出 |
+| 变更验证 | 修改后是否有回归风险 | 硬验收无增量对比 |
+| 可靠交付 | 是否有生产隐患 | 硬验收不查部署/日志/监控 |
+| 学习捕获 | 是否有可复用的模式 | 纯工具不感知 |
+
+**调用方式**：通过 Qoder CLI 子进程运行 `/better-harness` 技能，产物写入生成目录。
+
+```bash
+# CLI 直接调用
+qodercli -w output/maker-xxx /better-harness
+
+# Studio Web 面板中一键触发
+# → 生成历史 → 点击"🔬 分析"按钮
+```
+
+Better Harness 需要 Qoder Desktop（提供 qodercli）。[安装指南 →](#开发环境)
+
+## 多 Maker 架构
+
+Loop 支持多种 AI 代码生成器（Maker），**同一套 Checker 验收体系，Maker 随意换**：
+
+| Maker | 类型 | Session | 适用场景 | 接入方式 |
+|---|---|---|---|---|
+| **DeepSeek** | API 型 | ❌ 无状态 | 快速批量生成、CI/CD | `DEEPSEEK_API_KEY` 环境变量 |
+| **Claude Code** | CLI 型 | ✅ 有 Session | 复杂交互式生成 | `claude` CLI（需安装） |
+| **Qoder CLI** | CLI 型 | ✅ 有 Session | 原生集成 Better Harness | `qodercli`（需 Qoder Desktop） |
+| **Copilot** | CLI 型 | ✅ 有 Session | GitHub 生态 | `copilot-cli`（需安装） |
+
+**API 型 vs CLI 型的核心差异**：
+- API 型：HTTP 一发一收，无对话历史，纯靠 prompt 质量
+- CLI 型：Agent 持续交互读写文件，Session 记录留在生成目录，**Better Harness 可分析 Agent 行为链路**
+
+切换 Maker：
+```bash
+export HARNESS_MAKER=qoder       # deepseek | claude | qoder | copilot
+# 或在 Studio → 设置 → Maker 下拉选择
+```
 
 ## 配置
 
@@ -133,6 +185,7 @@ verify.py 执行硬验收：
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `HARNESS_MODE` | `real` | real=DeepSeek / sample=离线 |
+| `HARNESS_MAKER` | `deepseek` | deepseek / claude / qoder / copilot |
 | `HARNESS_AUTOCOMMIT` | `0` | 1=产物通过后推 GitHub |
 | `HARNESS_GIT_REMOTE` | — | 目标仓库 |
 | `ECS_DEPLOY` | `0` | 1=推送后部署到 ECS |
@@ -140,3 +193,32 @@ verify.py 执行硬验收：
 | `HARNESS_MAX_TASKS` | `0` | 单批最大处理数 |
 
 密钥（`DEEPSEEK_API_KEY`、`FEISHU_APP_ID` 等）统一放仓库根 `.env`（已 gitignore）。
+
+## ECS 部署（含 CLI 工具安装）
+
+`loop/pipeline/deploy/setup_ecs.sh` 负责在 ECS 上一键部署。默认只装 Python + Git + Flask。
+
+**如需在 ECS 上使用 CLI 型 Maker 或 Better Harness**，需额外安装对应工具：
+
+```bash
+# Qoder CLI（Better Harness 依赖）
+# 从 Qoder Desktop 提取 qodercli 二进制，上传到 ECS /usr/local/bin/
+# 或等官方提供 Linux 安装脚本后：
+# curl -fsSL https://qoder.dev/install.sh | bash
+
+# Claude Code CLI
+npm install -g @anthropic-ai/claude-code
+
+# 验证
+qodercli --version
+claude --version
+```
+
+ECS 上各功能对应的工具依赖：
+
+| 功能 | 需要 | ECS 默认有？ |
+|---|---|---|
+| DeepSeek API 生成 | `DEEPSEEK_API_KEY` | ✅ 开箱可用 |
+| Qoder CLI 生成 | `qodercli` | ❌ 需手动装 |
+| Claude CLI 生成 | `claude` | ❌ 需手动装 |
+| Better Harness 诊断 | `qodercli` | ❌ 需手动装 |

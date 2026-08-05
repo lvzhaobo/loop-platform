@@ -5,8 +5,8 @@
 这里复用 deployer.py 的做法——用标准库 pty 驱动系统 ssh/scp,在出现口令提示时喂一次密码。
 
 用法(在仓库根执行):
-  .venv/bin/python delivery-loop/deploy/sync_to_ecs.py probe   # 阶段0:只读勘查 ECS 现状
-  .venv/bin/python delivery-loop/deploy/sync_to_ecs.py sync    # 阶段2:打包 + 传输 + 远端安装
+  .venv/bin/python loop/pipeline/deploy/sync_to_ecs.py probe   # 阶段0:只读勘查 ECS 现状
+  .venv/bin/python loop/pipeline/deploy/sync_to_ecs.py sync    # 阶段2:打包 + 传输 + 远端安装
 
 凭证:从仓库根 .env 读 ECS_SSH_PASSWORD(必填)。
 主机:从 .env 读 ECS_HOST;用户/端口默认 root / 22,可用 ECS_HOST / ECS_SSH_USER / ECS_SSH_PORT 覆盖。
@@ -114,7 +114,7 @@ def scp_up(local: str, remote: str, host: str, user: str, port: str,
 
 
 def build_tarball() -> None:
-    """打包 delivery-loop/ harness-4/ loop-platform/index.html,排除虚拟环境/产物/缓存。"""
+    """打包 loop/pipeline/ loop/engine/ loop-platform/index.html,排除虚拟环境/产物/缓存。"""
     print(f"[sync] 打包代码 -> {TARBALL}")
     argv = [
         "tar", "czf", TARBALL, "-C", ROOT,
@@ -126,7 +126,7 @@ def build_tarball() -> None:
         "--exclude", "feishu_state.json.bak.*",
         "--exclude", "feishu_state.json.damaged.*",
         "--exclude", "feishu_state.json.pre-*",
-        "delivery-loop", "harness-4", "loop-platform/index.html",
+        "loop/pipeline", "loop/engine", "loop-platform/index.html",
     ]
     subprocess.run(argv, check=True)
     size = os.path.getsize(TARBALL)
@@ -140,7 +140,7 @@ echo "== python3 =="; python3 --version 2>&1 || echo "(无 python3)"
 echo "== git =="; git --version 2>&1 || echo "(无 git)"
 echo "== 代码目录 /root/loop-platform =="; ls -la /root/loop-platform 2>/dev/null | head || echo "(不存在)"
 echo "== 现有 .env =="; ls -la /root/loop-platform/.env 2>/dev/null || echo "(无)"
-echo "== 现有 feishu_state.json =="; ls -la /root/loop-platform/delivery-loop/backlog/feishu_state.json 2>/dev/null || echo "(无)"
+echo "== 现有 feishu_state.json =="; ls -la /root/loop-platform/loop/pipeline/backlog/feishu_state.json 2>/dev/null || echo "(无)"
 echo "== loop-* systemd 服务 =="; systemctl list-unit-files 2>/dev/null | grep -E "loop-" || echo "(无 loop-* 服务)"
 echo "== 运行中的 sample(勿动) =="; ls -d ~/apps/loop-sample/sample*/ 2>/dev/null || echo "(无)"
 echo "== 端口 5100/8787/5200 占用 =="; ss -ltnp 2>/dev/null | grep -E ":5100|:8787|:5200" || echo "(均空闲)"
@@ -153,7 +153,7 @@ def remote_install_script() -> str:
     -> 解包最新代码 -> 还原 ECS 侧运行态(去重账本/需求清单)
     -> 跑 setup_ecs.sh --with-service -> 重启三服务拉新代码。
     注:不覆盖已有 .env(保留 ECS 在用的),不动 ~/apps/loop-sample 的运行样例。"""
-    bk = "$APP/delivery-loop/backlog"
+    bk = "$APP/loop/pipeline/backlog"
     return f"""set -e
 APP={APP_DIR}
 TS=$(date +%s)
@@ -166,7 +166,7 @@ for f in feishu_state.json feishu_docs.json; do
 done
 # 2) 停用 .git,避免 setup_ecs.sh 走 git reset --hard 把直传的最新代码回滚到陈旧 GitHub 版本
 [ -d .git ] && mv .git ".git.disabled.$TS" && echo "[remote] 已停用 .git -> .git.disabled.$TS(直传模式权威,可回滚)"
-# 3) 解包最新代码(覆盖 delivery-loop / harness-4 / loop-platform/index.html)
+# 3) 解包最新代码(覆盖 loop/pipeline / loop/engine / loop-platform/index.html)
 tar xzf {TARBALL} -C "$APP"
 echo "[remote] 最新代码已解包到 $APP"
 # 4) 还原 ECS 侧运行态:去重账本 + 需求清单(保住已部署样例追踪不丢失)
@@ -175,7 +175,7 @@ for f in feishu_state.json feishu_docs.json; do
 done
 rm -f {TARBALL}
 # 5) 安装(直传模式:无 .git -> 跳过拉取;建/复用 venv、装三个 systemd 服务)
-bash delivery-loop/deploy/setup_ecs.sh --with-service
+bash loop/pipeline/deploy/setup_ecs.sh --with-service
 # 6) 重启三服务以加载最新代码(enable --now 不会重启已在跑的服务)
 systemctl restart loop-studio loop-platform loop-spa || true
 sleep 2

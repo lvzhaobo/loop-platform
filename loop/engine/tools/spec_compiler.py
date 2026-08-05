@@ -19,17 +19,17 @@ LLM 只负责这一步「模糊 → 结构化」,越往下越确定,漂移在门
 
 用法:
     # 离线自证(不烧额度):用内置 recipe 领域跑通整条链路
-    python harness-4/tools/spec_compiler.py --name recipe --mock
+    python loop/engine/tools/spec_compiler.py --name recipe --mock
 
     # 真实 LLM:把一句话/一段话编译成契约
     source .env
-    python harness-4/tools/spec_compiler.py --name jobs --text "我要一个招聘网站,首页展示职位卡片,点进去看职位详情"
-    python harness-4/tools/spec_compiler.py --name jobs --input req.txt
+    python loop/engine/tools/spec_compiler.py --name jobs --text "我要一个招聘网站,首页展示职位卡片,点进去看职位详情"
+    python loop/engine/tools/spec_compiler.py --name jobs --input req.txt
 
     # Spec 形态(单页交互工具,不是列表/详情站):产出 spec.md + manifest.json + acceptance.json
     #   下游不走 compile_spec.derive/contract_gate,而是 acceptance_gate + run_model(Spec 形态)+ verify_ac
-    python harness-4/tools/spec_compiler.py --name pomodoro --archetype spec --mock            # 离线自证
-    python harness-4/tools/spec_compiler.py --name pomodoro --archetype spec --text "番茄钟"    # 真实 LLM
+    python loop/engine/tools/spec_compiler.py --name pomodoro --archetype spec --mock            # 离线自证
+    python loop/engine/tools/spec_compiler.py --name pomodoro --archetype spec --text "番茄钟"    # 真实 LLM
 """
 import argparse
 import json
@@ -557,7 +557,7 @@ def main():
         print("-" * 64)
         if ok:
             print(f"🎉 编译成功(Spec 形态):cases/{args.name}/spec/ 已产出 spec.md + manifest.json + acceptance.json。")
-            print(f"   下一步生成: HARNESS_MODE=real python harness-4/tools/run_model.py {args.name} output/{args.name}")
+            print(f"   下一步生成: HARNESS_MODE=real python loop/engine/tools/run_model.py {args.name} output/{args.name}")
             sys.exit(0)
         print("💥 编译未通过 acceptance_gate(见上)。不合规的验收标准当场被挡住。")
         sys.exit(1)
@@ -577,7 +577,7 @@ def main():
     print("-" * 64)
     if ok1 and ok2:
         print(f"🎉 编译成功:cases/{args.name}/ 已产出**合规契约**,可直接喂 run_model / orchestrator。")
-        print(f"   下一步(可选)冒烟: HARNESS_MODE=sample python harness-4/tools/run_model.py {args.name} output/{args.name}")
+        print(f"   下一步(可选)冒烟: HARNESS_MODE=sample python loop/engine/tools/run_model.py {args.name} output/{args.name}")
         sys.exit(0)
     print("💥 编译未通过门禁(见上)。这正是 Spec 编译层的价值:不合规的契约当场被挡住。")
     sys.exit(1)

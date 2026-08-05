@@ -23,8 +23,8 @@ checklist.md        通用验收清单
 | `api-contract.md` | 路由名称 / 路径（表格） | 编译成 routes |
 | `ui-spec.md` | list_marker / detail_markers / 配色（键值表） | 编译成 UI 校验标记 |
 
-平台侧 `harness-4/tools/compile_spec.py` 把这三份**确定性编译**成 `case.json` 契约，
+平台侧 `loop/engine/tools/compile_spec.py` 把这三份**确定性编译**成 `case.json` 契约，
 再由引擎生成代码、`verify.py` 逐条验收。**改规格只改这里**，实现随之重生成。
 
-> 注：本仓是规格的**协作副本**。平台仓 `harness-4/cases/*/spec/` 保有运行时工作副本；
+> 注：本仓是规格的**协作副本**。平台仓 `loop/cases/*/spec/` 保有运行时工作副本；
 > 二者通过归档流保持同步（见 loop-platform 的《GitHub多仓发布方案》流 A）。

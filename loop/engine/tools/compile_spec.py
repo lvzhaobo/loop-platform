@@ -17,9 +17,9 @@ loader_function/route_functions/needs_images/image_field/extra_required_files),
 harness 里 generate 已表示「Maker 生成代码」,故这里用 compile 以免撞概念。
 
 用法:
-    python harness-4/tools/compile_spec.py            # 编译全部用例并写回 case.json
-    python harness-4/tools/compile_spec.py ecommerce  # 只编译某个用例
-    python harness-4/tools/compile_spec.py --check     # 只校验不写;任一用例不一致退出码 1(供门禁/CI)
+    python loop/engine/tools/compile_spec.py            # 编译全部用例并写回 case.json
+    python loop/engine/tools/compile_spec.py ecommerce  # 只编译某个用例
+    python loop/engine/tools/compile_spec.py --check     # 只校验不写;任一用例不一致退出码 1(供门禁/CI)
 """
 import json
 import os
@@ -188,7 +188,7 @@ def main():
 
     ok = all(compile_case(n, check_only) for n in names)
     if check_only and not ok:
-        print("   → 请运行 `python harness-4/tools/compile_spec.py`(不带 --check)重新派生")
+        print("   → 请运行 `python loop/engine/tools/compile_spec.py`(不带 --check)重新派生")
     sys.exit(0 if ok else 1)
 
 

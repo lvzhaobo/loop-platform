@@ -33,10 +33,10 @@ Environment=HARNESS_MODE=real
 Environment=HARNESS_AUTOCOMMIT=1
 Environment=HARNESS_GIT_PUSH=1
 Environment=HARNESS_GIT_SUBDIR_AUTO=1
-Environment=HARNESS_GIT_REMOTE=github.com/lvzhaobo/loop-sample.git
+Environment=HARNESS_GIT_REMOTE=github.com/<your-org>/loop-sample.git
 Environment=HARNESS_TRIGGER_HOST=127.0.0.1
 Environment=HARNESS_TRIGGER_PORT=8787
-ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . delivery-loop/config.env; exec .venv/bin/python delivery-loop/trigger/webhook.py'
+ExecStart=/bin/bash -lc 'set -a; [ -f .env ] && . ./.env; . loop/config.env; exec .venv/bin/python loop/pipeline/trigger/webhook.py'
 Restart=on-failure
 RestartSec=3
 # 一批可能跑一两分钟(真实 LLM + 推送),给足停止宽限

@@ -1,4 +1,4 @@
-"""delivery-loop 发布器:把 harness-4 生成的产物发布到 GitHub。
+"""loop/pipeline 发布器:把 loop/engine 生成的产物发布到 GitHub。
 
 支持两种布局(由 HARNESS_GIT_SUBDIR 决定):
 - 子目录模式(HARNESS_GIT_SUBDIR 非空,如 sample1):
@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import tempfile
 
-# 拷贝产物到子目录时排除的噪音(与 harness-4 的验证元数据/缓存一致)
+# 拷贝产物到子目录时排除的噪音(与 loop/engine 的验证元数据/缓存一致)
 _IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "_run_meta.json",
                                  "_verify.log", "reports", ".git")
 

@@ -19,8 +19,8 @@
   → 线上 http://<your-server-ip>:100N 上线
 ```
 
-- **配置态**:`harness-4/studio`(Flask :5100)——编辑约束/用例、一致性预检,页面上也有「🚀 开始交付」按钮。**已装成常驻服务 `loop-studio`**。
-- **运行态**:`delivery-loop/trigger/webhook.py`(:8787)——极简"跑一批"按钮页。**已装成常驻服务 `loop-platform`**。
+- **配置态**:`loop/engine/studio`(Flask :5100)——编辑约束/用例、一致性预检,页面上也有「🚀 开始交付」按钮。**已装成常驻服务 `loop-studio`**。
+- **运行态**:`loop/pipeline/trigger/webhook.py`(:8787)——极简"跑一批"按钮页。**已装成常驻服务 `loop-platform`**。
 
 > `--with-service` 部署时,`setup_ecs.sh` 会**同时装这两个服务**(开机自启 + 崩溃自拉起)。两者都绑 `127.0.0.1`,经 SSH 隧道访问。
 
@@ -83,7 +83,7 @@ ssh -L 8787:127.0.0.1:8787 root@<your-server-ip>
 
 **B. 一条命令(SSH 到 ECS 直接跑)**:
 ```bash
-cd /root/loop-platform && bash delivery-loop/run_backlog.sh
+cd /root/loop-platform && bash loop/pipeline/run_backlog.sh
 ```
 
 **C. studio 配置平台 + 🚀 按钮(已常驻 `loop-studio`)**:
@@ -92,13 +92,13 @@ ssh -L 5100:127.0.0.1:5100 root@<your-server-ip>
 # 浏览器打开 http://127.0.0.1:5100 —— 完整配置平台(约束/用例编辑 + 预检 + 🚀 开始交付)
 ```
 > 服务已开机自启;若手动前台调试可用:
-> `cd /root/loop-platform && set -a && . ./.env && . delivery-loop/config.env && set +a && STUDIO_PORT=5100 ./.venv/bin/python harness-4/studio/server.py`
+> `cd /root/loop-platform && set -a && . ./.env && . loop/pipeline/config.env && set +a && STUDIO_PORT=5100 ./.venv/bin/python loop/studio/server.py`
 
 ---
 
 ## 5. 加 / 改需求
 
-需求清单:`delivery-loop/backlog/feishu_docs.json`。追加一个飞书文档条目即可:
+需求清单:`loop/pipeline/backlog/feishu_docs.json`。追加一个飞书文档条目即可:
 
 ```json
 {
@@ -109,8 +109,8 @@ ssh -L 5100:127.0.0.1:5100 root@<your-server-ip>
 }
 ```
 
-- **去重**:`delivery-loop/backlog/feishu_state.json` 记录已处理的文档,`status=done` 的**不会重复跑**。
-- **重跑某文档**:把该条目从 state 里删掉;或整体重来 → `echo '{}' > delivery-loop/backlog/feishu_state.json`。
+- **去重**:`loop/pipeline/backlog/feishu_state.json` 记录已处理的文档,`status=done` 的**不会重复跑**。
+- **重跑某文档**:把该条目从 state 里删掉;或整体重来 → `echo '{}' > loop/pipeline/backlog/feishu_state.json`。
 - 每成功一批,`sample_n` 自增(sample1→2→3…),对应线上端口 `1000+N`。
 
 ---
@@ -120,7 +120,7 @@ ssh -L 5100:127.0.0.1:5100 root@<your-server-ip>
 私有仓 `loop-platform` 有新提交后,在 ECS 上幂等重跑安装脚本(已有 `.git` 走 `git fetch/reset`,不会重复 clone):
 
 ```bash
-cd /root/loop-platform && bash delivery-loop/deploy/setup_ecs.sh --with-service
+cd /root/loop-platform && bash loop/pipeline/deploy/setup_ecs.sh --with-service
 ```
 
 脚本会:更新代码 → 重建 venv/依赖 → 校验 `.env` 必需密钥 → 自检关键文件 → 重装并重启 systemd 服务。
@@ -155,11 +155,11 @@ cd /root/loop-platform && bash delivery-loop/deploy/setup_ecs.sh --with-service
 |---|---|
 | 代码根 | `/root/loop-platform` |
 | 密钥 | `/root/loop-platform/.env` |
-| 需求清单 | `delivery-loop/backlog/feishu_docs.json` |
-| 去重状态 | `delivery-loop/backlog/feishu_state.json` |
-| 一批入口 | `delivery-loop/run_backlog.sh` |
-| webhook | `delivery-loop/trigger/webhook.py` |
-| 部署脚本 | `delivery-loop/deploy/setup_ecs.sh` |
-| systemd 模板 | `delivery-loop/deploy/loop-platform.service` · `delivery-loop/deploy/loop-studio.service` |
+| 需求清单 | `loop/pipeline/backlog/feishu_docs.json` |
+| 去重状态 | `loop/pipeline/backlog/feishu_state.json` |
+| 一批入口 | `loop/pipeline/run_backlog.sh` |
+| webhook | `loop/pipeline/trigger/webhook.py` |
+| 部署脚本 | `loop/pipeline/deploy/setup_ecs.sh` |
+| systemd 模板 | `loop/pipeline/deploy/loop-platform.service` · `loop/pipeline/deploy/loop-studio.service` |
 | 产物输出 | `output/<时间戳>-<case>/` |
-| 配置默认值 | `delivery-loop/config.env`(`${VAR:-default}`,systemd/env 覆盖优先) |
+| 配置默认值 | `loop/pipeline/config.env`(`${VAR:-default}`,systemd/env 覆盖优先) |

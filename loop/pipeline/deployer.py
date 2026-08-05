@@ -1,4 +1,4 @@
-"""delivery-loop 部署器:拉取式部署到阿里云 ECS。
+"""loop/pipeline 部署器:拉取式部署到阿里云 ECS。
 
 策略(与用户约定):代码已发布到 GitHub,ECS 侧直接 git 拉取运行,不 scp 源码。
 流程(SSH 进 ECS 执行远端脚本):

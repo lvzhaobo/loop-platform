@@ -6,7 +6,7 @@
 #
 # 用法(在 ECS 上):
 #   # 首次:克隆 + 装环境(把 <私有仓地址> 换成你的 loop-platform 仓)
-#   REPO_URL="https://<token>@github.com/lvzhaobo/loop-platform.git" bash setup_ecs.sh
+#   REPO_URL="https://<token>@github.com/<your-org>/loop-platform.git" bash setup_ecs.sh
 #
 #   # 已有代码目录,只更新 + 自检:
 #   APP_DIR=~/loop-platform bash setup_ecs.sh
@@ -60,7 +60,7 @@ if [ -d "$APP_DIR/.git" ]; then
 elif [ -n "$REPO_URL" ]; then
   say "克隆代码到 $APP_DIR ..."
   git clone -q -b "$BRANCH" "$REPO_URL" "$APP_DIR"
-elif [ -f "$APP_DIR/delivery-loop/run_backlog.sh" ]; then
+elif [ -f "$APP_DIR/loop/pipeline/run_backlog.sh" ]; then
   # 直传模式:代码已由 sync_to_ecs.py 解包到位,无 .git、也没给 REPO_URL,跳过拉取。
   say "检测到已就绪代码(直传模式,无 .git),跳过拉取:$APP_DIR"
 else
@@ -103,15 +103,40 @@ else
   fi
 fi
 
+# ---- 4.5 可选 CLI 工具(Maker / Better Harness) ----
+say "检查 Maker CLI 工具(可选,不影响默认 DeepSeek API 模式) ..."
+
+# Qoder CLI（Better Harness 依赖 + Qoder Maker）
+if command -v qodercli >/dev/null 2>&1; then
+  say "  ✅ qodercli 已安装:$(qodercli --version 2>/dev/null || echo 'ok')"
+elif [ -f /usr/local/bin/qodercli ]; then
+  say "  ✅ /usr/local/bin/qodercli 存在"
+  chmod +x /usr/local/bin/qodercli || true
+else
+  warn "  ⚠ qodercli 未安装 → Better Harness 诊断不可用、Qoder Maker 不可用"
+  echo "    安装方式:从 Qoder Desktop 提取 qodercli,放到 /usr/local/bin/"
+  echo "    或等官方 Linux 安装脚本:curl -fsSL https://qoder.dev/install.sh | bash"
+fi
+
+# Claude Code CLI
+if command -v claude >/dev/null 2>&1; then
+  say "  ✅ claude 已安装:$(claude --version 2>/dev/null || echo 'ok')"
+else
+  warn "  ⚠ claude 未安装 → Claude Maker 不可用"
+  echo "    安装:npm install -g @anthropic-ai/claude-code"
+fi
+
+echo ""
+
 # ---- 5. 自检:关键文件 + 语法 ----
 say "自检:关键入口与脚本 ..."
-for f in delivery-loop/run_backlog.sh delivery-loop/orchestrator.py \
-         delivery-loop/trigger/webhook.py delivery-loop/trigger/index.html \
-         harness-4/studio/server.py harness-4/generate.sh loop-platform/index.html; do
+for f in loop/pipeline/run_backlog.sh loop/pipeline/orchestrator.py \
+         loop/pipeline/trigger/webhook.py loop/pipeline/trigger/index.html \
+         loop/studio/server.py loop/engine/generate.py loop-platform/index.html; do
   [ -f "$f" ] || die "缺文件:$f(代码可能不完整)"
 done
-bash -n delivery-loop/run_backlog.sh
-./.venv/bin/python -c "import ast,sys; [ast.parse(open(p).read()) for p in ['delivery-loop/orchestrator.py','delivery-loop/trigger/webhook.py','harness-4/studio/server.py']]"
+bash -n loop/pipeline/run_backlog.sh
+./.venv/bin/python -c "import ast,sys; [ast.parse(open(p).read()) for p in ['loop/pipeline/orchestrator.py','loop/pipeline/trigger/webhook.py','loop/studio/server.py']]"
 say "自检通过。"
 
 # ---- 6.(可选)装 systemd 常驻服务(两个:webhook 按钮页 + studio 配置平台) ----
@@ -125,9 +150,9 @@ if [ "$WITH_SERVICE" -eq 1 ]; then
     rm -f "$tmp"
   }
   say "渲染并安装 systemd 服务:loop-platform(:8787 按钮页) + loop-studio(:5100 配置平台) + loop-spa(:5200 SPA 前端) ..."
-  render_unit loop-platform delivery-loop/deploy/loop-platform.service
-  render_unit loop-studio   delivery-loop/deploy/loop-studio.service
-  render_unit loop-spa      delivery-loop/deploy/loop-spa.service
+  render_unit loop-platform loop/pipeline/deploy/loop-platform.service
+  render_unit loop-studio   loop/pipeline/deploy/loop-studio.service
+  render_unit loop-spa      loop/pipeline/deploy/loop-spa.service
   $SUDO systemctl daemon-reload
   $SUDO systemctl enable --now loop-platform loop-studio loop-spa
   say "服务已启动。状态:systemctl status loop-platform loop-studio loop-spa | 日志:journalctl -u loop-studio -f"
@@ -144,8 +169,8 @@ cat <<EOF
   cd $APP_DIR && \\
   HARNESS_BACKLOG_SOURCE=feishu HARNESS_MODE=real HARNESS_AUTOCOMMIT=1 \\
   HARNESS_GIT_PUSH=1 HARNESS_GIT_SUBDIR_AUTO=1 \\
-  HARNESS_GIT_REMOTE=github.com/lvzhaobo/loop-sample.git \\
-  ./.venv/bin/python delivery-loop/orchestrator.py
+  HARNESS_GIT_REMOTE=github.com/<your-org>/loop-sample.git \\
+  ./.venv/bin/python loop/pipeline/orchestrator.py
 
 形态二 · 一个按钮(webhook 常驻,默认绑 127.0.0.1):
   # 若已 --with-service:服务已在跑。本机验证:

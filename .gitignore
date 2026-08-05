@@ -10,7 +10,7 @@ __pycache__/
 # 运行中间态与产物(机器生成,不入源码仓;含 .askpass.sh 临时密码文件)
 .last_ts
 output/
-delivery-loop/.trigger.lock/
+loop/pipeline/.trigger.lock/
 *.log
 .DS_Store
 
@@ -24,10 +24,8 @@ sample/
 sample-new/
 0.md
 .claude/
+.qoder/
 pyrightconfig.json
 
-# loop 内不入仓的部分:用例库(仅引擎批量线用)/运行时数据/过时CI模板/待办笔记
-loop/cases/
-loop/data/
-loop/ci/
+# loop 内不入仓的部分:待办笔记
 loop/PENDING.md

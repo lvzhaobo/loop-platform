@@ -1,4 +1,4 @@
-"""delivery-loop 适配器契约。
+"""loop/pipeline 适配器契约。
 
 编排层只认这里定义的归一化 Task 与 Adapter 接口,与具体来源(local/jira/teambition/
 zentao/github)彻底解耦。新增来源=实现一个 Adapter 子类,主循环一行不改。
@@ -18,7 +18,7 @@ class Task:
     source: str = "local"         # 来源标记
     status: str = "pending"       # 内部状态机:pending/running/done/failed
     priority: int = 99            # 数字越小越先做
-    case: str | None = None       # 映射到 harness-4 的用例名(结构化任务直接给)
+    case: str | None = None       # 映射到 loop/engine 的用例名(结构化任务直接给)
     spec_text: str | None = None  # 自由文本需求(需 spec 编译,当前最小版暂不启用)
     extra: dict[str, Any] = field(default_factory=dict)  # 来源特有字段透传
 
