@@ -1,16 +1,13 @@
 # 环境与密钥(禁止提交)
 .env
-harness/.deepseek_key
 
 # Python
 .venv/
 __pycache__/
 *.pyc
 
-# 运行中间态与产物(机器生成,不入源码仓;含 .askpass.sh 临时密码文件)
-.last_ts
+# 运行产物与中间态(机器生成)
 output/
-loop/pipeline/.trigger.lock/
 *.log
 .DS_Store
 
@@ -27,5 +24,6 @@ sample-new/
 .qoder/
 pyrightconfig.json
 
-# loop 内不入仓的部分:待办笔记
-loop/PENDING.md
+# 运行时数据(需求池/任务状态,各环境自行维护)
+data/
+cases/
