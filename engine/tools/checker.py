@@ -210,6 +210,11 @@ register(Check(id="FB-C-12", name="确定性：复跑比哈希", quadrant="check
     description="通过后复跑一次，比对产物文件 SHA256，检测非确定性漂移",
     category="structure"))
 
+# --- 流程质量（Better Harness）---
+register(Check(id="FB-C-13", name="流程质量评估", quadrant="check-rule",
+    description="调 Better Harness 收集项目证据 + 读取 AI 诊断报告，评估五维度流程质量",
+    category="structure", auto=True))
+
 # ═══════════════════════════════════════════════════════════════════
 # FB-R：后馈推理型（LLM-as-Judge）
 # ═══════════════════════════════════════════════════════════════════
