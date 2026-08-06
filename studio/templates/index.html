@@ -736,6 +736,17 @@
   </div>
 </div>
 
+<div class="modal-mask" id="fixtureRunModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title">执行安全 fixture Run <span class="badge green">离线参考</span></div><button class="drawer-close" onclick="closeModal('fixtureRunModal')" aria-label="关闭安全任务选择"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-row"><label for="fixtureRunTask">待执行任务</label><select id="fixtureRunTask" disabled><option>正在读取安全 fixture 任务…</option></select></div>
+      <div class="hint" id="fixtureRunNotice" aria-live="polite">等待读取任务。</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('fixtureRunModal')">取消</button><button class="btn primary" id="fixtureRunPreviewBtn" onclick="previewFixtureRunPlan()">预览安全 Run Plan</button></div>
+  </div>
+</div>
+
 <div class="modal-mask" id="planReviewModal">
   <div class="modal">
     <div class="modal-head"><div class="mh-title">Plan Review <span class="badge blue">dry-run · 无副作用</span></div><button class="drawer-close" onclick="closeModal('planReviewModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>

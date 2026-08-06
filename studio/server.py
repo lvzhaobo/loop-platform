@@ -122,6 +122,48 @@ def get_profile(profile_id):
         return jsonify({"ok": False, "error": str(exc)}), 404
 
 
+def _pending_profile_task(profile_id, task_id):
+    """Resolve a pending task from its Profile source; never trust browser task content."""
+    from engine.core.profiles import ProfileError, create_source_adapter, load_profile, validate_profile
+    profile = load_profile(profile_id)
+    validate_profile(profile)
+    if profile.id != "fixture-local":
+        raise ProfileError("Studio 仅允许选择 fixture-local 的安全参考任务")
+    for task in create_source_adapter(profile).list_pending():
+        if task.id == task_id and task.status == "pending" and task.profile_id == profile.id:
+            return profile, task
+    raise ProfileError(f"Profile {profile.id} 没有待执行任务 task_id={task_id}")
+
+
+def _task_preview(task):
+    """Convert only the normalized Adapter task fields required for a Run Plan."""
+    return {
+        "id": task.id, "title": task.title, "source": task.source,
+        "case": task.case, "priority": task.priority,
+        "spec_text": task.spec_text or "", "extra": task.extra,
+    }
+
+
+@app.route("/api/profiles/<profile_id>/pending-tasks", methods=["GET"])
+def get_profile_pending_tasks(profile_id):
+    """List safe, normalized fixture tasks without exposing task body or source configuration."""
+    from engine.core.profiles import ProfileError, create_source_adapter, load_profile, validate_profile
+    try:
+        profile = load_profile(profile_id)
+        validate_profile(profile)
+        if profile.id != "fixture-local":
+            return jsonify({"ok": False, "error": "Studio 仅展示 fixture-local 的安全参考任务"}), 403
+        tasks = [
+            {"id": task.id, "title": task.title, "source": task.source,
+             "priority": task.priority, "case": task.case, "profile_id": task.profile_id}
+            for task in create_source_adapter(profile).list_pending()
+            if task.status == "pending" and task.profile_id == profile.id
+        ]
+        return jsonify({"ok": True, "profile_id": profile.id, "tasks": tasks})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
 @app.route("/api/run-plans", methods=["GET"])
 def get_run_plans():
     from engine.core.profiles import list_run_plans
@@ -143,12 +185,18 @@ def get_run_plan(plan_id):
 
 @app.route("/api/run-plans/preview", methods=["POST"])
 def preview_run_plan():
-    """创建内存中的预览，不写入磁盘、不启动 Provider 或 Delivery。"""
+    """Create a no-write Preview; safe Studio requests resolve their task from the Adapter."""
     from engine.core.profiles import ProfileError, create_run_plan, load_profile
     data = request.get_json(force=True) or {}
     try:
-        profile = load_profile(str(data.get("profile_id", "")))
-        task = data.get("task") or {}
+        profile_id = str(data.get("profile_id", ""))
+        task_id = str(data.get("task_id", "")).strip()
+        if task_id:
+            profile, task = _pending_profile_task(profile_id, task_id)
+            task = _task_preview(task)
+        else:
+            profile = load_profile(profile_id)
+            task = data.get("task") or {}
         return jsonify({"ok": True, "plan": create_run_plan(profile, task).to_dict()})
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400

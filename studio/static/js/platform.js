@@ -1203,6 +1203,68 @@ function policyBadges(policy){
     return '<span class="badge '+(policy[key]?'red':'green')+'">'+esc(key.replace('allow_',''))+'：'+(policy[key]?'允许':'禁止')+'</span>';
   }).join(' ');
 }
+
+/* 安全参考 Run：只从 fixture-local Adapter 选择任务，预览和执行都不相信浏览器传入的任务内容。 */
+var fixtureRunReview=null;
+function fixtureTaskLabel(task){
+  return esc(task.title||task.id)+' · '+esc(task.id)+' · P'+esc(task.priority==null?'—':task.priority);
+}
+async function openFixtureRunReview(){
+  var select=document.getElementById('fixtureRunTask'),notice=document.getElementById('fixtureRunNotice');
+  if(!select||!notice)return;
+  fixtureRunReview=null;select.disabled=true;select.innerHTML='<option>正在读取安全 fixture 任务…</option>';
+  notice.textContent='仅显示 fixture-local Adapter 中已绑定且 pending 的离线任务；不会读取普通 backlog、模型配置或外部凭据。';
+  openModal('fixtureRunModal');
+  try{
+    var data=await apiGet('/api/profiles/fixture-local/pending-tasks'),tasks=data.tasks||[];
+    if(!tasks.length){select.innerHTML='<option value="">没有可执行的 fixture-local 待办</option>';notice.textContent='没有可执行的安全 fixture 任务；不会改用其他 Profile 或外部 Provider。';return;}
+    fixtureRunReview={profileId:'fixture-local',tasks:tasks};
+    select.innerHTML=tasks.map(function(task){return '<option value="'+esc(task.id)+'">'+fixtureTaskLabel(task)+'</option>';}).join('');
+    select.disabled=false;notice.textContent='选择任务后只生成内存中的 Plan Review；确认前不会创建 Run、调用模型或写入交付。';
+  }catch(error){
+    select.innerHTML='<option value="">任务暂不可用</option>';
+    notice.textContent='无法读取安全 fixture 任务：'+(error&&error.message||'未知错误')+'。不会回退到普通 backlog 或其他 Profile。';
+  }
+}
+async function previewFixtureRunPlan(){
+  if(!fixtureRunReview){toast('请等待 fixture 任务加载完成');return;}
+  var select=document.getElementById('fixtureRunTask'),taskId=select&&select.value;
+  var task=fixtureRunReview.tasks.filter(function(item){return item.id===taskId;})[0];
+  if(!task){toast('请选择可执行的 fixture 任务');return;}
+  var button=document.getElementById('fixtureRunPreviewBtn');if(button){button.disabled=true;button.textContent='正在生成 Plan…';}
+  try{
+    var result=await apiPost('/api/run-plans/preview',{profile_id:'fixture-local',task_id:task.id});
+    if(!result.ok||!result.json||!result.json.ok){toast((result.json||{}).error||'无法生成安全 Plan Review');return;}
+    reviewedBacklog={kind:'fixture-run',profileId:'fixture-local',task:task,plan:result.json.plan};
+    document.getElementById('planReviewBody').innerHTML=planReviewHtml(reviewedBacklog.plan);
+    closeModal('fixtureRunModal');openModal('planReviewModal');
+  }finally{if(button){button.disabled=false;button.textContent='预览安全 Run Plan';}}
+}
+
+/* Override the legacy confirmation only for fixture-run; existing requirement intake remains compatible. */
+async function confirmReviewedBacklog(){
+  if(!reviewedBacklog){toast('请先生成 Plan Review');return;}
+  var confirmBtn=document.querySelector('#planReviewModal .modal-foot .primary');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='正在执行安全离线 Run…';}
+  try{
+    var run;
+    if(reviewedBacklog.kind==='fixture-run'){
+      run=await apiPost('/api/profile-runs/confirm',{confirmed:true,profile_id:'fixture-local',task_id:reviewedBacklog.task.id});
+    }else{
+      var queued=await apiPost('/api/backlog',reviewedBacklog.body);
+      if(!queued.ok||!queued.json||!queued.json.ok){toast((queued.json||{}).error||'入池失败');return;}
+      run=await apiPost('/api/profile-runs/confirm',{confirmed:true,profile_id:reviewedBacklog.profileId,task_id:queued.json.id});
+    }
+    if(!run.ok||!run.json||!run.json.ok){toast((run.json||{}).error||'Run 未通过；未伪造成功状态。');return;}
+    closeModal('planReviewModal');closeModal('reqModal');closeModal('fixtureRunModal');reviewedBacklog=null;
+    toast('安全 Run 完成：'+(run.json.run||{}).run_id+'。已写入本地事件与证据，可在交付运行查看。');
+    loadReqs();loadDashboard();loadProfiles();loadDeliveryRuns();
+    var deliveryNav=document.querySelector('.nav-item[data-page="delivery-runs"]');
+    if(deliveryNav)go(deliveryNav);
+  }finally{
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='确认并真实执行 / 交付';}
+  }
+}
 async function loadProfiles(){
   var box=document.getElementById('profilesList');if(!box)return;
   try{
@@ -1210,10 +1272,12 @@ async function loadProfiles(){
     if(!profiles.length){box.innerHTML='<div class="hint">暂无已安装 Profile。</div>';return;}
     box.innerHTML=profiles.map(function(p){
       if(!p.valid)return '<div class="file-row"><div class="file-main"><div class="file-name">'+esc(p.id)+' <span class="badge red">无效</span></div><div class="hint">'+esc(p.error||'未知错误')+'</div></div></div>';
+      var safeFixture=p.id==='fixture-local'&&!p.policy.allow_network&&!p.policy.allow_model&&!p.policy.allow_git&&!p.policy.allow_ssh&&!p.policy.allow_publish&&!p.policy.allow_deploy;
+      var action=safeFixture?'<div style="margin-top:12px"><button type="button" class="btn primary sm" onclick="openFixtureRunReview()">选择安全 fixture 任务</button><span class="hint" style="margin-left:8px">离线 · 无网络/模型/Git/SSH/发布/部署</span></div>':'';
       return '<div class="file-row"><div class="file-main"><div class="file-name">'+esc(p.ref)+' <span class="badge green">已校验</span></div>'
         +'<div class="file-path">'+esc(p.description||'')+'</div><div class="hint" style="margin-top:6px">'
         +'Source: <b>'+esc(p.source)+'</b> → Compiler: <b>'+esc(p.compiler)+'</b> → Maker: <b>'+esc(p.maker)+'</b> → Checker: <b>'+esc((p.checkers||[]).join(', '))+'</b> → Delivery: <b>'+esc(p.delivery)+'</b></div>'
-        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+policyBadges(p.policy)+'</div></div></div>';
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+policyBadges(p.policy)+'</div>'+action+'</div></div>';
     }).join('');
   }catch(e){box.innerHTML='<div class="hint">Profile 数据暂不可用：'+esc(e.message)+'</div>';}
 }
