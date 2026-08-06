@@ -136,6 +136,8 @@ function onPageEnter(page){
   else if(page==='setting'){loadSettings();}
   else if(page==='betterHarnessReport')loadBetterHarnessReport();
   else if(page==='genlist')loadGenlist();
+  else if(page==='profiles')loadProfiles();
+  else if(page==='run-plans')loadRunPlans();
 }
 
 /* ===== API Layer ===== */
@@ -565,22 +567,83 @@ function saveSettings(){
 }
 
 /* 需求 CRUD */
-async function addBacklog(){
-  if(!API_LIVE){toast('未连后端');return;}
+var reviewedBacklog=null;
+
+async function openRequirementModal(){
+  reviewedBacklog=null;
+  await loadRequirementProfiles();
+  openModal('reqModal');
+}
+
+async function loadRequirementProfiles(){
+  var select=document.getElementById('reqProfile');if(!select)return;
+  try{
+    var data=await apiGet('/api/profiles'), profiles=(data.profiles||[]).filter(function(p){return p.valid;});
+    if(!profiles.length){select.innerHTML='<option value="">没有可用 Profile</option>';return;}
+    select.innerHTML=profiles.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id==='deepseek-github'?' selected':'')+'>'+esc(p.ref)+' · '+esc(p.compiler)+' → '+esc(p.maker)+' → '+esc(p.delivery)+'</option>';}).join('');
+  }catch(e){select.innerHTML='<option value="">Profile 暂不可用</option>';}
+}
+
+function requirementDraft(){
+  var profileId=((document.getElementById('reqProfile')||{}).value||'').trim();
+  if(!profileId){toast('请选择可用 Profile');return null;}
   var fsTab=document.getElementById('reqtab-fs');var isText=fsTab&&fsTab.style.display==='none';
+  var body, task;
   if(isText){
     var title=((document.getElementById('txtTitle')||{}).value||'').trim();
-    var desc=((document.getElementById('txtDesc')||{}).value||'').trim();if(!desc){toast('请输入需求描述');return;}
+    var desc=((document.getElementById('txtDesc')||{}).value||'').trim();if(!desc){toast('请输入需求描述');return null;}
     if(!title)title=desc.slice(0,50);
     var prio=parseInt(((document.getElementById('txtPrio')||{}).value||'2'));
-    var body={title:title,spec_text:desc,priority:prio};
-    var r=await apiPost('/api/backlog',body);
-    if(r.ok&&r.json&&r.json.ok){closeModal('reqModal');toast('已入池 '+r.json.id);loadReqs();loadDashboard();}
-    else{toast('入池失败');}
+    body={title:title,spec_text:desc,priority:prio,profile_id:profileId};
+    task={id:'draft-'+Date.now(),title:title,source:'studio_text',priority:prio,spec_text:desc};
   }else{
     var link=((document.getElementById('fsLink')||{}).value||'').trim();
-    var ftitle=((document.getElementById('fsTitle')||{}).value||'').trim();if(!link){toast('请粘贴飞书链接');return;}
-    var r=await apiPost('/api/backlog',{link:link,title:ftitle});if(r.ok&&r.json&&r.json.ok){closeModal('reqModal');toast('已入池 '+r.json.id);loadReqs();loadDashboard();}else{toast('入池失败');}
+    var ftitle=((document.getElementById('fsTitle')||{}).value||'').trim();if(!link){toast('请粘贴飞书链接');return null;}
+    body={link:link,title:ftitle,profile_id:profileId};
+    task={id:'draft-'+Date.now(),title:ftitle||'飞书云文档需求',source:'feishu',priority:99,extra:{link:link}};
+  }
+  return {body:body,profileId:profileId,task:task};
+}
+
+function planReviewHtml(plan){
+  var c=plan.components||{}, p=plan.policy||{}, task=plan.task||{}, profile=plan.profile||{};
+  var permissions=[['网络',p.allow_network],['模型',p.allow_model],['发布',p.allow_publish],['部署',p.allow_deploy],['Git',p.allow_git],['SSH',p.allow_ssh]];
+  var permissionHtml=permissions.map(function(item){return '<span class="badge '+(item[1]?'orange':'gray')+'">'+esc(item[0])+': '+(item[1]?'允许':'禁止')+'</span>';}).join(' ');
+  var effectNote=(p.allow_model||p.allow_publish||p.allow_deploy)
+    ? '<div class="hint" style="margin-bottom:14px;color:var(--orange)">确认后会入池并真实执行：调用模型、写入 Event/Evidence、推送 GitHub；部署由目标仓库 Workflow 接管。不会通过 Loop 直接 SSH 到 ECS。</div>'
+    : '<div class="hint" style="margin-bottom:14px">这是内存 dry-run：不写入 backlog、不创建 Run Plan、不调用模型、Checker 或 Delivery。</div>';
+  return effectNote
+    +'<div class="card panel" style="padding:14px;margin-bottom:10px"><b>需求</b><div class="hint" style="margin-top:6px">'+esc(task.title)+' · '+esc(task.source)+' · P'+esc(task.priority)+'</div></div>'
+    +'<div class="card panel" style="padding:14px;margin-bottom:10px"><b>冻结 Profile</b><div class="hint" style="margin-top:6px">'+esc(profile.ref||'')+'</div></div>'
+    +'<div class="card panel" style="padding:14px;margin-bottom:10px"><b>交付编排</b><div class="hint" style="margin-top:6px">Source: <b>'+esc(c.source)+'</b> → Spec Compiler: <b>'+esc(c.compiler)+'</b> → Maker: <b>'+esc(c.maker)+'</b> → Checker: <b>'+esc((c.checkers||[]).join(', '))+'</b> → Delivery: <b>'+esc(c.delivery)+'</b></div></div>'
+    +'<div class="card panel" style="padding:14px"><b>权限与门禁</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+permissionHtml+'</div><div class="hint" style="margin-top:8px">max_attempts='+esc(p.max_attempts)+' · on_unavailable='+esc(p.on_unavailable)+'<br>input digest: <code>'+esc(String(plan.input_digest||'').slice(0,16))+'…</code></div></div>';
+}
+
+async function previewPlanReview(){
+  if(!API_LIVE){toast('未连后端');return;}
+  var draft=requirementDraft();if(!draft)return;
+  var result=await apiPost('/api/run-plans/preview',{profile_id:draft.profileId,task:draft.task});
+  if(!result.ok||!result.json||!result.json.ok){toast((result.json||{}).error||'无法生成 Plan Review');return;}
+  reviewedBacklog={body:draft.body,task:draft.task,profileId:draft.profileId,plan:result.json.plan};
+  document.getElementById('planReviewBody').innerHTML=planReviewHtml(reviewedBacklog.plan);
+  openModal('planReviewModal');
+}
+
+async function confirmReviewedBacklog(){
+  if(!reviewedBacklog){toast('请先生成 Plan Review');return;}
+  var confirmBtn=document.querySelector('#planReviewModal .modal-foot .primary');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='正在执行受控 Run…';}
+  try{
+    var queued=await apiPost('/api/backlog',reviewedBacklog.body);
+    if(!queued.ok||!queued.json||!queued.json.ok){toast((queued.json||{}).error||'入池失败');return;}
+    var run=await apiPost('/api/profile-runs/confirm',{confirmed:true,profile_id:reviewedBacklog.profileId,task_id:queued.json.id});
+    if(!run.ok||!run.json||!run.json.ok){toast((run.json||{}).error||'Run 未通过；任务已保留在需求池');return;}
+    closeModal('planReviewModal');closeModal('reqModal');reviewedBacklog=null;
+    var delivery=((run.json.run||{}).delivery||{});
+    toast('Run 完成：'+(run.json.run||{}).run_id+(delivery.location?' · 已推送 GitHub':'')+'。可在交付运行查看证据。');
+    loadReqs();loadDashboard();
+  }finally{
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='确认并真实执行 / 交付';}
   }
 }
 
@@ -934,39 +997,106 @@ function renderFindings(findings){
   listEl.innerHTML = html;
 }
 
-/* 生成历史列表 - 卡片布局 */
-async function loadGenlist(){
+/* 运行事件与生成历史均按页读取；JSONL 仅是迁移期兼容投影。 */
+var RUN_HISTORY_PAGE_SIZE = 10;
+var runHistoryOffset = 0;
+var GENLIST_PAGE_SIZE = 24;
+var genlistOffset = 0;
+
+function ensureRunHistoryPanel(){
+  var grid = document.getElementById('genlistGrid');
+  if(!grid || !grid.parentNode) return null;
+  var panel = document.getElementById('runHistoryPanel');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'runHistoryPanel';
+    panel.className = 'card panel';
+    panel.style.marginBottom = '16px';
+    grid.parentNode.insertBefore(panel, grid);
+  }
+  return panel;
+}
+
+function renderRunHistoryPager(panel, pagination, count){
+  var offset = pagination.offset || 0;
+  var page = Math.floor(offset / RUN_HISTORY_PAGE_SIZE) + 1;
+  panel.innerHTML += '<div class="genlist-pager">'+
+    '<span class="genlist-pager-info">第 '+page+' 页 · 本页 '+count+' 条</span>'+
+    '<button class="btn sm" '+(offset === 0 ? 'disabled' : '')+' onclick="loadRunHistory('+(offset-RUN_HISTORY_PAGE_SIZE)+')">上一页</button>'+
+    '<button class="btn sm" '+(!pagination.has_more ? 'disabled' : '')+' onclick="loadRunHistory('+(offset+RUN_HISTORY_PAGE_SIZE)+')">下一页</button></div>';
+}
+
+async function loadRunHistory(offset){
+  var panel = ensureRunHistoryPanel();
+  if(!panel) return;
+  runHistoryOffset = typeof offset === 'number' ? Math.max(0, offset) : 0;
+  panel.innerHTML = '<div class="panel-title">运行历史 <span class="hint" style="font-weight:400;font-size:12px">仅展示已完成的确定性运行</span></div><div class="hint" style="padding:10px 0">加载中…</div>';
+  try{
+    var r = await apiGet('/api/trace?event=case_done&limit='+RUN_HISTORY_PAGE_SIZE+'&offset='+runHistoryOffset);
+    var events = (r && r.events) || [];
+    var pagination = (r && r.pagination) || {limit:RUN_HISTORY_PAGE_SIZE,offset:runHistoryOffset,has_more:false};
+    var rows = '';
+    events.slice().reverse().forEach(function(event){
+      var passed = event.result === 'pass';
+      rows += '<tr><td>'+esc(event._ts || '-')+'</td><td>'+esc(event.case || '-')+'</td><td><span class="badge '+(passed ? 'green' : 'red')+'">'+(passed ? 'PASS' : 'FAIL')+'</span></td><td>'+esc(event.attempts || '?')+'</td><td>'+esc(event.determinism || 'skip')+'</td></tr>';
+    });
+    if(!rows) rows = '<tr><td colspan="5" class="hint">暂无完成的运行记录</td></tr>';
+    panel.innerHTML = '<div class="panel-title">运行历史 <span class="hint" style="font-weight:400;font-size:12px">只读事件流 · 按完成时间倒序</span></div>'+
+      '<table class="tbl"><thead><tr><th>时间</th><th>用例</th><th>结果</th><th>轮次</th><th>确定性</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    renderRunHistoryPager(panel, pagination, events.length);
+  }catch(e){
+    panel.innerHTML = '<div class="panel-title">运行历史</div><div class="hint">加载失败: '+esc(e.message)+'</div>';
+  }
+}
+
+function renderGenlistPager(pagination, count){
+  loadRunHistory();
+  var grid = document.getElementById('genlistGrid');
+  if(!grid || !grid.parentNode) return;
+  var pager = document.getElementById('genlistPager');
+  if(!pager){
+    pager = document.createElement('div');
+    pager.id = 'genlistPager';
+    pager.className = 'genlist-pager';
+    grid.parentNode.appendChild(pager);
+  }
+  var offset = pagination.offset || 0;
+  var page = Math.floor(offset / GENLIST_PAGE_SIZE) + 1;
+  pager.innerHTML = '<span class="genlist-pager-info">第 '+page+' 页 · 本页 '+count+' 条</span>'+
+    '<button class="btn sm" '+(offset === 0 ? 'disabled' : '')+' onclick="loadGenlist('+(offset-GENLIST_PAGE_SIZE)+')">上一页</button>'+
+    '<button class="btn sm" '+(!pagination.has_more ? 'disabled' : '')+' onclick="loadGenlist('+(offset+GENLIST_PAGE_SIZE)+')">下一页</button>';
+}
+
+async function loadGenlist(offset){
   var grid = document.getElementById('genlistGrid');
   var meta = document.getElementById('genlistMeta');
   if(!grid) return;
+  genlistOffset = typeof offset === 'number' ? Math.max(0, offset) : 0;
   grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">加载中…</div>';
   try{
-    var r = await apiGet('/api/output/projects');
-    if(!r || !r.projects || !r.projects.length){
+    var r = await apiGet('/api/output/projects?limit='+GENLIST_PAGE_SIZE+'&offset='+genlistOffset);
+    var projects = (r && r.projects) || [];
+    var pagination = (r && r.pagination) || {limit:GENLIST_PAGE_SIZE,offset:genlistOffset,has_more:false};
+    if(!projects.length){
       grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">暂无生成记录</div>';
-      if(meta) meta.textContent = '0 个项目';
+      if(meta) meta.textContent = pagination.offset ? '该页没有生成记录' : '0 个项目';
+      renderGenlistPager(pagination, 0);
       return;
     }
-    if(meta) meta.textContent = r.projects.length + ' 个项目';
+    if(meta) meta.textContent = '按生成时间倒序 · 每页 '+GENLIST_PAGE_SIZE+' 条';
     var html = '';
-    r.projects.forEach(function(p){
+    projects.forEach(function(p){
       var dirName = p.name.length > 28 ? p.name.substring(0,28)+'…' : p.name;
       var timeLabel = p.gen_time || '-';
       var fileLabel = p.file_count ? p.file_count + ' 文件' : '空';
-      
-      // 需求文本（截断显示）
       var reqText = p.requirement || '';
       var reqDisplay = reqText.length > 120 ? reqText.substring(0,120)+'…' : reqText;
-      
-      // 生成结果徽章
       var resultBadge = '';
       if(p.result === 'pass') resultBadge = '<span class="badge badge-green">✅ 通过</span>';
       else if(p.result === 'fail') resultBadge = '<span class="badge badge-red">❌ 失败</span>';
       else if(p.verify_result === 'pass') resultBadge = '<span class="badge badge-green">✅ 验证通过</span>';
       else if(p.verify_result === 'fail') resultBadge = '<span class="badge badge-red">❌ 验证失败</span>';
       else resultBadge = '<span class="badge" style="background:var(--muted)">—</span>';
-      
-      // Better Harness 评分
       var betterHarnessCell = '';
       if(p.has_better_harness){
         var sc = p.better_harness_score||0;
@@ -975,11 +1105,8 @@ async function loadGenlist(){
       } else {
         betterHarnessCell = '<span class="genlist-bh-score" style="color:var(--muted)">Better Harness 未诊断</span>';
       }
-      
-      // Git 提交状态 + 链接
       var gitCell = '';
       if(p.git_remote_url){
-        // 有远程仓库地址 → 可点击跳转 GitHub
         var gitLabel = p.git_remote_url.replace('https://','').substring(0,30);
         gitCell = '<a href="'+esc(p.git_remote_url)+'" target="_blank" rel="noopener" class="lnk genlist-ext-link" title="在 GitHub 打开">📦 '+esc(gitLabel)+' ↗</a>';
       } else if(p.git_committed){
@@ -987,8 +1114,6 @@ async function loadGenlist(){
       } else {
         gitCell = '<span class="badge" style="background:var(--muted)" title="无 .git 目录">未提交</span>';
       }
-      
-      // 额外信息行
       var extraTags = [];
       if(p.tech_stack) extraTags.push(p.tech_stack);
       if(p.model) extraTags.push(p.model);
@@ -997,9 +1122,7 @@ async function loadGenlist(){
       else if(p.llm_size) extraTags.push((p.llm_size/1024).toFixed(1) + ' KB 输出');
       if(p.case) extraTags.push('case: ' + p.case);
       var extraLine = extraTags.length ? '<div class="genlist-tags">'+extraTags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('')+'</div>' : '';
-
       var actions = '<a href="javascript:void(0)" onclick="openBetterHarnessReport(\''+esc(p.dir)+'\')" class="btn sm">'+(p.has_better_harness?'📊 Better Harness 报告':'🔬 分析')+'</a>';
-      
       html += '<div class="genlist-card">'+
         '<div class="genlist-card-hd">'+
           '<div class="genlist-card-name" title="'+esc(p.name)+'">'+esc(dirName)+'</div>'+
@@ -1008,15 +1131,11 @@ async function loadGenlist(){
         '</div>'+
         '<div class="genlist-card-req" title="'+esc(reqText)+'">'+esc(reqDisplay || '(无需求描述)')+'</div>'+
         '<div class="genlist-card-row">'+
-          '<span>📁 '+fileLabel+'</span>'+
-          betterHarnessCell+
-          gitCell+
-        '</div>'+
-        extraLine+
-        '<div class="genlist-card-act">'+actions+'</div>'+
-      '</div>';
-    })
+          '<span>📁 '+fileLabel+'</span>'+betterHarnessCell+gitCell+
+        '</div>'+extraLine+'<div class="genlist-card-act">'+actions+'</div></div>';
+    });
     grid.innerHTML = html;
+    renderGenlistPager(pagination, projects.length);
   }catch(e){
     grid.innerHTML = '<div class="hint" style="padding:20px;text-align:center;grid-column:1/-1">加载失败: '+esc(e.message)+'</div>';
   }
@@ -1075,3 +1194,203 @@ async function triggerBetterHarnessReportAnalysis(){
     if(btn){ btn.disabled = false; btn.textContent = '🔬 重新分析'; }
   }
 }
+
+
+/* ===== Phase 3：权威 Profile / Run Plan 只读视图 ===== */
+function policyBadges(policy){
+  policy=policy||{};
+  return ['allow_network','allow_publish','allow_deploy'].map(function(key){
+    return '<span class="badge '+(policy[key]?'red':'green')+'">'+esc(key.replace('allow_',''))+'：'+(policy[key]?'允许':'禁止')+'</span>';
+  }).join(' ');
+}
+async function loadProfiles(){
+  var box=document.getElementById('profilesList');if(!box)return;
+  try{
+    var d=await apiGet('/api/profiles'), profiles=d.profiles||[];
+    if(!profiles.length){box.innerHTML='<div class="hint">暂无已安装 Profile。</div>';return;}
+    box.innerHTML=profiles.map(function(p){
+      if(!p.valid)return '<div class="file-row"><div class="file-main"><div class="file-name">'+esc(p.id)+' <span class="badge red">无效</span></div><div class="hint">'+esc(p.error||'未知错误')+'</div></div></div>';
+      return '<div class="file-row"><div class="file-main"><div class="file-name">'+esc(p.ref)+' <span class="badge green">已校验</span></div>'
+        +'<div class="file-path">'+esc(p.description||'')+'</div><div class="hint" style="margin-top:6px">'
+        +'Source: <b>'+esc(p.source)+'</b> → Compiler: <b>'+esc(p.compiler)+'</b> → Maker: <b>'+esc(p.maker)+'</b> → Checker: <b>'+esc((p.checkers||[]).join(', '))+'</b> → Delivery: <b>'+esc(p.delivery)+'</b></div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+policyBadges(p.policy)+'</div></div></div>';
+    }).join('');
+  }catch(e){box.innerHTML='<div class="hint">Profile 数据暂不可用：'+esc(e.message)+'</div>';}
+}
+async function loadRunPlans(){
+  var box=document.getElementById('runPlansList');if(!box)return;
+  try{
+    var d=await apiGet('/api/run-plans'), plans=d.plans||[];
+    if(!plans.length){box.innerHTML='<div class="panel-title">尚无冻结的 Run Plan</div><div class="hint" style="margin-top:8px">执行 <code>python pipeline/orchestrator.py --profile fixture-local</code> 后，计划会在执行前创建并显示于此；该页面不触发执行。</div>';return;}
+    box.innerHTML=plans.map(function(p){
+      var components=p.components||{}, task=p.task||{};
+      return '<div class="file-row"><div class="file-main"><div class="file-name">'+esc(p.run_id)+' <span class="badge blue">'+esc(p.status||'planned')+'</span></div>'
+        +'<div class="file-path">任务：'+esc(task.id)+' · '+esc(task.title)+' · Profile：'+esc((p.profile||{}).ref)+'</div>'
+        +'<div class="hint" style="margin-top:6px">'+esc(p.created_at)+' · compiler='+esc(components.compiler)+' · maker='+esc(components.maker)+' · delivery='+esc(components.delivery)+'</div>'
+        +'<div class="hint" style="margin-top:4px">plan digest: <code>'+esc(String(p.digest||'').slice(0,16))+'…</code></div></div></div>';
+    }).join('');
+  }catch(e){box.innerHTML='<div class="hint">Run Plan 数据暂不可用：'+esc(e.message)+'</div>';}
+}
+
+
+/* ===== Phase 4：权威交付运行（只读） ===== */
+var DELIVERY_RUN_STAGES=['source','compiler','maker','checker','delivery'];
+var deliveryRunsFilter='';
+var deliveryRunsRequest=0;
+function deliveryRunStatusBadge(status){
+  var labels={passed:'已通过',failed:'失败',unavailable:'不可用',indeterminate:'不确定',skipped:'已跳过'};
+  var styles={passed:'green',failed:'red',unavailable:'orange',indeterminate:'purple',skipped:'gray'};
+  return '<span class="badge '+(styles[status]||'gray')+'">'+esc(labels[status]||'未知')+'</span>';
+}
+function deliveryRunIntegrityBadge(integrity){
+  var labels={verified:'证据已验证',unavailable:'证据缺失',indeterminate:'证据不可信'};
+  var styles={verified:'green',unavailable:'orange',indeterminate:'purple'};
+  return '<span class="badge '+(styles[integrity]||'gray')+'">'+esc(labels[integrity]||'未知')+'</span>';
+}
+function deliveryRunStageList(stages){
+  stages=stages||{};
+  return DELIVERY_RUN_STAGES.map(function(stage){
+    var status=stages[stage];
+    return '<span class="delivery-run-stage"><b>'+esc(stage)+'</b>'+(status?deliveryRunStatusBadge(status):'<span class="badge gray">未到达</span>')+'</span>';
+  }).join('');
+}
+function setDeliveryRunsFilter(button,status){
+  deliveryRunsFilter=status||'';
+  var filters=document.getElementById('deliveryRunsFilters');
+  if(filters)filters.querySelectorAll('button').forEach(function(item){item.classList.toggle('active',item===button);});
+  loadDeliveryRuns();
+}
+async function loadDeliveryRuns(){
+  var table=document.getElementById('deliveryRunsBody'),meta=document.getElementById('deliveryRunsMeta');
+  if(!table)return;
+  var request=++deliveryRunsRequest;
+  table.innerHTML='<tr><td colspan="6" class="hint">正在读取已验证的 RunEvent / Evidence 投影…</td></tr>';
+  if(meta)meta.textContent='正在加载只读事件投影…';
+  var path='/api/observability/runs?limit=50'+(deliveryRunsFilter?'&status='+encodeURIComponent(deliveryRunsFilter):'');
+  try{
+    var data=await apiGet(path);
+    if(request!==deliveryRunsRequest)return;
+    if(!data||!data.ok||!Array.isArray(data.runs))throw new Error('投影响应无效');
+    if(meta)meta.textContent='权威来源：已验证事件/证据投影 · 只读 · '+data.runs.length+' 条 Run';
+    if(!data.runs.length){table.innerHTML='<tr><td colspan="6" class="hint">当前筛选条件下没有已记录的 Run。缺少记录不会被推断为通过。</td></tr>';return;}
+    table.innerHTML=data.runs.map(function(run){
+      return '<tr><td><code>'+esc(run.run_id)+'</code></td><td>'+deliveryRunStatusBadge(run.status)+'</td><td>'+deliveryRunIntegrityBadge(run.integrity)+'</td><td><div class="delivery-run-stages">'+deliveryRunStageList(run.stage_statuses)+'</div></td><td>'+esc(run.event_count)+'</td><td>'+esc(run.last_occurred_at||'—')+'</td></tr>';
+    }).join('');
+  }catch(error){
+    if(request!==deliveryRunsRequest)return;
+    var message=error&&error.message==='HTTP 401'?'无权读取交付运行。请重新登录。':'投影暂不可用：'+esc(error&&error.message||'未知错误');
+    table.innerHTML='<tr><td colspan="6" class="hint">'+message+'。不会回退到兼容日志、目录扫描或 Mock 数据。</td></tr>';
+    if(meta)meta.textContent='权威事件投影不可用';
+  }
+}
+function installDeliveryRunsView(){
+  if(document.getElementById('page-delivery-runs'))return;
+  var legacyNav=document.querySelector('.nav-item[data-page="genlist"]');
+  if(legacyNav&&legacyNav.parentNode){
+    var nav=document.createElement('div');
+    nav.className='nav-item';nav.dataset.page='delivery-runs';nav.dataset.title='交付运行（只读）';
+    nav.tabIndex=0;nav.setAttribute('role','button');nav.setAttribute('aria-label','查看已验证交付运行');
+    nav.innerHTML='<svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12 10 17 20 7"/><path d="M3 12a9 9 0 1 1 3.1 6.8"/><polyline points="3 18 3 13 8 13"/></svg><span class="nav-idx">04d</span><span class="nav-txt">交付运行（只读）</span>';
+    nav.addEventListener('click',function(){go(nav);});
+    nav.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();go(nav);}});
+    legacyNav.parentNode.insertBefore(nav,legacyNav.nextSibling);
+  }
+  var main=document.getElementById('main');if(!main)return;
+  var page=document.createElement('section');page.className='page';page.id='page-delivery-runs';
+  page.innerHTML='<div class="page-head"><div class="page-title">交付运行 <span class="badge blue">只读 · 权威事件投影</span></div><div class="page-desc">仅展示由 RunEvent 与 EvidenceStore 重建的运行事实；不读取兼容 trace、目录扫描、Mock、完整输入或本机路径。</div></div><div class="toolbar-row"><div class="seg" id="deliveryRunsFilters" aria-label="按运行状态筛选"><button type="button" class="active" onclick="setDeliveryRunsFilter(this,\'\')">全部</button><button type="button" onclick="setDeliveryRunsFilter(this,\'passed\')">已通过</button><button type="button" onclick="setDeliveryRunsFilter(this,\'failed\')">失败</button><button type="button" onclick="setDeliveryRunsFilter(this,\'unavailable\')">不可用</button><button type="button" onclick="setDeliveryRunsFilter(this,\'indeterminate\')">不确定</button><button type="button" onclick="setDeliveryRunsFilter(this,\'skipped\')">已跳过</button></div><div class="spacer"></div><button type="button" class="btn sm" onclick="loadDeliveryRuns()">刷新投影</button></div><div class="card panel"><div class="panel-title">已记录的交付运行 <span class="spacer"></span><span class="hint" id="deliveryRunsMeta" aria-live="polite">等待加载</span></div><div class="delivery-runs-table-wrap"><table class="tbl"><thead><tr><th>Run</th><th>结论</th><th>证据完整性</th><th>阶段</th><th>事件</th><th>最后记录</th></tr></thead><tbody id="deliveryRunsBody" aria-live="polite"><tr><td colspan="6" class="hint">打开本页面后读取权威事件投影。</td></tr></tbody></table></div></div>';
+  var anchor=document.getElementById('page-genlist');
+  main.insertBefore(page,anchor||null);
+}
+var _existingOnPageEnter=onPageEnter;
+onPageEnter=function(page){_existingOnPageEnter(page);if(page==='delivery-runs')loadDeliveryRuns();};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installDeliveryRunsView);else installDeliveryRunsView();
+
+
+/* ===== Phase 4：选中 Run 的脱敏详情 ===== */
+var deliveryRunDetailRequest=0;
+function ensureDeliveryRunDetailPanel(){
+  var existing=document.getElementById('deliveryRunDetail');if(existing)return existing;
+  var page=document.getElementById('page-delivery-runs');if(!page)return null;
+  var panel=document.createElement('section');panel.id='deliveryRunDetail';panel.className='card panel delivery-run-detail';panel.hidden=true;
+  panel.innerHTML='<div class="panel-title"><span id="deliveryRunDetailTitle">Run 详情</span><span class="spacer"></span><button type="button" class="btn sm" id="deliveryRunDetailClose">关闭</button></div><div id="deliveryRunDetailMeta" class="hint"></div><div id="deliveryRunDetailTimeline" class="delivery-run-timeline" aria-live="polite"></div>';
+  panel.querySelector('#deliveryRunDetailClose').addEventListener('click',function(){panel.hidden=true;});
+  page.appendChild(panel);return panel;
+}
+async function openDeliveryRunDetail(runId){
+  var panel=ensureDeliveryRunDetailPanel();if(!panel)return;
+  var title=panel.querySelector('#deliveryRunDetailTitle'),meta=panel.querySelector('#deliveryRunDetailMeta'),timeline=panel.querySelector('#deliveryRunDetailTimeline');
+  var request=++deliveryRunDetailRequest;panel.hidden=false;
+  title.textContent='Run 详情：'+runId;meta.textContent='正在读取脱敏事件投影…';timeline.innerHTML='';
+  try{
+    var data=await apiGet('/api/observability/runs/'+encodeURIComponent(runId));
+    if(request!==deliveryRunDetailRequest)return;
+    if(!data||!data.ok||!data.run||!Array.isArray(data.run.events))throw new Error('投影视图无效');
+    var run=data.run;
+    meta.innerHTML='最终结论：'+deliveryRunStatusBadge(run.status)+' · '+deliveryRunIntegrityBadge(run.integrity)+' · '+run.events.length+' 条事件';
+    timeline.innerHTML=run.events.map(function(event){
+      var evidence=(event.evidence||[]).map(function(item){return '<span class="delivery-run-evidence"><code>'+esc(String(item.digest||'').slice(0,16))+'…</code>'+deliveryRunIntegrityBadge(item.integrity)+'</span>';}).join('')||'<span class="hint">无 evidence 引用</span>';
+      return '<article class="delivery-run-event"><div><b>'+esc(event.sequence)+'. '+esc(event.stage)+'</b> '+deliveryRunStatusBadge(event.status)+'</div><div class="hint">'+esc(event.occurred_at)+' · attempt '+esc(event.attempt)+'</div><div class="delivery-run-evidence-list">'+evidence+'</div></article>';
+    }).join('')||'<p class="hint">该 Run 没有可投影事件。</p>';
+  }catch(error){
+    if(request!==deliveryRunDetailRequest)return;
+    meta.textContent=error&&error.message==='HTTP 401'?'无权读取此 Run。请重新登录。':'该 Run 的投影暂不可用。';
+    timeline.innerHTML='<p class="hint">不会回退到兼容日志、目录扫描或原始 evidence 内容。</p>';
+  }
+}
+function addDeliveryRunDetailActions(){
+  var body=document.getElementById('deliveryRunsBody');if(!body)return;
+  body.querySelectorAll('tr').forEach(function(row){
+    var code=row.querySelector('code');if(!code||row.querySelector('.delivery-run-detail-button'))return;
+    var runId=code.textContent;var button=document.createElement('button');
+    button.type='button';button.className='btn sm delivery-run-detail-button';button.textContent='详情';
+    button.addEventListener('click',function(){openDeliveryRunDetail(runId);});
+    code.parentNode.appendChild(document.createTextNode(' '));code.parentNode.appendChild(button);
+  });
+}
+var _existingLoadDeliveryRuns=loadDeliveryRuns;
+loadDeliveryRuns=async function(){await _existingLoadDeliveryRuns();addDeliveryRunDetailActions();};
+
+
+/* ===== Phase 4：生命周期与治理覆盖（只读） ===== */
+function governanceStageCounts(counts){
+  return ['passed','failed','unavailable','indeterminate','skipped'].map(function(status){
+    return '<span class="governance-count"><b>'+esc(status)+'</b> '+deliveryRunStatusBadge(status)+' '+esc((counts||{})[status]||0)+'</span>';
+  }).join('');
+}
+async function loadGovernanceCoverage(){
+  var table=document.getElementById('governanceCoverageBody'),meta=document.getElementById('governanceCoverageMeta'),limits=document.getElementById('governanceCoverageLimits');
+  if(!table)return;
+  table.innerHTML='<tr><td colspan="5" class="hint">正在读取 Lifecycle 与治理覆盖投影…</td></tr>';
+  if(meta)meta.textContent='正在加载只读事件投影…';
+  try{
+    var responses=await Promise.all([apiGet('/api/observability/lifecycle?limit=100'),apiGet('/api/observability/governance-coverage?limit=100')]);
+    var lifecycle=responses[0],coverage=responses[1]&&responses[1].coverage;
+    if(!lifecycle||!lifecycle.ok||!Array.isArray(lifecycle.stages)||!coverage||!Array.isArray(coverage.stages))throw new Error('投影视图无效');
+    if(meta)meta.textContent='权威来源：'+esc(coverage.source||'verified-event-projection')+' · '+esc(coverage.run_count)+' 条 Run · 只读';
+    table.innerHTML=lifecycle.stages.map(function(stage){
+      return '<tr><td><b>'+esc(stage.stage)+'</b></td><td>'+esc(stage.recorded_runs)+'</td><td>'+esc(stage.not_reached_runs)+'</td><td>'+esc(stage.indeterminate_runs)+'</td><td><div class="governance-counts">'+governanceStageCounts(stage.status_counts)+'</div></td></tr>';
+    }).join('')||'<tr><td colspan="5" class="hint">尚无已记录的 RunEvent；不能据此推断治理已通过。</td></tr>';
+    if(limits)limits.innerHTML=(coverage.limitations||[]).map(function(item){return '<li>'+esc(item)+'</li>';}).join('')||'<li>尚未提供限制说明。</li>';
+  }catch(error){
+    table.innerHTML='<tr><td colspan="5" class="hint">治理投影暂不可用。不会回退到兼容日志、目录扫描或 Mock 数据。</td></tr>';
+    if(meta)meta.textContent=error&&error.message==='HTTP 401'?'无权读取治理投影。请重新登录。':'权威事件投影不可用';
+    if(limits)limits.innerHTML='<li>当前无可信治理覆盖结论。</li>';
+  }
+}
+function installGovernanceCoverageView(){
+  if(document.getElementById('page-governance-coverage'))return;
+  var deliveryNav=document.querySelector('.nav-item[data-page="delivery-runs"]'),anchor=deliveryNav||document.querySelector('.nav-item[data-page="genlist"]');
+  if(anchor&&anchor.parentNode){
+    var nav=document.createElement('div');nav.className='nav-item';nav.dataset.page='governance-coverage';nav.dataset.title='治理覆盖（只读）';nav.tabIndex=0;nav.setAttribute('role','button');nav.setAttribute('aria-label','查看已验证治理覆盖');
+    nav.innerHTML='<svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7v5c0 4.5 3.4 7.5 8 9 4.6-1.5 8-4.5 8-9V7z"/><path d="m8.5 12 2.3 2.3 4.7-4.7"/></svg><span class="nav-idx">04e</span><span class="nav-txt">治理覆盖（只读）</span>';
+    nav.addEventListener('click',function(){go(nav);});nav.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();go(nav);}});
+    anchor.parentNode.insertBefore(nav,anchor.nextSibling);
+  }
+  var main=document.getElementById('main');if(!main)return;
+  var page=document.createElement('section');page.className='page';page.id='page-governance-coverage';
+  page.innerHTML='<div class="page-head"><div class="page-title">治理覆盖 <span class="badge blue">只读 · 权威事件投影</span></div><div class="page-desc">展示已记录 Run 中每个阶段实际发生的状态。已配置、未到达、缺证据和不可信证据均不会被推断为通过。</div></div><div class="toolbar-row"><div class="hint" id="governanceCoverageMeta" aria-live="polite">打开本页面后读取权威事件投影。</div><div class="spacer"></div><button type="button" class="btn sm" onclick="loadGovernanceCoverage()">刷新投影</button></div><div class="card panel"><div class="panel-title">阶段 Lifecycle</div><div class="delivery-runs-table-wrap"><table class="tbl"><thead><tr><th>阶段</th><th>已记录</th><th>未到达</th><th>不确定 Run</th><th>五态计数</th></tr></thead><tbody id="governanceCoverageBody" aria-live="polite"><tr><td colspan="5" class="hint">等待加载。</td></tr></tbody></table></div></div><div class="card panel governance-limitations"><div class="panel-title">覆盖边界</div><ul id="governanceCoverageLimits"><li>等待权威投影返回限制说明。</li></ul></div>';
+  var insertion=document.getElementById('page-delivery-runs');main.insertBefore(page,insertion?insertion.nextSibling:null);
+}
+var _phase4OnPageEnter=onPageEnter;
+onPageEnter=function(page){_phase4OnPageEnter(page);if(page==='governance-coverage')loadGovernanceCoverage();};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installGovernanceCoverageView);else installGovernanceCoverageView();

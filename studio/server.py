@@ -96,12 +96,150 @@ def studio_workbench():
 @app.route("/output/<path:filepath>")
 def serve_output(filepath):
     """直接访问产物文件。"""
-    return send_from_directory(os.path.join(REPO_ROOT, "output"), filepath)
+    return send_from_directory(str(PlatformPaths.OUTPUT_DIR), filepath)
 
 
 @app.route("/healthz")
 def healthz():
     return jsonify({"ok": True, "auth": bool(STUDIO_TOKEN)})
+
+
+# ── Phase 3：只读 Profile / Run Plan API ──
+@app.route("/api/profiles", methods=["GET"])
+def get_profiles():
+    from engine.core.profiles import list_profiles
+    return jsonify({"ok": True, "profiles": list_profiles()})
+
+
+@app.route("/api/profiles/<profile_id>", methods=["GET"])
+def get_profile(profile_id):
+    from engine.core.profiles import ProfileError, load_profile, validate_profile
+    try:
+        profile = load_profile(profile_id)
+        validate_profile(profile)
+        return jsonify({"ok": True, "profile": profile.to_dict(), "ref": profile.ref})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+
+
+@app.route("/api/run-plans", methods=["GET"])
+def get_run_plans():
+    from engine.core.profiles import list_run_plans
+    try:
+        limit = max(1, min(int(request.args.get("limit", "50")), 100))
+    except ValueError:
+        return jsonify({"ok": False, "error": "limit 必须是整数"}), 400
+    return jsonify({"ok": True, "plans": list_run_plans(limit)})
+
+
+@app.route("/api/run-plans/<plan_id>", methods=["GET"])
+def get_run_plan(plan_id):
+    from engine.core.profiles import ProfileError, get_run_plan
+    try:
+        return jsonify({"ok": True, "plan": get_run_plan(plan_id)})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+
+
+@app.route("/api/run-plans/preview", methods=["POST"])
+def preview_run_plan():
+    """创建内存中的预览，不写入磁盘、不启动 Provider 或 Delivery。"""
+    from engine.core.profiles import ProfileError, create_run_plan, load_profile
+    data = request.get_json(force=True) or {}
+    try:
+        profile = load_profile(str(data.get("profile_id", "")))
+        task = data.get("task") or {}
+        return jsonify({"ok": True, "plan": create_run_plan(profile, task).to_dict()})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@app.route("/api/profile-runs/confirm", methods=["POST"])
+def confirm_profile_run():
+    """执行已入池且经 Plan Review 明确确认的任务；不走 legacy generate/trigger。"""
+    from engine.core.profiles import ProfileError
+    from engine.core.run_executor import ProfileRunExecutor
+    data = request.get_json(force=True) or {}
+    if data.get("confirmed") is not True:
+        return jsonify({"ok": False, "error": "必须显式传入 confirmed=true"}), 400
+    profile_id = str(data.get("profile_id", "")).strip()
+    task_id = str(data.get("task_id", "")).strip()
+    if not profile_id or not task_id:
+        return jsonify({"ok": False, "error": "profile_id 与 task_id 必填"}), 400
+    try:
+        results = ProfileRunExecutor().execute(profile_id, task_id=task_id, max_tasks=1)
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        return jsonify({"ok": False, "error": "受控运行异常终止；请在 Run 详情查看脱敏证据"}), 500
+    result = results[0]
+    return jsonify({"ok": result.status == "passed", "run": result.to_dict()})
+
+
+# ── Phase 4：只读 RunEvent / Evidence 投影 API ──
+def _observability_limit():
+    try:
+        return max(1, min(int(request.args.get("limit", "50")), 100))
+    except ValueError:
+        return None
+
+
+def _observability_error(exc):
+    status = 404 if "不存在" in str(exc) else 400
+    return jsonify({"ok": False, "error": str(exc)}), status
+
+
+@app.route("/api/observability/runs", methods=["GET"])
+def get_observability_runs():
+    from engine.core.observability import EventError
+    from engine.core.observability_projection import ObservabilityProjection
+    limit = _observability_limit()
+    if limit is None:
+        return jsonify({"ok": False, "error": "limit 必须是整数"}), 400
+    try:
+        runs = ObservabilityProjection().list_runs(limit, request.args.get("status") or None)
+        return jsonify({"ok": True, "schema_version": 1, "source": "verified-event-projection", "runs": runs})
+    except EventError as exc:
+        return _observability_error(exc)
+
+
+@app.route("/api/observability/runs/<run_id>", methods=["GET"])
+def get_observability_run(run_id):
+    from engine.core.observability import EventError
+    from engine.core.observability_projection import ObservabilityProjection
+    try:
+        return jsonify({"ok": True, "run": ObservabilityProjection().run(run_id)})
+    except EventError as exc:
+        return _observability_error(exc)
+
+
+@app.route("/api/observability/lifecycle", methods=["GET"])
+def get_observability_lifecycle():
+    from engine.core.observability import EventError
+    from engine.core.observability_projection import ObservabilityProjection
+    limit = _observability_limit()
+    if limit is None:
+        return jsonify({"ok": False, "error": "limit 必须是整数"}), 400
+    try:
+        stages = ObservabilityProjection().lifecycle(limit)
+    except EventError as exc:
+        return _observability_error(exc)
+    return jsonify({"ok": True, "schema_version": 1, "source": "verified-event-projection",
+                    "stages": stages})
+
+
+@app.route("/api/observability/governance-coverage", methods=["GET"])
+def get_governance_coverage():
+    from engine.core.observability import EventError
+    from engine.core.observability_projection import ObservabilityProjection
+    limit = _observability_limit()
+    if limit is None:
+        return jsonify({"ok": False, "error": "limit 必须是整数"}), 400
+    try:
+        coverage = ObservabilityProjection().governance_coverage(limit)
+    except EventError as exc:
+        return _observability_error(exc)
+    return jsonify({"ok": True, "coverage": coverage})
 
 
 # ── 基础 IO ──
@@ -116,16 +254,17 @@ def _write_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
 
+# Phase 2: 统一改用 PlatformPaths，取消 LOOP_DIR 拼接
 def _feishu_docs_path():
-    return os.path.join(LOOP_DIR, "data", "backlog.json")
+    return str(PlatformPaths.DATA_DIR / "backlog.json")
 
 def _feishu_state_path():
-    return os.path.join(LOOP_DIR, "data", "state.json")
+    return str(PlatformPaths.DATA_DIR / "state.json")
 
-CONFIG_PATH = os.path.join(LOOP_DIR, "config.env")
-RUN_BACKLOG = os.path.join(LOOP_DIR, "pipeline", "run.py")
-GATE_PY = os.path.join(ENGINE_DIR, "gate.py")
-GENERATE_PY = os.path.join(ENGINE_DIR, "generate.py")
+CONFIG_PATH = str(PlatformPaths.CONFIG_FILE)
+RUN_BACKLOG = str(PlatformPaths.PIPELINE_DIR / "run.py")
+GATE_PY = str(PlatformPaths.ENGINE_DIR / "gate.py")
+GENERATE_PY = str(PlatformPaths.ENGINE_DIR / "generate.py")
 
 
 # ── Backlog API ──
@@ -143,7 +282,7 @@ def get_backlog():
             "id": tid, "title": d.get("title", tid),
             "token_kind": "wiki_token" if d.get("wiki_token") else ("doc_token" if d.get("doc_token") else None),
             "token": d.get("wiki_token") or d.get("doc_token"),
-            "priority": d.get("priority", 99),
+            "priority": d.get("priority", 99), "profile_id": d.get("profile_id", ""),
             "pending": st.get("status") not in ("done", "fetched"),
             "status": st.get("status", "pending"),
             "spec_text": d.get("spec_text", ""),
@@ -153,12 +292,84 @@ def get_backlog():
     return jsonify({"docs": items, "source": "feishu"})
 
 
+@app.route("/api/compat/overview", methods=["GET"])
+def compatibility_overview():
+    """Return a reviewed, read-only projection for the isolated Vue preview.
+
+    This intentionally does not delegate the legacy API payloads to the browser:
+    backlog text/tokens, Profile policy, Run Plan details and arbitrary trace data
+    remain server-side until versioned observability contracts are available.
+    """
+    docs_path = _feishu_docs_path()
+    state_path = _feishu_state_path()
+    raw_docs = _read_json(docs_path).get("docs", []) if os.path.exists(docs_path) else []
+    states = _read_json(state_path) if os.path.exists(state_path) else {}
+    backlog = []
+    for doc in raw_docs:
+        item_id = str(doc.get("id", ""))
+        state = states.get(item_id, {})
+        backlog.append({
+            "id": item_id,
+            "title": str(doc.get("title") or item_id),
+            "priority": doc.get("priority", 99),
+            "profile_id": str(doc.get("profile_id") or ""),
+            "pending": state.get("status") not in ("done", "fetched"),
+            "status": str(state.get("status") or "pending"),
+            "attempts": state.get("attempts"),
+        })
+    backlog.sort(key=lambda item: (item["priority"], item["id"]))
+
+    from engine.core.profiles import list_profiles, list_run_plans
+    profiles = [{
+        "id": item.get("id"), "ref": item.get("ref"),
+        "description": item.get("description"), "source": item.get("source"),
+        "compiler": item.get("compiler"), "maker": item.get("maker"),
+        "checkers": item.get("checkers"), "delivery": item.get("delivery"),
+        "valid": item.get("valid", False),
+    } for item in list_profiles()]
+    plans = [{
+        "id": item.get("id"), "run_id": item.get("run_id"),
+        "created_at": item.get("created_at"), "status": item.get("status"),
+        "digest": item.get("digest"), "profile_ref": (item.get("profile") or {}).get("ref", ""),
+    } for item in list_run_plans(50)]
+
+    try:
+        from checker import get_checks
+        checks = [{
+            "id": item.get("id"), "name": item.get("name"),
+            "quadrant": item.get("quadrant"), "quadrant_label": item.get("quadrant_label"),
+            "category": item.get("category"), "mock": bool(item.get("mock")),
+            "auto": bool(item.get("auto")), "active": bool(item.get("active")),
+        } for item in get_checks()]
+    except Exception:  # Legacy checker availability must not make unsupported claims.
+        checks = []
+
+    events, pagination = [], {"limit": 100, "offset": 0, "has_more": False}
+    try:
+        import tracer
+        raw_events = tracer.query(limit=100, event_type=None, offset=0)
+        for event in raw_events:
+            if event.get("event") == "case_done" and event.get("result") in ("pass", "fail"):
+                events.append({key: event.get(key) for key in (
+                    "_ts", "event", "case", "task", "run_id", "profile", "result", "attempts", "elapsed"
+                )})
+    except ImportError:
+        pass
+
+    return jsonify({
+        "ok": True, "schema_version": 1, "source": "legacy-flask-compatible",
+        "backlog": backlog, "profiles": profiles, "run_plans": plans, "checks": checks,
+        "trace": {"events": events, "pagination": pagination},
+    })
+
+
 @app.route("/api/backlog", methods=["POST"])
 def add_backlog():
     data = request.get_json(force=True) or {}
     title = (data.get("title") or "").strip()
     spec_text = (data.get("spec_text") or "").strip()
     link = data.get("link", "")
+    profile_id = str(data.get("profile_id", "")).strip()
     kind, token = (None, None)
     if link:
         import re
@@ -170,12 +381,20 @@ def add_backlog():
         return jsonify({"ok": False, "error": "请填写需求描述或粘贴飞书链接"}), 400
     if not title:
         title = spec_text[:50] if spec_text else (token or "未命名需求")
+    if profile_id:
+        from engine.core.profiles import ProfileError, load_profile, validate_profile
+        try:
+            validate_profile(load_profile(profile_id))
+        except ProfileError as exc:
+            return jsonify({"ok": False, "error": f"Profile 无效: {exc}"}), 400
 
     docs_path = _feishu_docs_path()
     cfg = _read_json(docs_path) if os.path.exists(docs_path) else {"docs": []}
     docs_list = cfg.setdefault("docs", [])
     nid = f"FS-{len(docs_list)+1:03d}"
     entry = {"id": nid, "title": title, "priority": int(data.get("priority", len(docs_list) + 1))}
+    if profile_id:
+        entry["profile_id"] = profile_id
     if kind and token:
         entry[kind] = token
     if spec_text:
@@ -543,7 +762,7 @@ def bh_report():
 def bh_projects():
     """扫描 output/ 目录，返回有 findings.json 的生成项目列表。
     前端拿来自动选最新项目显示报告。"""
-    output_dir = os.path.join(REPO_ROOT, "output")
+    output_dir = str(PlatformPaths.OUTPUT_DIR)
     projects = []
     if not os.path.isdir(output_dir):
         return jsonify({"ok": True, "projects": projects})
@@ -586,11 +805,19 @@ def bh_projects():
 
 @app.route("/api/output/projects", methods=["GET"])
 def output_projects():
-    """扫描 output/ 目录，返回所有生成项目列表（_prompt 需求、文件列表、Git/部署状态、BH 报告）。"""
+    """分页扫描 output/ 目录，返回生成项目列表及是否还有下一页。"""
     output_dir = os.path.join(REPO_ROOT, "output")
     projects = []
+    has_more = False
+    try:
+        limit = max(1, min(int(request.args.get("limit", "24")), 100))
+        requested_offset = max(0, int(request.args.get("offset", "0")))
+    except ValueError:
+        return jsonify({"ok": False, "error": "limit 和 offset 必须是整数"}), 400
+    offset = requested_offset
     if not os.path.isdir(output_dir):
-        return jsonify({"ok": True, "projects": projects})
+        return jsonify({"ok": True, "projects": projects,
+                        "pagination": {"limit": limit, "offset": requested_offset, "has_more": False}})
 
     # 读 runs.jsonl 元数据（按 dir 名索引，也索引 case 名用于模糊匹配 maker-*）
     runs_meta = {}
@@ -664,6 +891,15 @@ def output_projects():
         is_maker = entry.startswith("maker-")
         if not is_maker and not has_better_harness:
             continue
+
+        # 先分页，再读取项目内的文件、Git、prompt 和诊断详情；避免历史量大时
+        # 对本页之外的每一个项目进行递归扫描。
+        if offset:
+            offset -= 1
+            continue
+        if len(projects) >= limit:
+            has_more = True
+            break
 
         # 文件数 + 文件列表（顶层文件）
         try:
@@ -832,7 +1068,9 @@ def output_projects():
             "better_harness_findings_count": better_harness_findings_count,
             "better_harness_report_time": better_harness_report_time,
         })
-    return jsonify({"ok": True, "projects": projects})
+    return jsonify({"ok": True, "projects": projects,
+                    "pagination": {"limit": limit, "offset": requested_offset,
+                                   "has_more": has_more}})
 
 
 @app.route("/api/gate/status", methods=["GET"])
@@ -849,10 +1087,22 @@ def generate_status():
 def get_trace():
     try:
         import tracer
-        return jsonify({"ok": True, "events": tracer.query(limit=int(request.args.get("limit", "100"))),
-                        "metrics": tracer.metrics()})
+        try:
+            limit = max(1, min(int(request.args.get("limit", "100")), 100))
+            offset = max(0, int(request.args.get("offset", "0")))
+        except ValueError:
+            return jsonify({"ok": False, "error": "limit 和 offset 必须是整数"}), 400
+        event_type = request.args.get("event", "").strip() or None
+        # 多取一条，以无状态的 JSONL 兼容层准确得出是否存在下一页。
+        events = tracer.query(limit=limit + 1, event_type=event_type, offset=offset)
+        has_more = len(events) > limit
+        if has_more:
+            events = events[1:]
+        return jsonify({"ok": True, "events": events, "metrics": tracer.metrics(),
+                        "pagination": {"limit": limit, "offset": offset, "has_more": has_more}})
     except ImportError:
-        return jsonify({"ok": True, "events": [], "metrics": {}})
+        return jsonify({"ok": True, "events": [], "metrics": {},
+                        "pagination": {"limit": 0, "offset": 0, "has_more": False}})
 
 
 @app.route("/api/features", methods=["GET"])
@@ -1042,7 +1292,7 @@ def swagger_ui():
 
 # ── 启动 ──
 if __name__ == "__main__":
-    port = int(os.environ.get("STUDIO_PORT", "5100"))
+    port = int(os.environ.get("STUDIO_PORT", "5101"))
     host = os.environ.get("STUDIO_HOST", "127.0.0.1")
     debug = os.environ.get("STUDIO_DEBUG", "0") == "1"
     print(f"Loop 配置工作台: http://{host}:{port}  鉴权: {'ON' if STUDIO_TOKEN else 'OFF'}")

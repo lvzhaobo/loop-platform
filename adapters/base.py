@@ -20,6 +20,7 @@ class Task:
     priority: int = 99            # 数字越小越先做
     case: str | None = None       # 映射到 loop/engine 的用例名(结构化任务直接给)
     spec_text: str | None = None  # 自由文本需求(需 spec 编译,当前最小版暂不启用)
+    profile_id: str | None = None  # 允许执行此任务的 Profile id；未绑定任务不能进入受控 run
     extra: dict[str, Any] = field(default_factory=dict)  # 来源特有字段透传
 
 

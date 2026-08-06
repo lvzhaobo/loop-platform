@@ -17,7 +17,8 @@ class SecurityChecker(Checker):
         for root, _, files in os.walk(target_dir):
             for fn in files:
                 if fn.endswith(".py") and not fn.startswith("_"):
-                    code = open(os.path.join(root, fn), encoding="utf-8").read()
+                    with open(os.path.join(root, fn), encoding="utf-8") as f:
+                        code = f.read()
                     for p in BANNED_PATTERNS:
                         if p in code:
                             rel = os.path.relpath(os.path.join(root, fn), target_dir)
