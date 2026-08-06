@@ -36,9 +36,13 @@ class SimpleCompiler(Compiler):
         manifest_path = os.path.join(spec_dir, "manifest.json")
         acceptance_path = os.path.join(spec_dir, "acceptance.json")
         spec_path = os.path.join(case_dir, "requirement.md")
+        if not os.path.isfile(spec_path):
+            # 历史 case 将主 Spec 放在 spec/spec.md；兼容读取但不复制或双写。
+            spec_path = os.path.join(spec_dir, "spec.md")
 
         # 如果 case 目录已存在且三件套齐全 → 直接复用（幂等）
-        if os.path.isfile(manifest_path) and os.path.isfile(acceptance_path):
+        if (os.path.isfile(spec_path) and os.path.isfile(manifest_path)
+                and os.path.isfile(acceptance_path)):
             return SpecBundle(
                 spec_path=spec_path,
                 manifest_path=manifest_path,
@@ -87,7 +91,13 @@ class SimpleCompiler(Compiler):
                     f"spec_compiler 失败 (exit {proc.returncode}): {proc.stderr[:200]}"
                 )
 
-            # 验证产出
+            # 验证产出，并兼容 CLI 将主 Spec 写入 spec/spec.md 的既有布局。
+            if not os.path.isfile(spec_path):
+                legacy_spec_path = os.path.join(spec_dir, "spec.md")
+                if os.path.isfile(legacy_spec_path):
+                    spec_path = legacy_spec_path
+            if not os.path.isfile(spec_path):
+                raise CompilerError(f"主 Spec 未生成: {spec_path}")
             if not os.path.isfile(manifest_path):
                 raise CompilerError(f"manifest.json 未生成: {manifest_path}")
             if not os.path.isfile(acceptance_path):

@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -24,12 +25,13 @@ ENGINE = "engine"
 RUNS_JSONL = os.path.join(ROOT, "output", "runs.jsonl")
 SPEC_DIR = os.path.join(ROOT, "data", "specs")
 
-sys.path.insert(0, os.path.join(ROOT, "pipeline", "adapters"))
+# 兼容直接执行和 python -m pipeline.orchestrator；不再依赖不存在的 pipeline/adapters。
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "engine", "tools"))
-from feishu_adapter import FeishuAdapter  # noqa: E402
-from base import Task  # noqa: E402
-import publisher  # noqa: E402
-import deployer  # noqa: E402
+from adapters.base import Task  # noqa: E402
+from adapters.feishu_adapter import FeishuAdapter  # noqa: E402
+from pipeline import deployer, publisher  # noqa: E402
 import tracer  # noqa: E402
 
 
@@ -184,7 +186,39 @@ def process(task: Task, adapter, mode: str) -> bool:
     return False
 
 
-def main() -> int:
+def _task_snapshot(task: Task) -> dict:
+    return {
+        "id": task.id,
+        "title": task.title,
+        "source": task.source,
+        "case": task.case,
+        "spec_text": task.spec_text or "",
+        "priority": task.priority,
+        "extra": task.extra,
+    }
+
+
+def run_profile(profile_id: str, only_task: str = "", max_tasks: int = 0) -> int:
+    """兼容 facade：委托给 Phase 4 的事件化 ProfileRunExecutor。"""
+    from engine.core.observability import EventError
+    from engine.core.profiles import ProfileError
+    from engine.core.run_executor import ProfileRunExecutor
+
+    try:
+        results = ProfileRunExecutor().execute(
+            profile_id, task_id=only_task, max_tasks=max_tasks or 1,
+        )
+    except (ProfileError, EventError) as exc:
+        print(f"[loop] Profile 无法启动: {exc}")
+        return 2
+    for result in results:
+        marker = "✓" if result.status == "passed" else "✗"
+        print(f"[loop] {marker} [{result.task_id}] run={result.run_id} status={result.status}")
+    return 0 if all(result.status == "passed" for result in results) else 1
+
+
+def legacy_main() -> int:
+    """保留历史飞书/环境变量编排入口，供未迁移调用方继续使用。"""
     docs_file = os.path.join(ROOT, os.environ.get("HARNESS_FEISHU_DOCS", "data/backlog.json"))
     state_file = os.path.join(ROOT, os.environ.get("HARNESS_FEISHU_STATE", "data/state.json"))
     adapter = FeishuAdapter(docs_file, state_file)
@@ -225,6 +259,17 @@ def main() -> int:
     tracer.batch_end(ok, fail, 0)
     print(f"\n[loop] 批次结束:成功 {ok} / 失败 {fail}")
     return 0 if fail == 0 else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Loop Platform 编排器")
+    parser.add_argument("--profile", help="按冻结 Run Plan 执行指定 Profile；省略则走 legacy 兼容入口")
+    parser.add_argument("--only-task", default="", help="仅执行指定 task id")
+    parser.add_argument("--max-tasks", type=int, default=0, help="最多执行的 pending task 数")
+    args = parser.parse_args()
+    if args.profile:
+        return run_profile(args.profile, args.only_task, args.max_tasks)
+    return legacy_main()
 
 
 if __name__ == "__main__":

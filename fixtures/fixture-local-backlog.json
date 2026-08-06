@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "id": "fixture-pomodoro",
+      "title": "离线番茄钟参考需求",
+      "case": "pomodoro",
+      "text": "构建一个番茄钟计时器 web 应用，25 分钟工作 + 5 分钟休息。",
+      "priority": 1,
+      "status": "pending",
+      "profile_id": "fixture-local"
+    }
+  ]
+}

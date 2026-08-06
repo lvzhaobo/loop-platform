@@ -21,10 +21,9 @@ class LocalArtifactDelivery(Delivery):
 
     name = "local_artifact"
 
-    def deliver(self, context: RunContext, artifacts: ArtifactBundle) -> DeliveryResult:
-        # 记录交付计划到本地
+    def _plan(self, context: RunContext, artifacts: ArtifactBundle) -> tuple[str, dict]:
         plan_file = os.path.join(artifacts.output_dir, "delivery_plan.json")
-        plan = {
+        return plan_file, {
             "run_id": context.run_id,
             "profile": context.profile,
             "task": context.task,
@@ -34,14 +33,28 @@ class LocalArtifactDelivery(Delivery):
             "adapter": self.name,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
+
+    def plan(self, context: RunContext, artifacts: ArtifactBundle) -> DeliveryResult:
+        """仅返回交付预览；不创建目录，也不写入计划文件。"""
+        plan_file, plan = self._plan(context, artifacts)
+        return DeliveryResult(
+            status="plan_only",
+            location=plan_file,
+            plan=plan,
+            meta={"adapter": self.name, "dry_run": True},
+        )
+
+    def deliver(self, context: RunContext, artifacts: ArtifactBundle) -> DeliveryResult:
+        """将已批准的本地计划写入制品目录；不触发任何外部交付。"""
+        plan_file, plan = self._plan(context, artifacts)
         try:
             os.makedirs(artifacts.output_dir, exist_ok=True)
-            with open(plan_file, "w") as f:
-                json.dump(plan, f, indent=2, ensure_ascii=False)
-        except OSError as e:
+            with open(plan_file, "w", encoding="utf-8") as handle:
+                json.dump(plan, handle, indent=2, ensure_ascii=False)
+        except OSError as exc:
             return DeliveryResult(
                 status="failed",
-                reason=f"写入 delivery_plan.json 失败: {e}",
+                reason=f"写入 delivery_plan.json 失败: {exc}",
                 location=plan_file,
                 plan=plan,
             )
