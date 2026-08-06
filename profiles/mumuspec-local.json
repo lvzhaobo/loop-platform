@@ -1,0 +1,22 @@
+{
+  "id": "mumuspec-local",
+  "version": 1,
+  "description": "实验性 MumuSpec 本地参考组合：仅将 fixture-local 的 SimpleCompiler 替换为 MumuSpecCompiler；当前实现会回退至 SimpleCompiler。",
+  "source": {
+    "name": "local_queue",
+    "config": {
+      "backlog_path": "fixtures/fixture-local-backlog.json"
+    }
+  },
+  "compiler": "mumuspec",
+  "maker": "sample",
+  "checkers": ["security"],
+  "delivery": "local_artifact",
+  "policy": {
+    "max_attempts": 1,
+    "allow_network": false,
+    "allow_publish": false,
+    "allow_deploy": false,
+    "on_unavailable": "block"
+  }
+}

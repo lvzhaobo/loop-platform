@@ -12,6 +12,15 @@ from datetime import datetime
 
 from engine.checkers.base import CheckStatus
 
+VALID_CHECK_STATUSES = frozenset({"passed", "failed", "unavailable", "indeterminate", "skipped"})
+VALID_DELIVERY_STATUSES = frozenset({"passed", "failed", "plan_only"})
+
+
+def _require_status(status: str, allowed: frozenset[str], label: str) -> None:
+    if status not in allowed:
+        values = ", ".join(sorted(allowed))
+        raise ValueError(f"无效 {label} status: {status}；支持: {values}")
+
 
 # ══════════════════════════════════════════════════════════════════════
 # 运行上下文
@@ -93,6 +102,9 @@ class CheckReport:
     evidence: dict = field(default_factory=dict)
     summary: dict = field(default_factory=dict)  # status 分布统计
 
+    def __post_init__(self) -> None:
+        _require_status(self.status, VALID_CHECK_STATUSES, "CheckReport")
+
     def to_dict(self) -> dict:
         return {
             "status": self.status,
@@ -114,6 +126,9 @@ class DeliveryResult:
     reason: str = ""                    # 失败原因
     plan: dict = field(default_factory=dict)  # dry-run 计划
     meta: dict = field(default_factory=dict)  # {adapter, duration, ...}
+
+    def __post_init__(self) -> None:
+        _require_status(self.status, VALID_DELIVERY_STATUSES, "DeliveryResult")
 
     def to_dict(self) -> dict:
         return {
@@ -145,6 +160,9 @@ class RunEvent:
     cost_estimate_yuan: float = 0.0
     duration_seconds: float = 0.0
     status: CheckStatus = "unavailable"
+
+    def __post_init__(self) -> None:
+        _require_status(self.status, VALID_CHECK_STATUSES, "RunEvent")
 
     def to_dict(self) -> dict:
         return {

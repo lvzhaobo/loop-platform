@@ -68,8 +68,16 @@ def guard_stall(case: str) -> None:
 
 # ---- 查询 API ----
 
-def query(limit: int = 100, event_type: str | None = None) -> list[dict]:
-    """读取最近的 trace 事件。"""
+def query(
+    limit: int = 100,
+    event_type: str | None = None,
+    offset: int = 0,
+) -> list[dict]:
+    """读取 trace 事件的一个时间窗口。
+
+    ``offset=0`` 表示最近事件；offset 以过滤后的事件数计，用于 Studio
+    的只读历史翻页。返回顺序仍为旧接口兼容的时间正序。
+    """
     if not os.path.exists(TRACE_FILE):
         return []
     events: list[dict] = []
@@ -79,13 +87,16 @@ def query(limit: int = 100, event_type: str | None = None) -> list[dict]:
             if not line:
                 continue
             try:
-                e = json.loads(line)
-                if event_type and e.get("event") != event_type:
+                event = json.loads(line)
+                if event_type and event.get("event") != event_type:
                     continue
-                events.append(e)
+                events.append(event)
             except json.JSONDecodeError:
                 continue
-    return events[-limit:]
+    offset = max(0, offset)
+    end = max(0, len(events) - offset)
+    start = max(0, end - max(1, limit))
+    return events[start:end]
 
 
 def metrics() -> dict:

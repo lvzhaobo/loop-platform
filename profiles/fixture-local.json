@@ -1,0 +1,22 @@
+{
+  "id": "fixture-local",
+  "version": 1,
+  "description": "离线参考组合：本地 fixture 需求 → SimpleCompiler → SampleMaker → SecurityChecker → LocalArtifactDelivery。",
+  "source": {
+    "name": "local_queue",
+    "config": {
+      "backlog_path": "fixtures/fixture-local-backlog.json"
+    }
+  },
+  "compiler": "simple",
+  "maker": "sample",
+  "checkers": ["security"],
+  "delivery": "local_artifact",
+  "policy": {
+    "max_attempts": 1,
+    "allow_network": false,
+    "allow_publish": false,
+    "allow_deploy": false,
+    "on_unavailable": "block"
+  }
+}

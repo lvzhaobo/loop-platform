@@ -19,6 +19,9 @@ def make_with_context(
     spec: SpecBundle,
     maker_name: str = "deepseek_api",
     feedback: str | None = None,
+    requirement: str = "",
+    timeout_seconds: int | None = None,
+    cost_limit_yuan: float | None = None,
 ) -> ArtifactBundle:
     """用 Phase 2 合同调用既有 Maker。
 
@@ -33,8 +36,12 @@ def make_with_context(
     """
     from engine.makers import load_maker
 
-    maker = load_maker(maker_name)
-    output_dir = os.path.join(PlatformPaths.OUTPUT_DIR, f"maker-{context.run_id[:12]}")
+    maker_config = {}
+    if timeout_seconds is not None:
+        maker_config["timeout_seconds"] = timeout_seconds
+    maker = load_maker(maker_name, **maker_config)
+    # 使用完整 run_id 隔离每次制品，禁止按日期前缀复用历史输出。
+    output_dir = os.path.join(PlatformPaths.OUTPUT_DIR, f"maker-{context.run_id}")
 
     # 构建 enhanced prompt（含 spec 内容）
     prompt_parts = []
@@ -51,20 +58,27 @@ def make_with_context(
             prompt_parts.append(f"# spec\n{open(spec.manifest_path).read()}")
 
     prompt = "\n\n".join(prompt_parts)
+    if requirement.strip():
+        prompt = f"# original_requirement\n{requirement.strip()}\n\n{prompt}"
 
     result = maker.generate(str(output_dir), prompt, feedback=feedback)
+    if not result.success:
+        raise RuntimeError(f"Maker {maker_name} 失败: {result.error or '未返回制品'}")
+    if cost_limit_yuan is not None and result.cost_estimate_yuan > cost_limit_yuan:
+        raise RuntimeError(f"Maker 估算成本 {result.cost_estimate_yuan} 超过上限 {cost_limit_yuan}")
+    if not result.files:
+        raise RuntimeError(f"Maker {maker_name} 未返回业务文件")
 
-    # 收集文件列表并计算 digest
-    files = []
-    if os.path.isdir(output_dir):
-        for root, _, filenames in os.walk(output_dir):
-            for fn in filenames:
-                rel = os.path.relpath(os.path.join(root, fn), output_dir)
-                files.append(rel)
+    # 只把 Maker 显式声明的业务文件纳入 artifact；不吸收调试文本或未声明副产物。
+    files = sorted(result.files)
 
     hasher = hashlib.sha256()
-    for fn in sorted(files):
-        with open(os.path.join(output_dir, fn), "rb") as f:
+    root = os.path.realpath(output_dir)
+    for fn in files:
+        full_path = os.path.realpath(os.path.join(root, fn))
+        if not full_path.startswith(root + os.sep) or not os.path.isfile(full_path):
+            raise RuntimeError(f"Maker 返回的制品文件非法或缺失: {fn}")
+        with open(full_path, "rb") as f:
             hasher.update(f.read())
     digest = hasher.hexdigest()
 

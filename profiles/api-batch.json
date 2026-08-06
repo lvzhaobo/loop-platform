@@ -1,0 +1,22 @@
+{
+  "id": "api-batch",
+  "version": 1,
+  "description": "API Maker 参考组合：仅将 fixture-local 的 SampleMaker 替换为 DeepSeek API Maker；当前仅支持验证与 dry-run 预览。",
+  "source": {
+    "name": "local_queue",
+    "config": {
+      "backlog_path": "fixtures/fixture-local-backlog.json"
+    }
+  },
+  "compiler": "simple",
+  "maker": "deepseek",
+  "checkers": ["security"],
+  "delivery": "local_artifact",
+  "policy": {
+    "max_attempts": 1,
+    "allow_network": false,
+    "allow_publish": false,
+    "allow_deploy": false,
+    "on_unavailable": "block"
+  }
+}

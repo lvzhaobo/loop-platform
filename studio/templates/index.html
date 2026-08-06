@@ -102,6 +102,14 @@
     </div>
 
     <div class="nav-group-label">交付控制</div>
+    <div class="nav-item" data-page="profiles" data-title="Profiles（只读）" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/></svg>
+      <span class="nav-idx">03a</span><span class="nav-txt">Profiles（只读）</span>
+    </div>
+    <div class="nav-item" data-page="run-plans" data-title="Run Plan（只读）" onclick="go(this)">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><polyline points="13 3 13 8 18 8"/><path d="m9 15 2 2 4-4"/></svg>
+      <span class="nav-idx">03b</span><span class="nav-txt">Run Plan（只读）</span>
+    </div>
     <div class="nav-item" data-page="harness" data-title="Harness 约束" onclick="go(this)">
       <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       <span class="nav-idx">03</span><span class="nav-txt">Harness 约束</span>
@@ -114,9 +122,9 @@
       <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h7a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3"/><path d="M16 2v4a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V2"/><circle cx="9" cy="15" r="3"/><path d="M11.3 17.3 14 20"/></svg>
       <span class="nav-idx">04b</span><span class="nav-txt">诊断报告</span>
     </div>
-    <div class="nav-item" data-page="genlist" data-title="生成历史" onclick="go(this)">
+    <div class="nav-item" data-page="genlist" data-title="运行与生成历史" onclick="go(this)">
       <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      <span class="nav-idx">04c</span><span class="nav-txt">生成历史</span>
+      <span class="nav-idx">04c</span><span class="nav-txt">运行与生成历史</span>
     </div>
 
     <div class="nav-group-label">应用与运维</div>
@@ -248,7 +256,7 @@
     <div class="page-desc">需求池 Backlog——支持直接填写文字需求，或粘贴飞书云文档链接自动解析入池。</div>
   </div>
   <div class="toolbar-row">
-    <button class="btn primary" onclick="openModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加需求</button>
+    <button class="btn primary" onclick="openRequirementModal()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加需求</button>
     <div class="seg"><button class="active">全部</button><button>待处理</button><button>已完成</button><button>失败</button></div>
     <div class="spacer"></div>
     <div class="mini-search"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input placeholder="搜索需求…"></div>
@@ -289,6 +297,25 @@
     <iframe id="specFrame" src="/static/spec-console-bl-v4.html" title="MumuSpec 14文档三环追溯"></iframe>
   </div>
 </section>
+
+<!-- ===== PAGE: Profiles（只读） ===== -->
+<section class="page" id="page-profiles">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/></svg>Profiles <span class="badge blue" style="margin-left:8px">只读 · 权威数据</span></div>
+    <div class="page-desc">版本化组合：来源、Compiler、Maker、Checker、Delivery 与权限策略。不会读取全局 <code>config.env</code> 伪造任务级配置。</div>
+  </div>
+  <div id="profilesList" class="card panel" style="max-width:900px"><div class="hint">正在加载 Profile…</div></div>
+</section>
+
+<!-- ===== PAGE: Run Plan（只读） ===== -->
+<section class="page" id="page-run-plans">
+  <div class="page-head">
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1 1-1V4a1 1 0 0 1 1-1z"/><polyline points="13 3 13 8 18 8"/><path d="m9 15 2 2 4-4"/></svg>Run Plan <span class="badge blue" style="margin-left:8px">只读 · 冻结快照</span></div>
+    <div class="page-desc">计划在执行前冻结 Profile、组件、策略、输入摘要和副作用范围；后续全局配置变化不会修改已有计划。</div>
+  </div>
+  <div id="runPlansList" class="card panel" style="max-width:900px"><div class="hint">正在加载 Run Plan…</div></div>
+</section>
+
 <!-- ===== PAGE: Harness 约束 ===== -->
 <section class="page" id="page-harness">
   <div class="page-head">
@@ -477,11 +504,11 @@
 
 </section>
 
-<!-- ===== PAGE: 生成历史 ===== -->
+<!-- ===== PAGE: 运行与生成历史 ===== -->
 <section class="page" id="page-genlist">
   <div class="page-head">
-    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>生成历史</div>
-    <div class="page-meta" id="genlistMeta">所有代码生成记录</div>
+    <div class="page-title"><svg class="pt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>运行与生成历史</div>
+    <div class="page-meta" id="genlistMeta">运行事件与代码生成产物</div>
   </div>
   <div class="page-body" id="genlistBody">
     <div class="genlist-grid" id="genlistGrid">
@@ -687,16 +714,17 @@
   </div>
 </div>
 
-<!-- ============ MODAL: 添加需求 ============ -->
+<!-- ============ MODAL: 添加需求与 Plan Review ============ -->
 <div class="modal-mask" id="reqModal">
   <div class="modal">
-    <div class="modal-head"><div class="mh-title">添加需求</div><button class="drawer-close" onclick="closeModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-head"><div class="mh-title">添加需求 · 先审阅计划</div><button class="drawer-close" onclick="closeModal('reqModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
     <div class="modal-body">
       <div class="tab-row"><button class="active" onclick="reqTab(this,'txt')">文字需求</button><button onclick="reqTab(this,'fs')">飞书云文档</button></div>
+      <div class="form-row"><label>交付 Profile</label><select id="reqProfile"><option value="">正在加载已校验 Profile…</option></select><div class="hint" style="margin-top:6px">Profile 冻结 Source、Spec Compiler、Maker、Checker、Delivery 和权限；本页不临时改写这些配置。</div></div>
       <div id="reqtab-txt">
         <div class="form-row"><label>标题</label><input id="txtTitle" placeholder="例：课程商城：课程列表 + 详情"></div>
         <div class="form-row"><label>需求描述</label><textarea id="txtDesc" rows="5" placeholder="描述页面形态、字段、量化要求…"></textarea></div>
-        <div class="form-grid"><div class="form-row"><label>优先级</label><select id="txtPrio"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></div><div class="form-row"><label>编译方式</label><select id="txtCompiler"><option value="mumuspec">MumuSpec 六轮</option><option value="langgraph">LangGraph 多Agent</option></select></div></div>
+        <div class="form-row"><label>优先级</label><select id="txtPrio"><option value="1">P1</option><option value="2" selected>P2</option><option value="3">P3</option></select></div>
       </div>
       <div id="reqtab-fs" style="display:none">
         <div class="form-row"><label>标题（可选）</label><input id="fsTitle" placeholder="留空则取文档标题"></div>
@@ -704,7 +732,15 @@
         <div class="login-tip" id="fsPreview" style="display:none"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn" onclick="closeModal('reqModal')">取消</button><button class="btn primary" onclick="addBacklog()">加入需求池</button></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('reqModal')">取消</button><button class="btn primary" onclick="previewPlanReview()">查看 Plan Review</button></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="planReviewModal">
+  <div class="modal">
+    <div class="modal-head"><div class="mh-title">Plan Review <span class="badge blue">dry-run · 无副作用</span></div><button class="drawer-close" onclick="closeModal('planReviewModal')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="modal-body" id="planReviewBody"><div class="hint">正在生成计划预览…</div></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal('planReviewModal')">返回编辑</button><button class="btn primary" onclick="confirmReviewedBacklog()">确认并真实执行 / 交付</button></div>
   </div>
 </div>
 

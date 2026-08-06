@@ -67,6 +67,9 @@ class PlatformPaths:
     STUDIO_DIR: Path = ROOT / "studio"
     API_DIR: Path = ROOT / "api"
     ADAPTERS_DIR: Path = ROOT / "adapters"
+    PROFILES_DIR: Path = ROOT / "profiles"
+    RUN_PLANS_DIR: Path = DATA_DIR / "run_plans"
+    RUN_EVENTS_DIR: Path = DATA_DIR / "run_events"
 
     # ── 配置文件 ──
     CONFIG_FILE: Path = ROOT / "config.env"
