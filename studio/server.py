@@ -3,21 +3,24 @@
 import json, os, sys, time
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
+# 先以当前文件位置解析路径，确保 engine/ 可导入
 STUDIO_DIR = os.path.dirname(os.path.abspath(__file__))
 LOOP_DIR = os.path.dirname(STUDIO_DIR)
-REPO_ROOT = os.path.dirname(LOOP_DIR)
-ENGINE_DIR = os.path.join(LOOP_DIR, "engine")
-
+REPO_ROOT = LOOP_DIR  # 重构后 studio/ 直接在仓库根下
 sys.path.insert(0, LOOP_DIR)
-sys.path.insert(0, ENGINE_DIR)
-sys.path.insert(0, os.path.join(ENGINE_DIR, "tools"))
-sys.path.insert(0, os.path.join(LOOP_DIR, "pipeline"))
+sys.path.insert(0, os.path.join(LOOP_DIR, "engine"))
 
-# ── 加载 .env(必须在读 STUDIO_TOKEN/STUDIO_SECRET 之前)：优先仓库上级(本地开发布局)，其次 loop 目录本身(loop 作为仓库根克隆时) ──
+# F2: 用 PlatformPaths 接管后续所有路径解析
+from engine.core.paths import PlatformPaths, load_config, find_root
+
+ENGINE_DIR = str(PlatformPaths.ENGINE_DIR)
+sys.path.insert(0, str(PlatformPaths.ENGINE_DIR / "tools"))
+sys.path.insert(0, str(PlatformPaths.PIPELINE_DIR))
+
+# ── .env 加载（通过 PlatformPaths + load_config）──
 def _load_env():
-    env_file = os.path.join(REPO_ROOT, ".env")
-    if not os.path.exists(env_file):
-        env_file = os.path.join(LOOP_DIR, ".env")
+    """加载 .env，将密钥写入 os.environ。"""
+    env_file = str(PlatformPaths.ENV_FILE)
     if not os.path.exists(env_file):
         return
     with open(env_file) as f:

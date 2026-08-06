@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Loop 轮询式自动触发器（替代 poll.sh）。
 
-守护进程模式: python loop/pipeline/trigger/poll.py
-单次模式:     python loop/pipeline/trigger/poll.py --once
+守护进程模式: python pipeline/trigger/poll.py
+单次模式:     python pipeline/trigger/poll.py --once
 """
 
 import os

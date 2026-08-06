@@ -26,7 +26,7 @@
 用法
 ----
   # 启动(前台;默认 sample 离线模式,零密钥)
-  python loop/pipeline/trigger/webhook.py
+  python pipeline/trigger/webhook.py
   # 另开一个终端手动触发一批:
   curl -X POST http://127.0.0.1:8787/trigger
   # 带密钥时:

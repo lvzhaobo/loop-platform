@@ -1,14 +1,14 @@
 """Loop 编排层主循环。
 
 职责:从需求池自主取任务 → 子进程调用引擎生成+验证 → 回写状态到来源。
-引擎被当作黑盒调用(python loop/engine/generate.py),本层不 import 其内部代码,
+引擎被当作黑盒调用(python engine/generate.py),本层不 import 其内部代码,
 也不改其任何产物。引擎结果通过退出码 + output/runs.jsonl 回读。
 
 唯一需求来源:飞书云文档 / 直接文本。通过 feishu_docs.json 统一管理,
 飞书文档执行时实时拉取,直接文本已预存。
 
-用法: python loop/pipeline/orchestrator.py
-环境: 见 loop/config.env
+用法: python pipeline/orchestrator.py
+环境: 见 config.env
 """
 from __future__ import annotations
 

@@ -1,0 +1,6 @@
+{
+  "checks": [
+    {"name": "has_timer", "desc": "页面包含倒计时元素"},
+    {"name": "has_button", "desc": "页面包含开始按钮"}
+  ]
+}

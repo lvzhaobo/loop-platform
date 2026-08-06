@@ -30,43 +30,44 @@
 
 | 层 | 目录 | 职责 |
 |---|---|---|
-| 引擎 | `loop/engine/` | 契约驱动的确定性代码生成 + 硬验证闭环 |
-| 编排 | `loop/pipeline/` | 需求池管理、调度引擎、发布、部署 |
-| 配置 | `loop/studio/` | Web 面板（需求管理、约束编辑、一键交付） |
+| 引擎 | `engine/` | 契约驱动的确定性代码生成 + 硬验证闭环 |
+| 编排 | `pipeline/` | 需求池管理、调度引擎、发布、部署 |
+| 配置 | `studio/` | Web 面板（需求管理、约束编辑、一键交付） |
 
 **编排层不 import 引擎代码**，只通过子进程 + 退出码 + `runs.jsonl` 交互。引擎可独立跑，编排层可换引擎。
 
 ## 目录结构
 
 ```
-loop/
-├── engine/              # 生成引擎
-│   ├── generate.sh      #   多用例生成+验证闭环
-│   ├── gate.sh          #   CI 门禁（自洽→派生→全用例）
-│   ├── constraints.json #   全局硬约束
+engine/              # 生成引擎
+│   ├── generate.py      #   多用例生成+验证闭环
+│   ├── gate.py          #   CI 门禁（自洽→派生→全用例）
 │   ├── prompt.md        #   系统提示（场景中立）
 │   ├── rules/           #   规则（通用基座 + 任务约束）
-│   └── tools/           #   生成器 / 验证器 / spec 编译器
+│   ├── tools/           #   生成器 / 验证器 / spec 编译器
+│   └── makers/          #   多 AI Maker（DeepSeek/Claude/Qoder/Copilot）
 │
-├── pipeline/            # 编排 + 交付
+pipeline/            # 编排 + 交付
 │   ├── orchestrator.py  #   主循环（取任务→调引擎→回写）
 │   ├── publisher.py     #   发布到 GitHub
 │   ├── deployer.py      #   部署到 ECS
-│   ├── run.sh           #   唯一入口
+│   ├── run.py           #   唯一入口
 │   ├── adapters/        #   需求来源适配器（飞书/直接文本）
 │   ├── trigger/         #   自动触发器（webhook / 轮询）
 │   └── deploy/          #   部署基础设施
 │
-├── studio/              # Web 配置面板
+studio/              # Web 配置面板
 │   ├── server.py        #   Flask 后端（16 个 API）
 │   ├── templates/       #   前端 SPA + 登录页
 │   └── static/          #   CSS / JS
 │
-├── cases/               # 所有用例（唯一事实源）
-├── backlog/              # 需求池数据
-├── specs/               # 原始需求存档
-├── config.env           # 一份统一配置
-└── setup.sh             # 环境初始化
+cases/               # 所有用例（唯一事实源）
+data/                # 需求池数据
+│   ├── backlog.json     #   需求池
+│   ├── state.json      #   任务状态
+│   └── specs/          #   原始需求存档
+config.env           # 一份统一配置
+setup.py             # 环境初始化
 
 output/                  # 产物
 ```
@@ -75,20 +76,20 @@ output/                  # 产物
 
 ```bash
 # 1. 环境准备
-python loop/setup.py
+python setup.py
 source .venv/bin/activate
 
 # 2. 配置 API Key（仓库根 .env）
 echo 'export DEEPSEEK_API_KEY="sk-xxx"' > .env
 
 # 3. 启动配置面板
-python loop/studio/server.py
+python studio/server.py
 # 打开 http://127.0.0.1:5100
 
 # 4. 添加需求 → 点"开始交付"
 
 # 或命令行直接跑：
-source .env && python loop/pipeline/run.py
+source .env && python pipeline/run.py
 ```
 
 ## 工作流程
@@ -135,7 +136,7 @@ verify.py 执行硬验收：
 
 ## Better Harness 质量诊断
 
-Loop 集成了 [Better Harness](https://github.com/anthropics/better-harness) —— 对生成的代码做**第二层深度诊断**，补充硬验收覆盖不到的维度：
+Loop 集成了 Better Harness 流程质量诊断 —— 对生成的代码做**第二层深度诊断**，补充硬验收覆盖不到的维度：
 
 | 维度 | 检查什么 | 硬验收做不到的 |
 |---|---|---|
@@ -180,7 +181,7 @@ export HARNESS_MAKER=qoder       # deepseek | claude | qoder | copilot
 
 ## 配置
 
-所有配置在 `loop/config.env`，可被环境变量覆盖：
+所有配置在 `config.env`，可被环境变量覆盖：
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
@@ -196,7 +197,7 @@ export HARNESS_MAKER=qoder       # deepseek | claude | qoder | copilot
 
 ## ECS 部署（含 CLI 工具安装）
 
-`loop/pipeline/deploy/setup_ecs.sh` 负责在 ECS 上一键部署。默认只装 Python + Git + Flask。
+`pipeline/deploy/setup_ecs.sh` 负责在 ECS 上一键部署。默认只装 Python + Git + Flask。
 
 **如需在 ECS 上使用 CLI 型 Maker 或 Better Harness**，需额外安装对应工具：
 

@@ -1,0 +1,157 @@
+"""Phase 2 兼容收口 — 将现有 Maker/Checker 包装为 Phase 2 合同。
+
+不修改既有 provider，仅添加 RunContext/SpecBundle/ArtifactBundle 适配层。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+
+from engine.core.contracts import RunContext, SpecBundle, ArtifactBundle, CheckReport
+from engine.core.paths import PlatformPaths
+
+
+# ── Maker 兼容 ──
+
+def make_with_context(
+    context: RunContext,
+    spec: SpecBundle,
+    maker_name: str = "deepseek_api",
+    feedback: str | None = None,
+) -> ArtifactBundle:
+    """用 Phase 2 合同调用既有 Maker。
+
+    Args:
+        context: 运行上下文
+        spec: Spec 三件套
+        maker_name: Maker 名称（默认 deepseek_api）
+        feedback: 上一轮验证失败反馈
+
+    Returns:
+        ArtifactBundle: 制品包
+    """
+    from engine.makers import load_maker
+
+    maker = load_maker(maker_name)
+    output_dir = os.path.join(PlatformPaths.OUTPUT_DIR, f"maker-{context.run_id[:12]}")
+
+    # 构建 enhanced prompt（含 spec 内容）
+    prompt_parts = []
+    for path in [spec.spec_path, spec.manifest_path, spec.acceptance_path]:
+        if path and os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+            tag = os.path.basename(path).replace(".json", "").replace(".md", "")
+            prompt_parts.append(f"# {tag}\n{content}")
+    if not prompt_parts:
+        from engine.tools.compile_spec import derive
+        # 尝试从 manifest 派生 prompt
+        if os.path.isfile(spec.manifest_path):
+            prompt_parts.append(f"# spec\n{open(spec.manifest_path).read()}")
+
+    prompt = "\n\n".join(prompt_parts)
+
+    result = maker.generate(str(output_dir), prompt, feedback=feedback)
+
+    # 收集文件列表并计算 digest
+    files = []
+    if os.path.isdir(output_dir):
+        for root, _, filenames in os.walk(output_dir):
+            for fn in filenames:
+                rel = os.path.relpath(os.path.join(root, fn), output_dir)
+                files.append(rel)
+
+    hasher = hashlib.sha256()
+    for fn in sorted(files):
+        with open(os.path.join(output_dir, fn), "rb") as f:
+            hasher.update(f.read())
+    digest = hasher.hexdigest()
+
+    return ArtifactBundle(
+        output_dir=str(output_dir),
+        files=files,
+        digest=digest,
+        meta={
+            "model": result.model,
+            "cost_estimate_yuan": result.cost_estimate_yuan,
+            "maker": maker_name,
+        },
+    )
+
+
+# ── Checker 兼容 ──
+
+def check_with_context(
+    context: RunContext,
+    artifacts: ArtifactBundle,
+    checker_names: list[str] | None = None,
+) -> CheckReport:
+    """用 Phase 2 合同调用既有 Checker。
+
+    Args:
+        context: 运行上下文（含 run_id 用于 BH 绑定）
+        artifacts: 制品包
+        checker_names: Checker 名称列表（默认全部）
+
+    Returns:
+        CheckReport: 检查报告
+    """
+    from engine.checkers import load_checker, list_checkers
+
+    names = checker_names or list_checkers()
+    all_checks = []
+    evidence = {}
+
+    for name in names:
+        try:
+            checker = load_checker(name)
+            result = checker.check(artifacts.output_dir, run_id=context.run_id)
+            for c in result.checks:
+                # 标记来源 checker
+                if "checker" not in c:
+                    c["checker"] = name
+                all_checks.append(c)
+            # 记录证据引用
+            status_sum = result.summarize()
+            evidence[name] = {
+                "status_summary": status_sum,
+                "total": result.total_count,
+                "pass": result.pass_count,
+            }
+        except Exception as e:
+            all_checks.append({
+                "name": f"Checker:{name}",
+                "pass": False,
+                "status": "unavailable",
+                "detail": str(e)[:200],
+                "checker": name,
+            })
+
+    # 汇总状态
+    from engine.checkers.base import CheckStatus
+    has_failure = any(c.get("status") == "failed" or
+                      (c.get("pass") is False and c.get("status") != "unavailable")
+                      for c in all_checks)
+    has_unavailable = any(c.get("status") == "unavailable" for c in all_checks)
+    all_passed = all(c.get("pass") or c.get("status") == "skipped" for c in all_checks)
+
+    if all_passed and not has_unavailable:
+        status: CheckStatus = "passed"
+    elif has_unavailable and not has_failure:
+        status = "indeterminate"
+    elif has_failure:
+        status = "failed"
+    else:
+        status = "unavailable"
+
+    return CheckReport(
+        status=status,
+        checks=all_checks,
+        evidence=evidence,
+        summary={
+            "total": len(all_checks),
+            "passed": sum(1 for c in all_checks if c.get("pass")),
+            "checkers": names,
+        },
+    )

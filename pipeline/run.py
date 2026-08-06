@@ -2,7 +2,7 @@
 """Loop 主入口：从需求池取任务 → 调引擎 → 回写状态。
 
 替代 run.sh / run_backlog.sh。
-用法: python loop/pipeline/run.py
+用法: python pipeline/run.py
 """
 
 import subprocess

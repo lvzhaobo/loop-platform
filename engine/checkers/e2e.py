@@ -119,7 +119,7 @@ class E2EChecker(Checker):
 
         return (True, "未知类型，跳过")
 
-    def check(self, target_dir: str) -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
         checks = []
         entry = detect_entry(target_dir)
 

@@ -1,0 +1,9 @@
+{
+  "case": "pomodoro",
+  "name": "番茄钟",
+  "spec": "构建一个番茄钟计时器 web 应用",
+  "constraints": {
+    "framework": "html",
+    "time": 25
+  }
+}

@@ -4,9 +4,9 @@
 替代 generate.sh。支持 HARNESS_MODE=sample 离线模式。
 
 用法:
-  python loop/engine/generate.py                           # 跑 run_cases
-  HARNESS_CASES=education python loop/engine/generate.py    # 跑指定用例
-  HARNESS_MODE=sample python loop/engine/generate.py        # 离线模式
+  python engine/generate.py                           # 跑 run_cases
+  HARNESS_CASES=education python engine/generate.py    # 跑指定用例
+  HARNESS_MODE=sample python engine/generate.py        # 离线模式
 """
 
 import hashlib
@@ -18,10 +18,12 @@ import sys
 import time
 from pathlib import Path
 
-# 路径: generate.py 在 loop/engine/ 下
-LOOP_DIR = Path(__file__).resolve().parent.parent
-ROOT = LOOP_DIR.parent
-ENGINE_DIR = Path(__file__).resolve().parent
+# F2: 使用 PlatformPaths 集中管理路径
+from engine.core.paths import PlatformPaths, find_root
+
+LOOP_DIR = PlatformPaths.ROOT
+ROOT = PlatformPaths.ROOT
+ENGINE_DIR = PlatformPaths.ENGINE_DIR
 
 sys.path.insert(0, str(ENGINE_DIR))
 sys.path.insert(0, str(ENGINE_DIR / "tools"))
@@ -79,9 +81,8 @@ CASES_ENV = os.environ.get("HARNESS_CASES", "").strip()
 if CASES_ENV:
     CASES = CASES_ENV.split()
 else:
-    # 从 cases 目录自动发现所有可用用例
-    import glob as _glob
-    _all = [p.name for p in Path("loop/cases").iterdir() if p.is_dir() and (p / "spec" / "manifest.json").exists()]
+    # 从根目录 cases/ 自动发现所有可用用例（F1: 迁移后路径）
+    _all = [p.name for p in Path("cases").iterdir() if p.is_dir() and (p / "spec" / "manifest.json").exists()]
     CASES = _all if _all else ["education"]
 
 

@@ -7,15 +7,15 @@ from . import load_checker, list_checkers
 class AllChecker(Checker):
     name = "all"
 
-    def check(self, target_dir: str) -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
         all_checks = []
         for name in list_checkers():
             try:
                 c = load_checker(name)
-                r = c.check(target_dir)
+                r = c.check(target_dir, run_id=run_id)
                 all_checks.extend(r.checks)
             except Exception as e:
-                all_checks.append({"name": name, "pass": False, "detail": str(e)[:100]})
+                all_checks.append({"name": name, "pass": False, "status": "unavailable", "detail": str(e)[:100]})
 
         pass_count = sum(1 for c in all_checks if c["pass"])
         return CheckerResult(

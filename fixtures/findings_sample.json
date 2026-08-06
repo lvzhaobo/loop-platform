@@ -1,0 +1,18 @@
+{
+  "run_id": "fixture-test-001",
+  "generated_at": "2026-08-06T10:00:00Z",
+  "summary": {
+    "dimensions": [
+      {"id": "task-understanding", "score": 85, "summary": "任务目标明确"},
+      {"id": "controlled-execution", "score": 70, "summary": "执行基本可控"},
+      {"id": "change-validation", "score": 90, "summary": "变更验证完善"},
+      {"id": "reliable-delivery", "score": 65, "summary": "交付一般可靠"},
+      {"id": "learning-capture", "score": 40, "summary": "经验沉淀不足"}
+    ]
+  },
+  "findings": [
+    {"id": "F-1", "severity": "High", "title": "缺少测试", "detail": "未找到单元测试"},
+    {"id": "F-2", "severity": "Medium", "title": "依赖过期", "detail": "部分依赖非最新版"},
+    {"id": "F-3", "severity": "Low", "title": "注释不完整", "detail": "少数函数缺少文档"}
+  ]
+}

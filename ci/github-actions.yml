@@ -1,14 +1,14 @@
 # Loop Engine CI gate workflow
 #
 # Place this file at: .github/workflows/loop-gate.yml
-# Triggers on pushes/PRs touching loop/engine/ or loop/cases/
+# Triggers on pushes/PRs touching engine/ or cases/
 # Self-consistency + schema derivation + offline sample loop do NOT require an API key.
 name: loop-gate
 on:
   push:
-    paths: ["loop/engine/**", "loop/cases/**"]
+    paths: ["engine/**", "cases/**", "pipeline/**", "studio/**"]
   pull_request:
-    paths: ["loop/engine/**", "loop/cases/**"]
+    paths: ["engine/**", "cases/**", "pipeline/**", "studio/**"]
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -21,13 +21,13 @@ jobs:
         run: pip install "Flask==3.0.*"
       - name: Self-consistency + schema derivation (no key needed)
         run: |
-          python loop/engine/tools/compile_spec.py --check
-          python loop/engine/tools/build_schema.py
+          python engine/tools/compile_spec.py --check
+          python engine/tools/build_schema.py
       - name: Offline sample loop (no key needed)
         env:
           HARNESS_MODE: sample
           HARNESS_DET_CHECK: "1"
-        run: python loop/engine/gate.py
+        run: python engine/gate.py
       - name: Real generation loop (requires DEEPSEEK_API_KEY secret)
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -36,4 +36,4 @@ jobs:
             echo "No DEEPSEEK_API_KEY configured, skipping real loop (self-consistency + offline sample already verified)"
             exit 0
           fi
-          HARNESS_MODE=real python loop/engine/gate.py
+          HARNESS_MODE=real python engine/gate.py

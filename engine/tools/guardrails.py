@@ -110,7 +110,7 @@ class StallDetector:
 
 import json as _json
 
-FEATURES_FILE = os.environ.get("LOOP_FEATURES_FILE", "loop/data/features.json")
+FEATURES_FILE = os.environ.get("LOOP_FEATURES_FILE", "data/features.json")
 DEFAULT_FEATURES = {
     "reasoning_review": False,       # LLM-as-Judge 代码审查
     "reasoning_style": False,        # LLM UI 还原度检查
