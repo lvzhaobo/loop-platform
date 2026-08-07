@@ -8,12 +8,34 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 
 from engine.core.contracts import RunContext, SpecBundle
 from engine.compilers.base import Compiler, CompilerError
 from engine.compilers.registry import register
 from engine.core.paths import PlatformPaths
+
+
+_MULTI_PAGE_RE = re.compile(r"(?:至少|最少|不少于)\s*(\d+)\s*(?:个)?(?:页面|页)")
+
+
+def _acceptance_contract(requirement: str) -> dict:
+    """Compile explicit multi-page wording into a deterministic v2 artifact contract."""
+    acceptance = [
+        {"id": "AC-001", "type": "file_exists", "file": "index.html", "desc": "存在可直接打开的入口页面"},
+        {"id": "AC-002", "type": "text_contains", "file": "index.html", "needle": "<html", "desc": "入口为 HTML 文档"},
+    ]
+    match = _MULTI_PAGE_RE.search(requirement)
+    count = int(match.group(1)) if match else 1
+    if count < 2:
+        return {"acceptance": acceptance}
+    files = ["index.html", *[f"page-{index}.html" for index in range(2, count + 1)]]
+    pages = [{"id": "home", "file": "index.html", "entry": True}]
+    pages.extend({"id": f"page-{index}", "file": filename} for index, filename in enumerate(files[1:], start=2))
+    navigation = [{"from": "index.html", "to": filename} for filename in files[1:]]
+    return {"schema_version": 2, "entry": "index.html", "pages": pages, "navigation": navigation,
+            "acceptance": acceptance}
 
 
 @register("simple")
@@ -57,6 +79,18 @@ class SimpleCompiler(Compiler):
             raise CompilerError(f"spec_compiler.py 未找到: {cli_path}")
 
         is_sample = os.environ.get("HARNESS_MODE") == "sample"
+        if is_sample:
+            # 任意 Studio 需求的确定性最小 Spec：不调用第二个模型，也不受旧 pomodoro fixture 限制。
+            os.makedirs(spec_dir, exist_ok=True)
+            with open(spec_path, "w", encoding="utf-8") as handle:
+                handle.write(f"# {task}\n\n{requirement.strip() or '未提供需求正文'}\n")
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump({"name": task, "source": "deterministic-studio-spec", "requirement": requirement.strip()}, handle,
+                          ensure_ascii=False, indent=2)
+            with open(acceptance_path, "w", encoding="utf-8") as handle:
+                json.dump(_acceptance_contract(requirement), handle, ensure_ascii=False, indent=2)
+            return SpecBundle(spec_path=spec_path, manifest_path=manifest_path, acceptance_path=acceptance_path,
+                              provenance="deterministic-studio-spec", meta={"source": "sample"})
 
         try:
             cmd = [

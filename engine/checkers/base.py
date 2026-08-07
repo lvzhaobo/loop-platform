@@ -59,11 +59,12 @@ class Checker(ABC):
     name: str = "abstract"
 
     @abstractmethod
-    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
-        """检查产物目录，返回验证结果。
-        
+    def check(self, target_dir: str, *, run_id: str = "", acceptance_path: str = "") -> CheckerResult:
+        """Check an artifact directory bound to a Run and optional frozen acceptance contract.
+
         Args:
-            target_dir: 产物目录路径
-            run_id: 显式绑定 run_id，仅消费该 run_id 的报告。空字符串时返回 unavailable。
+            target_dir: artifact root.
+            run_id: explicit Run binding for evidence-aware Checkers.
+            acceptance_path: absolute path to this Run's compiled acceptance contract.
         """
         ...

@@ -9,12 +9,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+from adapters.base import Task
 from engine.core.compat import check_with_context, make_with_context
+from engine.core.contracts import ArtifactBundle
 from engine.core.evidence_store import EvidenceStore
 from engine.core.event_store import EventStore
 from engine.core.observability import RunEvent
-from engine.core.profiles import (Profile, ProfileError, create_run_plan,
-                                  create_source_adapter, load_profile,
+from engine.core.profiles import (Profile, ProfileError, RunPlan, create_run_plan,
+                                  create_source_adapter, get_run_plan, load_profile,
                                   persist_run_plan, run_context, validate_profile)
 from engine.core.paths import PlatformPaths
 
@@ -80,7 +82,7 @@ class ProfileRunExecutor:
             raise ProfileError("max_tasks 必须是大于 0 的整数")
         profile = load_profile(profile_id)
         validate_profile(profile)
-        self._validate_executable(profile)
+        self.validate_executable(profile)
         adapter = create_source_adapter(profile)
         pending = [task for task in adapter.list_pending() if task.status == "pending"]
         if task_id:
@@ -94,30 +96,120 @@ class ProfileRunExecutor:
             raise ProfileError(f"Profile {profile_id} 没有待执行任务，或任务未绑定到该 Profile")
         return [self._execute_task(profile, adapter, task) for task in tasks]
 
-    @staticmethod
-    def _validate_executable(profile: Profile) -> None:
-        if profile.id == "fixture-local":
-            if profile.source != "local_queue" or profile.compiler != "simple" or profile.maker != "sample":
-                raise ProfileError("fixture-local 的离线组件组合不匹配")
-            if profile.delivery != "local_artifact" or profile.checkers != ("security",):
-                raise ProfileError("fixture-local 的验证或交付组件不匹配")
-            prohibited = ("allow_network", "allow_publish", "allow_deploy", "allow_model", "allow_git", "allow_ssh")
-            if any(profile.policy.get(name, False) for name in prohibited):
-                raise ProfileError("fixture-local 真实执行禁止网络、模型、Git、SSH、发布与部署")
-            return
-        if profile.id == "deepseek-github":
-            if profile.source != "local_queue" or profile.compiler != "simple" or profile.maker != "deepseek":
-                raise ProfileError("deepseek-github 的组件组合不匹配")
-            if profile.delivery != "github_workflow" or profile.checkers != ("security", "e2e"):
-                raise ProfileError("deepseek-github 的检查或交付组件不匹配")
-            required = ("allow_network", "allow_model", "allow_git", "allow_publish", "allow_deploy")
-            if not all(profile.policy.get(name) is True for name in required) or profile.policy.get("allow_ssh", False):
-                raise ProfileError("deepseek-github 必须显式允许模型/GitHub Workflow，且禁止 SSH")
-            return
-        raise ProfileError("当前真实执行仅允许 fixture-local 或 deepseek-github Profile")
+    def execute_plan(self, plan_id: str) -> ExecutionResult:
+        """Execute exactly one persisted, reviewed Plan; never rebuild it from mutable inputs."""
+        raw_plan = get_run_plan(plan_id)
+        plan = RunPlan(**raw_plan)
+        profile_data = dict(plan.profile)
+        profile_data.pop("ref", None)
+        profile = Profile.from_dict(profile_data)
+        validate_profile(profile)
+        self.validate_executable(profile)
+        adapter = create_source_adapter(profile)
+        tasks = [task for task in adapter.list_pending()
+                 if task.id == plan.task["id"] and task.status == "pending" and task.profile_id == profile.id]
+        if not tasks:
+            raise ProfileError(f"冻结 Run Plan {plan_id} 对应的任务已不再处于待执行状态")
+        task = tasks[0]
+        if _task_dict(task) != plan.task:
+            raise ProfileError(f"冻结 Run Plan {plan_id} 的任务快照已变化，必须重新审阅")
+        return self._execute_task(profile, adapter, task, plan=plan)
 
-    def _execute_task(self, profile: Profile, adapter: Any, task: Any) -> ExecutionResult:
-        plan = create_run_plan(profile, _task_dict(task)); persist_run_plan(plan)
+    def retry_delivery(self, run_id: str) -> ExecutionResult:
+        """只重试已失败 Run 的 Delivery；复用冻结 Plan 与制品，绝不重跑模型或 Checker。"""
+        raw_plan = get_run_plan(run_id)
+        plan = RunPlan(**raw_plan)
+        profile_data = dict(plan.profile)
+        profile_data.pop("ref", None)
+        profile = Profile.from_dict(profile_data)
+        validate_profile(profile)
+        self.validate_executable(profile)
+        events = self.event_store.read(run_id, verify_evidence=True)
+        if not events or events[-1].stage != "delivery" or events[-1].status != "failed":
+            raise ProfileError("仅允许重试最后阶段为 failed 的 Delivery")
+        artifact_digest = events[-1].digests.get("artifact", "")
+        output_dir = PlatformPaths.OUTPUT_DIR / f"maker-{run_id}"
+        files = sorted(str(path.relative_to(output_dir)) for path in output_dir.rglob("*") if path.is_file())
+        hasher = hashlib.sha256()
+        for relative in files:
+            hasher.update((output_dir / relative).read_bytes())
+        if not artifact_digest or hasher.hexdigest() != artifact_digest:
+            raise ProfileError("冻结制品摘要不匹配，拒绝重试 Delivery")
+        context = run_context(plan)
+        task = Task(id=str(plan.task["id"]), title=str(plan.task.get("title", "")),
+                    source=str(plan.task.get("source", "local")), case=plan.task.get("case"),
+                    priority=plan.task.get("priority", 99), spec_text=plan.task.get("spec_text"),
+                    extra=plan.task.get("extra", {}), profile_id=profile.id)
+        adapter = create_source_adapter(profile)
+        artifacts = ArtifactBundle(str(output_dir), files, artifact_digest)
+        try:
+            from pipeline.delivery import load_delivery
+            result = load_delivery(profile.delivery, **profile.delivery_config).deliver(context, artifacts)
+            status = "passed" if result.status == "passed" else "failed"
+        except Exception as exc:
+            result, status = None, "failed"
+            reason = str(exc)[:300]
+        payload = result.to_dict() if result is not None else {"error": reason}
+        evidence = self.evidence_store.put_json(_redact_paths(payload), source="delivery", run_id=run_id,
+                                                plan_digest=plan.digest, kind=f"delivery-retry-{len(events) + 1}")
+        self.event_store.append(RunEvent(
+            event_id=f"{run_id}-{len(events) + 1}", run_id=run_id, sequence=len(events) + 1,
+            occurred_at=_now(), stage="delivery", status=status, profile_ref=context.profile, task_id=task.id,
+            plan_digest=plan.digest, digests=dict(events[-1].digests),
+            component_versions=events[-1].component_versions, attempt=context.attempt, evidence=(evidence,),
+            details={"retry": True, "status": status},
+        ))
+        if result is None or result.status != "passed":
+            failure = result.reason if result is not None else reason
+            adapter.report(task.id, "failed", run_id=run_id, plan_digest=plan.digest, check_status="failed", reason=failure[:300])
+            return ExecutionResult(run_id, plan.digest, task.id, "failed", len(events) + 1, failure[:300])
+        adapter.report(task.id, "done", run_id=run_id, plan_digest=plan.digest, artifact_digest=artifact_digest,
+                       check_status="passed", delivery=_redact_paths(result.to_dict()))
+        return ExecutionResult(run_id, plan.digest, task.id, "passed", len(events) + 1,
+                               delivery=_redact_paths(result.to_dict()))
+
+    @staticmethod
+    def validate_executable(profile: Profile) -> None:
+        """Allow catalog-backed local and DeepSeek delivery profiles; execution still requires UI confirmation."""
+        if profile.source != "local_queue":
+            raise ProfileError("当前执行仅支持 local_queue Source")
+        if profile.compiler not in {"simple", "mumuspec"}:
+            raise ProfileError("当前执行仅支持 simple 或 mumuspec Compiler")
+        if not profile.checkers or not set(profile.checkers).issubset({"security", "runtime", "e2e", "pages"}):
+            raise ProfileError("当前执行仅支持 security、runtime、e2e、pages Checker")
+        if profile.id == "fixture-local":
+            expected = (profile.compiler == "simple" and profile.maker == "sample" and
+                        profile.checkers == ("security",) and profile.delivery == "local_artifact")
+            prohibited = ("allow_network", "allow_publish", "allow_deploy", "allow_model", "allow_git", "allow_ssh")
+            if not expected or any(profile.policy.get(name, False) for name in prohibited):
+                raise ProfileError("fixture-local 必须保持离线安全基线组合")
+            return
+        if profile.delivery == "local_artifact":
+            if profile.maker == "sample":
+                prohibited = ("allow_network", "allow_model", "allow_git", "allow_ssh", "allow_publish", "allow_deploy")
+                if any(profile.policy.get(name, False) for name in prohibited):
+                    raise ProfileError("Sample Maker 本地执行不允许外部权限")
+                return
+            if profile.maker == "deepseek":
+                required, prohibited = ("allow_network", "allow_model"), ("allow_git", "allow_ssh", "allow_publish", "allow_deploy")
+                if not all(profile.policy.get(name) is True for name in required) or any(profile.policy.get(name, False) for name in prohibited):
+                    raise ProfileError("DeepSeek 本地执行必须仅允许网络和模型，禁止 Git、SSH、发布与部署")
+                return
+        if profile.delivery == "github_workflow":
+            required = ("allow_network", "allow_model", "allow_git", "allow_publish", "allow_deploy")
+            if profile.maker != "deepseek" or not {"security", "e2e"}.issubset(profile.checkers):
+                raise ProfileError("GitHub Workflow 执行必须使用 DeepSeek、Security 与 E2E")
+            if not all(profile.policy.get(name) is True for name in required) or profile.policy.get("allow_ssh", False):
+                raise ProfileError("GitHub Workflow 必须显式允许模型/Git/发布/部署，且禁止 SSH")
+            return
+        raise ProfileError("当前 Profile 组合不能执行；请选择本地制品或 GitHub Workflow 交付")
+
+    def _execute_task(self, profile: Profile, adapter: Any, task: Any, *, plan: RunPlan | None = None) -> ExecutionResult:
+        if plan is None:
+            plan = create_run_plan(profile, _task_dict(task))
+            persist_run_plan(plan)
+        elif plan.profile.get("ref") != profile.ref or plan.task != _task_dict(task):
+            raise ProfileError("冻结 Run Plan 与当前 Profile 或任务快照不一致")
         context = run_context(plan); sequence = 1; digests = {"input": plan.input_digest}
         versions = self._component_versions(profile)
 
@@ -164,7 +256,8 @@ class ProfileRunExecutor:
             record("maker", "failed", {"error": str(exc)[:500]}, "maker-diagnostic", {"reason": str(exc)[:200]})
             return self._failed(adapter, task, context, plan.digest, sequence - 1, "failed", str(exc))
         try:
-            report = check_with_context(context, artifacts, checker_names=list(profile.checkers))
+            report = check_with_context(context, artifacts, checker_names=list(profile.checkers),
+                                        acceptance_path=spec.acceptance_path)
             record("checker", report.status, report.to_dict(), "check-report", {"status": report.status})
         except Exception as exc:
             record("checker", "unavailable", {"error": str(exc)[:500]}, "checker-diagnostic", {"reason": str(exc)[:200]})

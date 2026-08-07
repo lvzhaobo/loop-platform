@@ -12,7 +12,7 @@ BANNED_PATTERNS = ["eval(", "exec(", "os.system(", "subprocess.", "__import__(",
 class SecurityChecker(Checker):
     name = "security"
 
-    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "", acceptance_path: str = "") -> CheckerResult:
         hits = []
         for root, _, files in os.walk(target_dir):
             for fn in files:

@@ -11,7 +11,7 @@ from .entry import detect_entry, clean_env, wait_http_ready
 class RuntimeChecker(Checker):
     name = "runtime"
 
-    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "", acceptance_path: str = "") -> CheckerResult:
         checks = []
         entry = detect_entry(target_dir)
 

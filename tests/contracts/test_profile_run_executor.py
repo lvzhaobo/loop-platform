@@ -94,6 +94,31 @@ class TestProfileRunExecutor(unittest.TestCase):
             self.assertEqual([event["stage"] for event in replay["events"]], ["source", "compiler", "maker"])
             self.assertEqual(replay["status"], "failed")
 
+    def test_execute_plan_uses_the_existing_frozen_identity_without_creating_a_second_plan(self):
+        adapter = RecordingAdapter([self.task])
+        with tempfile.TemporaryDirectory() as directory:
+            evidence, events = self._stores(directory)
+            plans = Path(directory) / "plans"
+            output = Path(directory) / "output"
+            with (patch("engine.core.run_executor.create_source_adapter", return_value=adapter),
+                  patch.object(PlatformPaths, "RUN_PLANS_DIR", plans),
+                  patch.object(PlatformPaths, "OUTPUT_DIR", output),
+                  patch("engine.compilers.simple.subprocess.run") as process):
+                from engine.core.profiles import create_run_plan, persist_run_plan
+                frozen = create_run_plan(self.profile, {
+                    "id": self.task.id, "title": self.task.title, "source": self.task.source,
+                    "case": self.task.case, "priority": self.task.priority,
+                    "spec_text": self.task.spec_text, "extra": self.task.extra,
+                })
+                persist_run_plan(frozen)
+                result = ProfileRunExecutor(evidence, events).execute_plan(frozen.id)
+
+            process.assert_not_called()
+            self.assertEqual(result.run_id, frozen.run_id)
+            self.assertEqual(result.plan_digest, frozen.digest)
+            self.assertEqual(sorted(path.name for path in plans.glob("*.json")), [f"{frozen.id}.json"])
+            self.assertEqual(adapter.reports[-1]["fields"]["plan_digest"], frozen.digest)
+
     def test_rejects_no_task_unknown_adapter_and_non_positive_limit_before_work(self):
         empty = RecordingAdapter([])
         with patch("engine.core.run_executor.create_source_adapter", return_value=empty):

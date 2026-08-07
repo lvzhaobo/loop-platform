@@ -1,0 +1,29 @@
+{
+  "id": "deepseek-local",
+  "version": 1,
+  "description": "真实本地生成：Studio 需求 → DeepSeek → SecurityChecker → LocalArtifactDelivery；不推送、不发布、不部署。",
+  "source": {
+    "name": "local_queue",
+    "config": {
+      "backlog_path": "data/backlog.json",
+      "state_path": "data/state.json"
+    }
+  },
+  "compiler": "simple",
+  "maker": "deepseek",
+  "checkers": ["security", "pages"],
+  "delivery": "local_artifact",
+  "policy": {
+    "max_attempts": 1,
+    "allow_network": true,
+    "allow_model": true,
+    "allow_git": false,
+    "allow_ssh": false,
+    "allow_publish": false,
+    "allow_deploy": false,
+    "timeout_seconds": 180,
+    "cost_limit_yuan": 5,
+    "on_unavailable": "block",
+    "evidence_required": ["source", "compiler", "maker", "checker", "delivery"]
+  }
+}

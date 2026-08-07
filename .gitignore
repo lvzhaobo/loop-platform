@@ -27,3 +27,10 @@ pyrightconfig.json
 # 运行时数据(需求池/任务状态,各环境自行维护)
 data/
 cases/
+
+# Vue local dependencies and build cache (rebuild from package-lock.json)
+studio/web/node_modules/
+studio/web/dist/
+studio/web/*.tsbuildinfo
+studio/web/vite.config.js
+studio/web/vite.config.d.ts

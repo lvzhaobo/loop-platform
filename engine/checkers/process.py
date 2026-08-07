@@ -141,7 +141,7 @@ class ProcessChecker(Checker):
 
     # ── 主入口 ──
 
-    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "", acceptance_path: str = "") -> CheckerResult:
         """F5: 接受 run_id 显式绑定，run_id 为空时结果强制 unavailable。"""
         checks: list[dict] = []
 

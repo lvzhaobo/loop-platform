@@ -180,6 +180,17 @@ def list_profiles() -> list[dict[str, Any]]:
     return summaries
 
 
+def persist_profile(profile: Profile) -> Path:
+    """Register a new executable Profile once; never overwrite an existing id."""
+    validate_profile(profile)
+    target = _profile_path(profile.id)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        raise ProfileError(f"Profile 已存在，拒绝覆盖: {profile.id}；请使用新的 id")
+    target.write_text(json.dumps(profile.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
 def validate_profile(profile: Profile) -> None:
     """在任何工作开始前验证所有组件与无副作用默认策略。"""
     from adapters.registry import load_adapter

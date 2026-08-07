@@ -52,6 +52,61 @@ class TestReadApiContracts(unittest.TestCase):
             "checkers": ["security"], "delivery": "local_artifact",
         })
         self.assertEqual(plan["task"]["id"], "draft-plan-review")
+    def test_requirement_and_backlog_reads_hide_stored_body_and_tokens(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        hidden = "api_key=example-secret-value"
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory) / "data"
+            data_dir.mkdir()
+            (data_dir / "backlog.json").write_text(json.dumps({"docs": [{
+                "id": "FS-900", "title": hidden, "priority": 1, "profile_id": "deepseek-local",
+                "spec_text": f"Private requirement: {hidden}", "wiki_token": "private-token",
+            }]}), encoding="utf-8")
+            (data_dir / "state.json").write_text("{}", encoding="utf-8")
+            with patch.object(PlatformPaths, "DATA_DIR", data_dir):
+                requirements = self.client.get("/api/requirements")
+                backlog = self.client.get("/api/backlog")
+
+        self.assertEqual(requirements.status_code, 200)
+        self.assertEqual(backlog.status_code, 200)
+        requirement = requirements.get_json()["requirements"][0]
+        backlog_item = backlog.get_json()["docs"][0]
+        self.assertEqual(requirement["title"], "需求 FS-900")
+        self.assertIn("不展示原文", requirement["description"])
+        self.assertNotIn(hidden, json.dumps({"requirements": requirement, "backlog": backlog_item}))
+        self.assertNotIn("spec_text", backlog_item)
+        self.assertNotIn("token", backlog_item)
+
+    def test_frozen_plan_must_match_confirmation_before_executor_is_called(self):
+        import tempfile
+        from pathlib import Path
+        from adapters.base import Task
+        from engine.core.profiles import get_run_plan, load_profile
+
+        profile = load_profile("fixture-local")
+        task = Task(id="frozen-api-task", title="Frozen API task", source="local", case="pomodoro",
+                    spec_text="离线需求", priority=2, profile_id="fixture-local")
+        with tempfile.TemporaryDirectory() as directory:
+            with (patch.object(PlatformPaths, "RUN_PLANS_DIR", Path(directory) / "plans"),
+                  patch.object(studio_server, "_pending_profile_task", return_value=(profile, task))):
+                frozen = self.client.post("/api/run-plans/freeze", json={
+                    "profile_id": profile.id, "task_id": task.id,
+                })
+                self.assertEqual(frozen.status_code, 200)
+                plan = frozen.get_json()["plan"]
+                self.assertEqual(get_run_plan(plan["id"])["digest"], plan["digest"])
+                with patch("engine.core.run_executor.ProfileRunExecutor.execute_plan") as execute_plan:
+                    rejected = self.client.post("/api/profile-runs/confirm", json={
+                        "confirmed": True, "profile_id": profile.id, "task_id": task.id,
+                        "plan_id": plan["id"], "plan_digest": "not-the-reviewed-digest",
+                    })
+
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn("digest", rejected.get_json()["error"])
+        execute_plan.assert_not_called()
 
 
 if __name__ == "__main__":

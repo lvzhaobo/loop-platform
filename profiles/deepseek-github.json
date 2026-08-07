@@ -1,0 +1,36 @@
+{
+  "id": "deepseek-github",
+  "version": 1,
+  "description": "受控真实交付：Studio 需求 → DeepSeek → 本地验收 → GitHub sampleN；由目标仓库 Workflow 负责后续 ECS 部署。",
+  "source": {
+    "name": "local_queue",
+    "config": {
+      "backlog_path": "data/backlog.json",
+      "state_path": "data/state.json"
+    }
+  },
+  "compiler": "simple",
+  "maker": "deepseek",
+  "checkers": ["security", "e2e"],
+  "delivery": "github_workflow",
+  "delivery_config": {
+    "repo": "github.com/lvzhaobo/loop-sample.git",
+    "branch": "main",
+    "prefix": "sample",
+    "port_base": 1000,
+    "workflow_deploy": true
+  },
+  "policy": {
+    "max_attempts": 1,
+    "allow_network": true,
+    "allow_model": true,
+    "allow_git": true,
+    "allow_ssh": false,
+    "allow_publish": true,
+    "allow_deploy": true,
+    "timeout_seconds": 180,
+    "cost_limit_yuan": 5,
+    "on_unavailable": "block",
+    "evidence_required": ["source", "compiler", "maker", "checker", "delivery"]
+  }
+}

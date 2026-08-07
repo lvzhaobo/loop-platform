@@ -1,5 +1,6 @@
 """Phase 4 只读 observability API 回归测试。"""
 import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -63,7 +64,9 @@ class TestObservabilityApi(unittest.TestCase):
     def _paths(self):
         stack = ExitStack()
         stack.enter_context(patch.object(PlatformPaths, "RUN_EVENTS_DIR", self.root / "events"))
+        stack.enter_context(patch.object(PlatformPaths, "RUN_PLANS_DIR", self.root / "plans"))
         stack.enter_context(patch.object(PlatformPaths, "DATA_DIR", self.root / "data"))
+        stack.enter_context(patch.object(PlatformPaths, "OUTPUT_DIR", self.root / "output"))
         return stack
 
     def _snapshot(self):
@@ -82,7 +85,9 @@ class TestObservabilityApi(unittest.TestCase):
             blocked_write = self.client.post("/api/observability/lifecycle")
         self.assertEqual(runs.status_code, 200)
         summary = runs.get_json()["runs"][0]
-        self.assertEqual(set(summary), {"run_id", "status", "integrity", "event_count", "last_occurred_at", "stage_statuses"})
+        self.assertEqual(set(summary), {"run_id", "status", "integrity", "event_count", "last_occurred_at", "stage_statuses", "task", "artifact"})
+        self.assertIsNone(summary["task"])
+        self.assertEqual(summary["artifact"], {"digest": DIGEST, "file_count": 0, "preview_url": None})
         self.assertEqual(summary["status"], "passed")
         self.assertEqual(summary["integrity"], "verified")
         self.assertNotIn(str(self.root), str(summary))
@@ -101,6 +106,29 @@ class TestObservabilityApi(unittest.TestCase):
         self.assertTrue(body["limitations"])
         self.assertEqual(blocked_write.status_code, 405)
         self.assertEqual(before, self._snapshot())
+
+    def test_frozen_task_projection_exposes_metadata_without_spec_text(self):
+        plans = self.root / "plans"
+        plans.mkdir()
+        secret = "never-return-this-task-body"
+        (plans / f"{self.run_id}.json").write_text(json.dumps({
+            "run_id": self.run_id,
+            "digest": DIGEST,
+            "profile": {"id": "fixture-local"},
+            "task": {
+                "id": "fixture-pomodoro", "title": "Fixture Pomodoro", "priority": 1,
+                "source": "local", "case": "pomodoro", "spec_text": secret,
+                "extra": {"untrusted": secret},
+            },
+        }), encoding="utf-8")
+        with self._paths():
+            summary = self.client.get("/api/observability/runs").get_json()["runs"][0]
+            detail = self.client.get(f"/api/observability/runs/{self.run_id}").get_json()["run"]
+        expected = {"id": "fixture-pomodoro", "title": "Fixture Pomodoro", "priority": 1,
+                    "profile_id": "fixture-local"}
+        self.assertEqual(summary["task"], expected)
+        self.assertEqual(detail["task"], expected)
+        self.assertNotIn(secret, json.dumps({"summary": summary, "detail": detail}))
 
     def test_tampered_payload_or_metadata_becomes_indeterminate(self):
         evidence = self.events.read(self.run_id)[0].evidence[0]

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import re
 import urllib.request
 
+from engine.core.paths import load_config
 from .base import Maker, MakerResult
 from . import register
 
@@ -22,16 +24,31 @@ _EXT_BY_LANG = {
 }
 
 
+def _safe_output_path(workdir: str, relative: str) -> Path:
+    if not relative or "\\" in relative or Path(relative).is_absolute():
+        raise ValueError("模型输出包含非法文件路径")
+    root = Path(workdir).resolve()
+    target = (root / relative).resolve()
+    if target == root or root not in target.parents:
+        raise ValueError("模型输出路径越出制品目录")
+    return target
+
+
 @register("deepseek")
 class DeepSeekMaker(Maker):
     name = "deepseek"
     type = "api"
 
-    def __init__(self, **kwargs):
-        self.api_key = os.environ.get("DEEPSEEK_API_KEY")
-        self.base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-        self.model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
-        self.temperature = float(os.environ.get("HARNESS_TEMPERATURE", "0"))
+    def __init__(self, timeout_seconds: int = 180, **kwargs):
+        config = load_config()
+        self.api_key = config.get("DEEPSEEK_API_KEY")
+        self.base_url = config.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+        self.model = config.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+        try:
+            self.temperature = float(config.get("HARNESS_TEMPERATURE", "0"))
+        except (TypeError, ValueError):
+            self.temperature = 0.0
+        self.timeout_seconds = int(timeout_seconds)
 
     def generate(self, workdir: str, prompt: str,
                  feedback: str | None = None) -> MakerResult:
@@ -65,35 +82,27 @@ class DeepSeekMaker(Maker):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=180) as r:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as r:
                 body = json.loads(r.read())
             text = body["choices"][0]["message"]["content"]
         except Exception as e:
             return MakerResult(success=False, error=str(e),
                              model=self.model, raw_output="")
 
-        # 保存原始输出供调试
+        # 原始模型文本不落入制品目录，避免 Prompt/响应被后续交付或页面误暴露。
         os.makedirs(workdir, exist_ok=True)
-        with open(os.path.join(workdir, "_llm_raw.txt"), "w", encoding="utf-8") as f:
-            f.write(text)
-
-        # 解析 FILE 标记 → 写入文件
         files = {}
         for rel, content in FILE_RE.findall(text):
             rel = rel.strip()
-            # 文件名超长 → 跳过（LLM 输出格式异常）
             if len(rel) > 200:
-                print(f"  ⚠ 跳过异常文件名 ({len(rel)} 字符): {rel[:80]}...")
                 continue
-            # 路径截断
-            safe_rel = rel.split("\n")[0].strip()
-            if safe_rel != rel:
-                print(f"  ⚠ 文件名含换行，已截断: {safe_rel}")
-            path = os.path.join(workdir, safe_rel)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
-            files[safe_rel] = content
+            try:
+                path = _safe_output_path(workdir, rel)
+            except ValueError:
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+            files[rel] = content
 
         if not files:
             # 兜底：提取 markdown 代码围栏（LLM 常见的违协议输出形态）
@@ -109,9 +118,12 @@ class DeepSeekMaker(Maker):
                     stem, dot, ext = name.partition(".")
                     name = f"{stem}_{len(used_names)}{dot}{ext}"
                 used_names.add(name)
-                path = os.path.join(workdir, name)
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
+                try:
+                    path = _safe_output_path(workdir, name)
+                except ValueError:
+                    continue
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
                 files[name] = content
             if files:
                 print(f"  ⚠ 未找到 FILE 标记，已从代码围栏兜底提取 {len(files)} 个文件")
@@ -124,10 +136,6 @@ class DeepSeekMaker(Maker):
         # 估算成本
         cost = (len(prompt) / 4 / 1_000_000 * 1.0
                 + len(text) / 4 / 1_000_000 * 2.0)
-
-        # 保存 prompt 到产物目录供调试
-        with open(os.path.join(workdir, "_prompt.txt"), "w", encoding="utf-8") as f:
-            f.write(prompt)
 
         return MakerResult(success=True, files=files, output_dir=workdir,
                           model=self.model, raw_output=text[:2000],

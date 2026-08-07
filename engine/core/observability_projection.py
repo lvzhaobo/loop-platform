@@ -2,14 +2,22 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
+from pathlib import Path
+import re
 from typing import Any
+from urllib.parse import urlparse
 
 from engine.core.contracts import VALID_CHECK_STATUSES
 from engine.core.evidence_store import EvidenceStore
 from engine.core.event_store import EventStore
 from engine.core.observability import EventError
+from engine.core.paths import PlatformPaths
 
 STAGES = ("source", "compiler", "maker", "checker", "delivery")
+_GITHUB_REPOSITORY = re.compile(r"^github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)\.git$")
+_COMMIT_SHA = re.compile(r"^[0-9a-f]{7,64}$", re.IGNORECASE)
+_SAFE_STATUS = re.compile(r"^[a-z_]{1,32}$")
 
 
 class ObservabilityProjection:
@@ -26,6 +34,57 @@ class ObservabilityProjection:
             summaries = [item for item in summaries if item["status"] == status]
         return sorted(summaries, key=lambda item: (item["last_occurred_at"], item["run_id"]), reverse=True)[:limit]
 
+    def _delivery_fact(self, event: Any, evidence_integrity: str) -> dict[str, Any] | None:
+        """Expose only audited GitHub facts from a verified DeliveryResult evidence payload."""
+        if event.stage != "delivery" or event.status != "passed" or evidence_integrity != "verified":
+            return None
+        evidence_store = self.event_store.evidence_store
+        if not evidence_store:
+            return None
+        try:
+            payload = json.loads(evidence_store.payload(event.evidence[0]).decode("utf-8"))
+            plan = payload.get("plan") if isinstance(payload, dict) else None
+            meta = payload.get("meta") if isinstance(payload, dict) else None
+            if payload.get("status") != "passed" or not isinstance(plan, dict) or plan.get("adapter") != "github_workflow":
+                return None
+            match = _GITHUB_REPOSITORY.fullmatch(str(plan.get("repo", "")))
+            branch = plan.get("branch")
+            if not match or not isinstance(branch, str) or not branch or len(branch) > 200:
+                return None
+        except (EventError, UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError):
+            return None
+        repository_url = f"https://github.com/{match.group(1)}/{match.group(2)}"
+        result = {"type": "github_workflow", "status": "passed", "repository_url": repository_url, "branch": branch}
+        location = self._safe_url(payload.get("location"), host="github.com")
+        if location and location.startswith(repository_url + "/tree/"):
+            result["location_url"] = location
+        commit_sha = plan.get("commit_sha")
+        if isinstance(commit_sha, str) and _COMMIT_SHA.fullmatch(commit_sha):
+            result["commit_sha"] = commit_sha
+            result["commit_url"] = f"{repository_url}/commit/{commit_sha}"
+        if isinstance(meta, dict):
+            for key in ("workflow_status", "ecs_health"):
+                value = meta.get(key)
+                if isinstance(value, str) and _SAFE_STATUS.fullmatch(value):
+                    result[key] = value
+            deployment_url = self._safe_url(meta.get("deployment_url"))
+            if deployment_url:
+                result["deployment_url"] = deployment_url
+        return result
+
+    @staticmethod
+    def _safe_url(value: Any, *, host: str | None = None) -> str | None:
+        if not isinstance(value, str) or len(value) > 2048:
+            return None
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            return None
+        if host and parsed.hostname != host:
+            return None
+        if parsed.query or parsed.fragment:
+            return None
+        return value
+
     def run(self, run_id: str) -> dict[str, Any]:
         path = self.event_store._path(run_id)
         if not path.is_file():
@@ -37,10 +96,12 @@ class ObservabilityProjection:
         if not events:
             return self._untrusted(run_id)
 
-        projected, evidence_states = [], []
+        projected, evidence_states, delivery_candidates = [], [], []
         for event in events:
             evidence_integrity = self._evidence_integrity(event)
             evidence_states.append(evidence_integrity)
+            if event.stage == "delivery":
+                delivery_candidates.append((event, evidence_integrity))
             status = event.status
             if evidence_integrity == "indeterminate":
                 status = "indeterminate"
@@ -61,8 +122,60 @@ class ObservabilityProjection:
             integrity, status = "unavailable", "unavailable"
         else:
             integrity, status = "verified", projected[-1]["status"]
-        return {"schema_version": 1, "run_id": run_id, "status": status,
-                "integrity": integrity, "events": projected}
+        delivery = next((fact for event, evidence_integrity in reversed(delivery_candidates)
+                         if (fact := self._delivery_fact(event, evidence_integrity)) is not None), None)
+        task = self._frozen_task(run_id, events)
+        artifact = self._artifact_preview(run_id, events)
+        return {"schema_version": 1, "run_id": run_id, "status": status, "integrity": integrity,
+                "events": projected, "task": task, "artifact": artifact, "delivery": delivery}
+
+    @staticmethod
+    def _frozen_task(run_id: str, events: list[Any]) -> dict[str, Any] | None:
+        """只在冻结 Plan 与同一 RunEvent 任务绑定一致时公开需求内容。"""
+        task_ids = {event.task_id for event in events}
+        plan_digests = {event.plan_digest for event in events}
+        if len(task_ids) != 1 or len(plan_digests) != 1:
+            return None
+        try:
+            path = PlatformPaths.RUN_PLANS_DIR / f"{run_id}.json"
+            plan = json.loads(path.read_text(encoding="utf-8"))
+            task = plan["task"]
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        if plan.get("run_id") != run_id or plan.get("digest") != next(iter(plan_digests)):
+            return None
+        if str(task.get("id", "")) != next(iter(task_ids)):
+            return None
+        profile = plan.get("profile") if isinstance(plan.get("profile"), dict) else {}
+        return {
+            "id": str(task["id"]),
+            "title": str(task.get("title", task["id"])),
+            "priority": task.get("priority", 99),
+            "profile_id": str(profile.get("id", "")),
+        }
+
+    @staticmethod
+    def _artifact_preview(run_id: str, events: list[Any]) -> dict[str, Any] | None:
+        """按受控 Maker 输出约定解析实际存在的本地入口，不扫描无关目录。"""
+        artifact_digest = ""
+        for event in events:
+            if event.stage == "maker" and event.status == "passed":
+                artifact_digest = event.digests.get("artifact", "")
+        if not artifact_digest:
+            return None
+        output_root = PlatformPaths.OUTPUT_DIR.resolve()
+        relative_dir = Path(f"maker-{run_id}")
+        output_dir = (output_root / relative_dir).resolve()
+        try:
+            output_dir.relative_to(output_root)
+        except ValueError:
+            return None
+        if not output_dir.is_dir():
+            return {"digest": artifact_digest, "file_count": 0, "preview_url": None}
+        files = [path for path in output_dir.rglob("*") if path.is_file()]
+        entry = output_dir / "index.html"
+        preview_url = f"/output/{(relative_dir / 'index.html').as_posix()}" if entry.is_file() else None
+        return {"digest": artifact_digest, "file_count": len(files), "preview_url": preview_url}
 
     def lifecycle(self, limit: int = 100) -> list[dict[str, Any]]:
         runs = self._runs(limit)
@@ -130,12 +243,13 @@ class ObservabilityProjection:
             "run_id": run["run_id"], "status": run["status"], "integrity": run["integrity"],
             "event_count": len(events), "last_occurred_at": latest.get("occurred_at", ""),
             "stage_statuses": {stage: stages[stage]["status"] for stage in STAGES if stage in stages},
+            "task": run.get("task"), "artifact": run.get("artifact"),
         }
 
     @staticmethod
     def _untrusted(run_id: str) -> dict[str, Any]:
         return {"schema_version": 1, "run_id": run_id, "status": "indeterminate",
-                "integrity": "indeterminate", "events": []}
+                "integrity": "indeterminate", "events": [], "task": None, "artifact": None, "delivery": None}
 
     @classmethod
     def _stage_summary(cls, stage: str, runs: list[dict[str, Any]]) -> dict[str, Any]:

@@ -7,12 +7,12 @@ from . import load_checker, list_checkers
 class AllChecker(Checker):
     name = "all"
 
-    def check(self, target_dir: str, *, run_id: str = "") -> CheckerResult:
+    def check(self, target_dir: str, *, run_id: str = "", acceptance_path: str = "") -> CheckerResult:
         all_checks = []
         for name in list_checkers():
             try:
                 c = load_checker(name)
-                r = c.check(target_dir, run_id=run_id)
+                r = c.check(target_dir, run_id=run_id, acceptance_path=acceptance_path)
                 all_checks.extend(r.checks)
             except Exception as e:
                 all_checks.append({"name": name, "pass": False, "status": "unavailable", "detail": str(e)[:100]})

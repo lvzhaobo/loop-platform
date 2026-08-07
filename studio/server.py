@@ -1,12 +1,13 @@
 """Loop Studio — Web 控制台后端。纯路由转发，业务逻辑在 api/ 和 engine/ 中。"""
 
 import json, os, sys, time
-from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 # 先以当前文件位置解析路径，确保 engine/ 可导入
 STUDIO_DIR = os.path.dirname(os.path.abspath(__file__))
 LOOP_DIR = os.path.dirname(STUDIO_DIR)
 REPO_ROOT = LOOP_DIR  # 重构后 studio/ 直接在仓库根下
+VUE_STUDIO_DIST_DIR = os.path.join(STUDIO_DIR, "web", "dist")
 sys.path.insert(0, LOOP_DIR)
 sys.path.insert(0, os.path.join(LOOP_DIR, "engine"))
 
@@ -87,11 +88,37 @@ def logout():
 # ── 页面路由 ──
 @app.route("/")
 def index():
+    if os.environ.get("STUDIO_VUE_ROOT") == "1":
+        return redirect("/studio-vue/")
     return render_template("index.html")
 
 @app.route("/studio")
 def studio_workbench():
     return render_template("index.html")
+
+
+@app.route("/studio-vue/intake")
+def vue_intake():
+    """Stable direct entry for the requirement-intake hash route."""
+    return redirect("/studio-vue/#/intake")
+
+
+@app.route("/studio-vue/", defaults={"asset_path": ""})
+@app.route("/studio-vue/<path:asset_path>")
+def vue_studio(asset_path):
+    """独立提供正式 Vue Studio；禁用缓存，确保本地构建更新立即生效。"""
+    if not os.path.isfile(os.path.join(VUE_STUDIO_DIST_DIR, "index.html")):
+        return jsonify({"ok": False, "error": "Vue Studio 尚未构建；请执行 npm run build"}), 503
+    if asset_path and os.path.isfile(os.path.join(VUE_STUDIO_DIST_DIR, asset_path)):
+        response = send_from_directory(VUE_STUDIO_DIST_DIR, asset_path)
+    elif asset_path and os.path.splitext(asset_path)[1]:
+        # 资源路径错误不能回退成 HTML，否则浏览器会把 index.html 当作 JS/CSS 加载并造成空白页。
+        abort(404)
+    else:
+        response = send_from_directory(VUE_STUDIO_DIST_DIR, "index.html")
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
 
 @app.route("/output/<path:filepath>")
 def serve_output(filepath):
@@ -104,11 +131,193 @@ def healthz():
     return jsonify({"ok": True, "auth": bool(STUDIO_TOKEN)})
 
 
+# ── Profile Composer：仅编排草稿，不读取组件、不执行、不写入 ──
+_COMPOSER_CATALOG = {
+    "schema_version": 1,
+    "stages": {
+        "source": [{"id": "local_queue", "label": "本地需求队列", "description": "从受控本地队列读取已绑定需求。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"backlog_path": {"type": "string", "secret": False}, "state_path": {"type": "string", "secret": False}}}}],
+        "compiler": [{"id": "simple", "label": "Simple Compiler", "description": "确定性本地 Spec 编译器。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "mumuspec", "label": "MumuSpec Compiler", "description": "实验性本地编译器；当前会回退到 SimpleCompiler。", "experimental": True, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
+        "maker": [{"id": "sample", "label": "Sample Maker", "description": "离线参考生成器，用于 fixture 回归。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "deepseek", "label": "DeepSeek API Maker", "description": "需显式允许网络与模型调用的受控生成器。", "experimental": False, "capabilities": {"network": True, "model": True, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
+        "checker": [{"id": "security", "label": "Security Checker", "description": "确定性安全与结构检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "pages", "label": "Pages Contract Checker", "description": "验证冻结页面合同、页面文件和本地跳转。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "runtime", "label": "Runtime Checker", "description": "运行时检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "e2e", "label": "E2E Checker", "description": "端到端验收检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "process", "label": "Process Checker", "description": "受证据约束的外部流程诊断检查。", "experimental": True, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
+        "delivery": [{"id": "local_artifact", "label": "本地制品", "description": "仅在本机保存受控制品；不发布、不部署。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "github_workflow", "label": "GitHub Workflow", "description": "受控推送到固定仓库；仓库 Workflow 后续部署，ECS 健康不在本阶段推断。", "experimental": False, "capabilities": {"network": True, "model": True, "git": True, "publish": True, "deploy": True, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"repo": {"type": "string", "secret": False}, "branch": {"type": "string", "secret": False}, "prefix": {"type": "string", "secret": False}, "port_base": {"type": "integer", "secret": False}, "workflow_deploy": {"type": "boolean", "secret": False}}}}],
+    },
+    "safeguards": ["预检不会读取队列、调用模型、执行检查、创建 Run Plan、写入 Profile 或触发网络/Git/SSH/发布/部署。", "浏览器草稿禁止填写 token、secret、password、credential 或 API key。", "预检通过后可直接保存到 Profile 库；实际外部执行仍须在新建需求页由用户点击“确认并执行”。"],
+}
+_COMPOSER_REQUIRED_POLICY = ("max_attempts", "allow_network", "allow_publish", "allow_deploy", "on_unavailable")
+_COMPOSER_BOOLEAN_POLICY = ("allow_network", "allow_model", "allow_git", "allow_ssh", "allow_publish", "allow_deploy")
+_COMPOSER_SECRET_MARKERS = ("secret", "token", "password", "credential", "api_key", "apikey", "private_key")
+
+
+def _composer_diagnostic(path, code, message, severity="error"):
+    return {"path": path, "code": code, "message": message, "severity": severity}
+
+
+def _composer_catalog_copy():
+    return json.loads(json.dumps(_COMPOSER_CATALOG))
+
+
+def _composer_descriptor(stage, component_id):
+    for descriptor in _COMPOSER_CATALOG["stages"][stage]:
+        if descriptor["id"] == component_id:
+            return {key: value for key, value in descriptor.items() if key != "config_schema"}
+    return {"id": component_id, "label": "未知节点", "description": "不在服务端白名单中。", "experimental": False, "capabilities": {}}
+
+
+def _composer_graph(profile):
+    return {"stages": [
+        {"id": "source", "label": "来源", "components": [_composer_descriptor("source", profile.source)]},
+        {"id": "compiler", "label": "编译", "components": [_composer_descriptor("compiler", profile.compiler)]},
+        {"id": "maker", "label": "生成", "components": [_composer_descriptor("maker", profile.maker)]},
+        {"id": "checker", "label": "检查", "components": [_composer_descriptor("checker", item) for item in profile.checkers]},
+        {"id": "delivery", "label": "交付", "components": [_composer_descriptor("delivery", profile.delivery)]},
+    ]}
+
+
+def _composer_preflight(raw_profile):
+    """Pure draft validation. Do not call validate_profile() or any component factory here."""
+    from engine.core.profiles import Profile, ProfileError
+    diagnostics = []
+    if not isinstance(raw_profile, dict):
+        return None, diagnostics + [_composer_diagnostic("profile", "invalid_type", "profile 必须是对象")]
+    try:
+        profile = Profile.from_dict(raw_profile)
+    except ProfileError as exc:
+        return None, diagnostics + [_composer_diagnostic("profile", "invalid_shape", str(exc))]
+
+    def known(stage, component_id, path):
+        if component_id not in {item["id"] for item in _COMPOSER_CATALOG["stages"][stage]}:
+            diagnostics.append(_composer_diagnostic(path, "unknown_component", f"{component_id or '空值'} 不在 {stage} 白名单中"))
+
+    known("source", profile.source, "source.name")
+    known("compiler", profile.compiler, "compiler")
+    known("maker", profile.maker, "maker")
+    known("delivery", profile.delivery, "delivery")
+    if not profile.checkers:
+        diagnostics.append(_composer_diagnostic("checkers", "empty_checkers", "至少选择一个 Checker"))
+    for index, checker in enumerate(profile.checkers):
+        known("checker", checker, f"checkers[{index}]")
+    if len(set(profile.checkers)) != len(profile.checkers):
+        diagnostics.append(_composer_diagnostic("checkers", "duplicate_checker", "Checker 不能重复"))
+    if isinstance(profile.version, bool) or profile.version < 1:
+        diagnostics.append(_composer_diagnostic("version", "invalid_version", "version 必须是大于 0 的整数"))
+    if not profile.id or not profile.id[0].islower() or any(not (char.islower() or char.isdigit() or char == "-") for char in profile.id):
+        diagnostics.append(_composer_diagnostic("id", "invalid_id", "id 只能使用小写字母、数字和连字符，且以字母开头"))
+
+    policy = profile.policy
+    for key in _COMPOSER_REQUIRED_POLICY:
+        if key not in policy:
+            diagnostics.append(_composer_diagnostic(f"policy.{key}", "required", "该策略字段必填；预检不会替草稿推断权限"))
+    for key in _COMPOSER_BOOLEAN_POLICY:
+        if key in policy and not isinstance(policy[key], bool):
+            diagnostics.append(_composer_diagnostic(f"policy.{key}", "invalid_boolean", "必须是布尔值"))
+    if isinstance(policy.get("max_attempts"), bool) or not isinstance(policy.get("max_attempts"), int) or policy.get("max_attempts", 0) < 1:
+        diagnostics.append(_composer_diagnostic("policy.max_attempts", "invalid_attempts", "必须是大于 0 的整数"))
+    if policy.get("on_unavailable") not in {"block", "review_required", "continue"}:
+        diagnostics.append(_composer_diagnostic("policy.on_unavailable", "invalid_unavailable_policy", "必须是 block、review_required 或 continue"))
+    for key in ("timeout_seconds", "cost_limit_yuan"):
+        if key in policy and (isinstance(policy[key], bool) or not isinstance(policy[key], (int, float)) or policy[key] < 0):
+            diagnostics.append(_composer_diagnostic(f"policy.{key}", "invalid_limit", "必须是非负数字"))
+
+    for scope, config in (("source.config", profile.source_config), ("delivery_config", profile.delivery_config)):
+        for key in config:
+            if any(marker in key.lower() for marker in _COMPOSER_SECRET_MARKERS):
+                diagnostics.append(_composer_diagnostic(f"{scope}.{key}", "secret_not_allowed", "草稿不接受密钥字段；凭据只能由服务端受控配置提供"))
+    if profile.source_config and any(key not in {"backlog_path", "state_path"} for key in profile.source_config):
+        diagnostics.append(_composer_diagnostic("source.config", "unsupported_source_config", "仅接受 backlog_path 与 state_path；不要在草稿中传递凭据"))
+
+    allow = lambda key: policy.get(key) is True
+    if profile.maker == "deepseek" and not (allow("allow_network") and allow("allow_model")):
+        diagnostics.append(_composer_diagnostic("policy", "maker_policy_mismatch", "DeepSeek Maker 必须显式允许网络和模型调用"))
+    if profile.maker == "sample" and (allow("allow_network") or allow("allow_model")):
+        diagnostics.append(_composer_diagnostic("policy", "unused_permission", "Sample Maker 不需要网络或模型权限", "warning"))
+    if profile.delivery == "local_artifact":
+        if profile.delivery_config:
+            diagnostics.append(_composer_diagnostic("delivery_config", "local_config_forbidden", "local_artifact 不接受 delivery_config"))
+        if allow("allow_publish") or allow("allow_deploy"):
+            diagnostics.append(_composer_diagnostic("policy", "local_delivery_policy", "local_artifact 禁止发布和部署"))
+    if profile.delivery == "github_workflow":
+        required = ("allow_network", "allow_model", "allow_git", "allow_publish", "allow_deploy")
+        if not all(allow(key) for key in required):
+            diagnostics.append(_composer_diagnostic("policy", "github_policy_required", "github_workflow 必须显式允许网络、模型、Git、发布和 Workflow 部署"))
+        if allow("allow_ssh"):
+            diagnostics.append(_composer_diagnostic("policy.allow_ssh", "github_ssh_forbidden", "github_workflow 禁止 SSH；ECS 仅由仓库 Workflow 接管"))
+        allowed_config = {"repo", "branch", "prefix", "port_base", "workflow_deploy"}
+        unknown_config = sorted(set(profile.delivery_config) - allowed_config)
+        if unknown_config:
+            diagnostics.append(_composer_diagnostic("delivery_config", "unsupported_delivery_config", f"不支持的交付配置: {', '.join(unknown_config)}"))
+        if "workflow_deploy" in profile.delivery_config and profile.delivery_config["workflow_deploy"] is not True:
+            diagnostics.append(_composer_diagnostic("delivery_config.workflow_deploy", "workflow_required", "GitHub Delivery 必须由仓库 Workflow 接管"))
+    if profile.compiler == "mumuspec":
+        diagnostics.append(_composer_diagnostic("compiler", "experimental_component", "MumuSpec 当前为实验性回退实现", "warning"))
+    if profile.id == "fixture-local":
+        expected = (profile.source == "local_queue" and profile.compiler == "simple" and profile.maker == "sample" and profile.checkers == ("security",) and profile.delivery == "local_artifact")
+        forbidden = any(allow(key) for key in ("allow_network", "allow_model", "allow_git", "allow_ssh", "allow_publish", "allow_deploy"))
+        if not expected or forbidden:
+            diagnostics.append(_composer_diagnostic("profile", "fixture_baseline_reserved", "fixture-local 是保留的离线安全基线，不能通过草稿改造成外部执行组合"))
+    return profile, diagnostics
+
+
+@app.route("/api/profile-composer/catalog", methods=["GET"])
+def profile_composer_catalog():
+    return jsonify({"ok": True, "catalog": _composer_catalog_copy()})
+
+
+@app.route("/api/profile-composer/preflight", methods=["POST"])
+def profile_composer_preflight():
+    data = request.get_json(silent=True)
+    raw_profile = data.get("profile") if isinstance(data, dict) else None
+    profile, diagnostics = _composer_preflight(raw_profile)
+    valid = profile is not None and not any(item["severity"] == "error" for item in diagnostics)
+    payload = {"ok": valid, "valid": valid, "normalized_profile": profile.to_dict() if profile else None,
+               "component_graph": _composer_graph(profile) if profile else None, "diagnostics": diagnostics,
+               "execution": {"performed": False, "writes": False, "network": False}}
+    return jsonify(payload), (200 if valid else 400)
+
+
+@app.route("/api/profile-composer/profiles", methods=["POST"])
+def save_profile_composer_draft():
+    """Register a preflighted Profile so it immediately becomes selectable in requirement intake."""
+    from engine.core.profiles import ProfileError, persist_profile
+    data = request.get_json(silent=True)
+    raw_profile = data.get("profile") if isinstance(data, dict) else None
+    profile, diagnostics = _composer_preflight(raw_profile)
+    valid = profile is not None and not any(item["severity"] == "error" for item in diagnostics)
+    if not valid:
+        return jsonify({"ok": False, "error": "Profile 预检未通过", "valid": False, "diagnostics": diagnostics}), 400
+    try:
+        persist_profile(profile)
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "profile": profile.to_dict(), "ref": profile.ref})
+
+
 # ── Phase 3：只读 Profile / Run Plan API ──
+def _execution_readiness(profile):
+    """Report server capability availability without exposing any credential values."""
+    data = profile.to_dict() if hasattr(profile, "to_dict") else profile
+    blockers = []
+    config = load_config()
+    if data.get("maker") == "deepseek" and not config.get("DEEPSEEK_API_KEY", "").strip():
+        blockers.append("服务端未配置 DEEPSEEK_API_KEY，不能调用 DeepSeek")
+    if data.get("delivery") == "github_workflow":
+        if not config.get("GITHUB_TOKEN", "").strip():
+            blockers.append("服务端未配置 GITHUB_TOKEN，不能推送 GitHub")
+        if not __import__("shutil").which("git"):
+            blockers.append("服务端未找到 git 命令，不能执行 GitHub Delivery")
+    return {"ready": not blockers, "blockers": blockers}
+
+
+def _profile_payload(profile):
+    payload = profile.to_dict() if hasattr(profile, "to_dict") else dict(profile)
+    if payload.get("valid", True):
+        payload["execution_readiness"] = _execution_readiness(payload)
+    return payload
+
+
 @app.route("/api/profiles", methods=["GET"])
 def get_profiles():
     from engine.core.profiles import list_profiles
-    return jsonify({"ok": True, "profiles": list_profiles()})
+    return jsonify({"ok": True, "profiles": [_profile_payload(profile) for profile in list_profiles()]})
 
 
 @app.route("/api/profiles/<profile_id>", methods=["GET"])
@@ -117,18 +326,26 @@ def get_profile(profile_id):
     try:
         profile = load_profile(profile_id)
         validate_profile(profile)
-        return jsonify({"ok": True, "profile": profile.to_dict(), "ref": profile.ref})
+        return jsonify({"ok": True, "profile": _profile_payload(profile), "ref": profile.ref})
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
+
+
+def _studio_executable_profile(profile):
+    """Use the executor's catalog-and-policy gate for every saved Profile."""
+    from engine.core.profiles import validate_profile
+    from engine.core.run_executor import ProfileRunExecutor
+
+    validate_profile(profile)
+    ProfileRunExecutor.validate_executable(profile)
+    return profile
 
 
 def _pending_profile_task(profile_id, task_id):
     """Resolve a pending task from its Profile source; never trust browser task content."""
     from engine.core.profiles import ProfileError, create_source_adapter, load_profile, validate_profile
-    profile = load_profile(profile_id)
+    profile = _studio_executable_profile(load_profile(profile_id))
     validate_profile(profile)
-    if profile.id != "fixture-local":
-        raise ProfileError("Studio 仅允许选择 fixture-local 的安全参考任务")
     for task in create_source_adapter(profile).list_pending():
         if task.id == task_id and task.status == "pending" and task.profile_id == profile.id:
             return profile, task
@@ -146,13 +363,11 @@ def _task_preview(task):
 
 @app.route("/api/profiles/<profile_id>/pending-tasks", methods=["GET"])
 def get_profile_pending_tasks(profile_id):
-    """List safe, normalized fixture tasks without exposing task body or source configuration."""
+    """List pending, Profile-bound tasks for the reviewed Studio execution profiles."""
     from engine.core.profiles import ProfileError, create_source_adapter, load_profile, validate_profile
     try:
-        profile = load_profile(profile_id)
+        profile = _studio_executable_profile(load_profile(profile_id))
         validate_profile(profile)
-        if profile.id != "fixture-local":
-            return jsonify({"ok": False, "error": "Studio 仅展示 fixture-local 的安全参考任务"}), 403
         tasks = [
             {"id": task.id, "title": task.title, "source": task.source,
              "priority": task.priority, "case": task.case, "profile_id": task.profile_id}
@@ -183,6 +398,24 @@ def get_run_plan(plan_id):
         return jsonify({"ok": False, "error": str(exc)}), 404
 
 
+@app.route("/api/run-plans/freeze", methods=["POST"])
+def freeze_run_plan():
+    """Persist the exact server-resolved Plan that an official Studio user will review."""
+    from engine.core.profiles import ProfileError, create_run_plan, persist_run_plan
+    data = request.get_json(force=True) or {}
+    try:
+        profile_id = str(data.get("profile_id", "")).strip()
+        task_id = str(data.get("task_id", "")).strip()
+        if not profile_id or not task_id:
+            raise ProfileError("profile_id 与 task_id 必填")
+        profile, task = _pending_profile_task(profile_id, task_id)
+        plan = create_run_plan(profile, _task_preview(task))
+        persist_run_plan(plan)
+        return jsonify({"ok": True, "plan": plan.to_dict()})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
 @app.route("/api/run-plans/preview", methods=["POST"])
 def preview_run_plan():
     """Create a no-write Preview; safe Studio requests resolve their task from the Adapter."""
@@ -204,24 +437,121 @@ def preview_run_plan():
 
 @app.route("/api/profile-runs/confirm", methods=["POST"])
 def confirm_profile_run():
-    """执行已入池且经 Plan Review 明确确认的任务；不走 legacy generate/trigger。"""
-    from engine.core.profiles import ProfileError
+    """Execute the one persisted Plan explicitly reviewed by the official Studio user."""
+    from engine.core.profiles import ProfileError, get_run_plan
     from engine.core.run_executor import ProfileRunExecutor
     data = request.get_json(force=True) or {}
     if data.get("confirmed") is not True:
         return jsonify({"ok": False, "error": "必须显式传入 confirmed=true"}), 400
     profile_id = str(data.get("profile_id", "")).strip()
     task_id = str(data.get("task_id", "")).strip()
-    if not profile_id or not task_id:
-        return jsonify({"ok": False, "error": "profile_id 与 task_id 必填"}), 400
+    plan_id = str(data.get("plan_id", "")).strip()
+    plan_digest = str(data.get("plan_digest", "")).strip()
+    if not profile_id or not task_id or not plan_id or not plan_digest:
+        return jsonify({"ok": False, "error": "profile_id、task_id、plan_id 与 plan_digest 必填"}), 400
     try:
-        results = ProfileRunExecutor().execute(profile_id, task_id=task_id, max_tasks=1)
+        plan = get_run_plan(plan_id)
+        if plan.get("digest") != plan_digest:
+            raise ProfileError("Run Plan digest 不匹配，必须重新审阅")
+        if plan.get("profile", {}).get("id") != profile_id or plan.get("task", {}).get("id") != task_id:
+            raise ProfileError("Run Plan 与确认的 Profile 或任务不一致，必须重新审阅")
+        from engine.core.profiles import Profile
+        readiness = _execution_readiness(Profile.from_dict({
+            key: value for key, value in plan["profile"].items() if key != "ref"
+        }))
+        if not readiness["ready"]:
+            raise ProfileError("当前执行环境未就绪：" + "；".join(readiness["blockers"]))
+        result = ProfileRunExecutor().execute_plan(plan_id)
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     except Exception:
         return jsonify({"ok": False, "error": "受控运行异常终止；请在 Run 详情查看脱敏证据"}), 500
-    result = results[0]
     return jsonify({"ok": result.status == "passed", "run": result.to_dict()})
+
+
+@app.route("/api/profile-runs/<run_id>/retry-delivery", methods=["POST"])
+def retry_profile_delivery(run_id):
+    """明确确认后仅重试失败的 GitHub Delivery；不会重新调用模型。"""
+    from engine.core.profiles import ProfileError
+    from engine.core.run_executor import ProfileRunExecutor
+    data = request.get_json(force=True) or {}
+    if data.get("confirmed") is not True:
+        return jsonify({"ok": False, "error": "必须显式传入 confirmed=true"}), 400
+    try:
+        result = ProfileRunExecutor().retry_delivery(run_id)
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        return jsonify({"ok": False, "error": "Delivery 重试异常终止；请查看 Run 证据"}), 500
+    return jsonify({"ok": result.status == "passed", "run": result.to_dict()})
+
+
+def _run_artifact_payload(run_id):
+    """Return only the artifact directory bound to this immutable Run Plan."""
+    from engine.core.profiles import ProfileError, get_run_plan
+
+    get_run_plan(run_id)  # validates the id, existence, and frozen-plan digest first
+    artifact_dir = (PlatformPaths.OUTPUT_DIR / f"maker-{run_id}").resolve()
+    output_root = PlatformPaths.OUTPUT_DIR.resolve()
+    if output_root not in artifact_dir.parents or not artifact_dir.is_dir():
+        return {
+            "available": False,
+            "relative_path": f"output/maker-{run_id}",
+            "file_count": 0,
+            "files": [],
+            "preview_url": None,
+            "open_local_supported": sys.platform == "darwin",
+        }
+    files = []
+    for path in sorted(artifact_dir.rglob("*")):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+        relative = path.relative_to(artifact_dir).as_posix()
+        files.append({
+            "path": relative,
+            "bytes": path.stat().st_size,
+            "url": f"/output/maker-{run_id}/{relative}",
+        })
+    index = artifact_dir / "index.html"
+    return {
+        "available": True,
+        "relative_path": f"output/maker-{run_id}",
+        "file_count": len(files),
+        "files": files[:500],
+        "truncated": len(files) > 500,
+        "preview_url": f"/output/maker-{run_id}/index.html" if index.is_file() else None,
+        "open_local_supported": sys.platform == "darwin",
+    }
+
+
+@app.route("/api/profile-runs/<run_id>/artifact", methods=["GET"])
+def get_profile_run_artifact(run_id):
+    """Expose the generated local artifact path and file tree for one verified Run."""
+    from engine.core.profiles import ProfileError
+    try:
+        return jsonify({"ok": True, "artifact": _run_artifact_payload(run_id)})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+
+
+@app.route("/api/profile-runs/<run_id>/artifact/open", methods=["POST"])
+def open_profile_run_artifact(run_id):
+    """Open only this run-bound output directory in Finder when Studio runs locally on macOS."""
+    from engine.core.profiles import ProfileError
+    try:
+        artifact = _run_artifact_payload(run_id)
+        if not artifact["available"]:
+            return jsonify({"ok": False, "error": "该 Run 尚未生成本地产物"}), 404
+        if sys.platform != "darwin":
+            return jsonify({"ok": False, "error": "仅本机 macOS Studio 支持在 Finder 中打开目录"}), 400
+        import subprocess
+        target = PlatformPaths.ROOT / artifact["relative_path"]
+        completed = subprocess.run(["open", str(target)], capture_output=True, text=True, timeout=5)
+        if completed.returncode:
+            return jsonify({"ok": False, "error": "无法打开 Finder 目录"}), 500
+        return jsonify({"ok": True, "relative_path": artifact["relative_path"]})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
 
 
 # ── Phase 4：只读 RunEvent / Evidence 投影 API ──
@@ -315,28 +645,74 @@ GATE_PY = str(PlatformPaths.ENGINE_DIR / "gate.py")
 GENERATE_PY = str(PlatformPaths.ENGINE_DIR / "generate.py")
 
 
+# ── Requirements API ──
+# Backlog text and document tokens are execution inputs, not Studio read-model fields.
+# Keep them in the persisted queue and immutable Run Plan only; never reflect them through
+# a browser GET endpoint, where historical content might contain credentials or private data.
+_SENSITIVE_TITLE_MARKERS = ("api_key", "apikey", "token", "password", "credential", "secret", "private_key")
+_REQUIREMENT_BODY_SUMMARY = "需求正文仅在服务端冻结 Plan 中受控使用，正式列表不展示原文。"
+
+
+def _public_requirement_title(doc, task_id):
+    title = str(doc.get("title") or "").strip()
+    if not title or any(marker in title.lower() for marker in _SENSITIVE_TITLE_MARKERS):
+        return f"需求 {task_id}"
+    return title[:120]
+
+
+def _public_backlog_entry(doc, task_state):
+    task_id = str(doc.get("id", ""))
+    state = task_state if isinstance(task_state, dict) else {}
+    return {
+        "id": task_id,
+        "title": _public_requirement_title(doc, task_id),
+        "priority": doc.get("priority", 99),
+        "profile_id": str(doc.get("profile_id") or ""),
+        "pending": state.get("status") not in ("done", "fetched"),
+        "status": state.get("status", "pending"),
+        "attempts": state.get("attempts"),
+    }
+
+
+@app.route("/api/requirements", methods=["GET"])
+def get_requirements():
+    """Return public requirement metadata, verified Runs, and no persisted requirement body."""
+    from engine.core.observability_projection import ObservabilityProjection
+
+    docs_path, state_path = _feishu_docs_path(), _feishu_state_path()
+    docs = _read_json(docs_path).get("docs", []) if os.path.exists(docs_path) else []
+    state = _read_json(state_path) if os.path.exists(state_path) else {}
+    runs_by_task = {}
+    for run in ObservabilityProjection().list_runs(limit=100):
+        task = run.get("task") or {}
+        task_id = task.get("id")
+        if task_id:
+            runs_by_task.setdefault(task_id, []).append(run)
+
+    requirements = []
+    for doc in docs:
+        task_id = str(doc.get("id", ""))
+        task_runs = runs_by_task.get(task_id, [])
+        requirement = _public_backlog_entry(doc, state.get(task_id, {}))
+        requirement.update({
+            "description": _REQUIREMENT_BODY_SUMMARY,
+            "runs": task_runs,
+            "latest_run_id": task_runs[0]["run_id"] if task_runs else None,
+        })
+        requirements.append(requirement)
+    return jsonify({"ok": True, "source": "backlog-and-verified-runs", "requirements": requirements})
+
+
 # ── Backlog API ──
 @app.route("/api/backlog", methods=["GET"])
 def get_backlog():
+    """Compatibility read endpoint with the same no-body/no-token public projection."""
     docs_path = _feishu_docs_path()
     state_path = _feishu_state_path()
     docs = _read_json(docs_path).get("docs", []) if os.path.exists(docs_path) else []
     state = _read_json(state_path) if os.path.exists(state_path) else {}
-    items = []
-    for d in docs:
-        tid = str(d.get("id"))
-        st = state.get(tid, {})
-        items.append({
-            "id": tid, "title": d.get("title", tid),
-            "token_kind": "wiki_token" if d.get("wiki_token") else ("doc_token" if d.get("doc_token") else None),
-            "token": d.get("wiki_token") or d.get("doc_token"),
-            "priority": d.get("priority", 99), "profile_id": d.get("profile_id", ""),
-            "pending": st.get("status") not in ("done", "fetched"),
-            "status": st.get("status", "pending"),
-            "spec_text": d.get("spec_text", ""),
-            "attempts": st.get("attempts"),
-        })
-    items.sort(key=lambda x: (x["priority"], x["id"]))
+    items = [_public_backlog_entry(doc, state.get(str(doc.get("id", "")), {})) for doc in docs]
+    items.sort(key=lambda item: (item["priority"], item["id"]))
     return jsonify({"docs": items, "source": "feishu"})
 
 
@@ -427,8 +803,6 @@ def add_backlog():
             token = m.group(2)
     if not spec_text and not token:
         return jsonify({"ok": False, "error": "请填写需求描述或粘贴飞书链接"}), 400
-    if not title:
-        title = spec_text[:50] if spec_text else (token or "未命名需求")
     if profile_id:
         from engine.core.profiles import ProfileError, load_profile, validate_profile
         try:
@@ -440,6 +814,8 @@ def add_backlog():
     cfg = _read_json(docs_path) if os.path.exists(docs_path) else {"docs": []}
     docs_list = cfg.setdefault("docs", [])
     nid = f"FS-{len(docs_list)+1:03d}"
+    if not title:
+        title = f"需求 {nid}"
     entry = {"id": nid, "title": title, "priority": int(data.get("priority", len(docs_list) + 1))}
     if profile_id:
         entry["profile_id"] = profile_id
@@ -449,7 +825,7 @@ def add_backlog():
         entry["spec_text"] = spec_text
     docs_list.append(entry)
     _write_json(docs_path, cfg)
-    return jsonify({"ok": True, "id": nid, "entry": entry})
+    return jsonify({"ok": True, "id": nid, "entry": _public_backlog_entry(entry, {})})
 
 
 @app.route("/api/backlog/<tid>/reset", methods=["POST"])

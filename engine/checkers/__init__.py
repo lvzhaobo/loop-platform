@@ -19,6 +19,7 @@ def load_checker(name: str = "security", **kwargs) -> Checker:
         from . import runtime  # noqa: F401
         from . import e2e  # noqa: F401
         from . import process  # noqa: F401
+        from . import pages  # noqa: F401
 
     if name == "all":
         from .all_checker import AllChecker
@@ -32,5 +33,5 @@ def load_checker(name: str = "security", **kwargs) -> Checker:
 
 def list_checkers() -> list[str]:
     if not _registry:
-        from . import security, runtime, e2e, process  # noqa: F401
+        from . import security, runtime, e2e, process, pages  # noqa: F401
     return list(_registry.keys())

@@ -1,0 +1,11 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { api } from '../api/client'
+import type { CheckStatus, Profile, RunSummary } from '../api/contracts'
+import StatusBadge from '../components/StatusBadge.vue'
+const runs = ref<RunSummary[]>([]), profiles = ref<Profile[]>([]), error = ref(''), loading = ref(true)
+const states: CheckStatus[] = ['passed', 'failed', 'unavailable', 'indeterminate', 'skipped']
+const counts = computed(() => states.map(status => ({ status, count: runs.value.filter(run => run.status === status).length })))
+onMounted(async () => { try { const [r, p] = await Promise.all([api.runs(), api.profiles()]); runs.value = r.runs; profiles.value = p.profiles } catch (e) { error.value = e instanceof Error ? e.message : '无法读取正式 Studio 数据' } finally { loading.value = false } })
+</script>
+<template><section class="page"><div class="hero"><div><p class="eyebrow">OFFICIAL LOOP STUDIO</p><h1>交付事实，而非猜测。</h1><p class="lede">正式界面只显示 Profile、冻结 Run Plan 与已验证事件/证据投影。旧 Flask 控制台仍保持原入口。</p></div><RouterLink class="primary-button" to="/plans">创建安全 Run Plan</RouterLink></div><p v-if="error" class="data-warning">⚠ {{ error }}；未显示 Mock 替代数据。</p><section class="metric-grid"><article v-for="item in counts" :key="item.status" class="metric-card"><span>{{ item.status }}</span><b>{{ loading ? '—' : item.count }}</b><small>权威 Run 投影</small></article></section><section class="workspace-panel"><div class="panel-heading"><div><h2>已验证运行</h2><span>{{ loading ? '正在读取…' : `${runs.length} 条 · ${profiles.filter(p => p.valid).length} 个有效 Profile` }}</span></div><RouterLink to="/runs">查看全部 →</RouterLink></div><p v-if="!loading && !runs.length" class="empty-state">当前没有 RunEvent 记录；这不代表曾经的兼容历史通过。</p><RouterLink v-for="run in runs.slice(0, 6)" :key="run.run_id" :to="`/runs/${run.run_id}`" class="run-row"><span class="run-icon">↻</span><div><b>{{ run.run_id }}</b><small>{{ run.last_occurred_at || '未记录时间' }}</small></div><StatusBadge :status="run.status"/><StatusBadge :status="run.integrity"/><span>{{ run.event_count }} events</span></RouterLink></section><section class="governance-notes"><article><i>✓</i><div><b>安全参考路径可执行</b><p>仅 fixture-local 的任务可以先预览冻结 Plan，再显式确认运行。</p></div></article><article><i>!</i><div><b>治理边界明确</b><p>CI、审批、Review、外部诊断未接入时不会被推断为已覆盖。</p></div></article></section></section></template>

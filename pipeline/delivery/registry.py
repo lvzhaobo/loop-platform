@@ -17,10 +17,10 @@ def register(name: str):
     return decorator
 
 
-def load_delivery(name: str) -> Delivery:
+def load_delivery(name: str, **config) -> Delivery:
     if name not in _registry:
         raise ValueError(f"未知 Delivery: {name}。支持: {', '.join(_registry.keys())}")
-    return _registry[name]()
+    return _registry[name](**config)
 
 
 def list_deliveries() -> list[str]:

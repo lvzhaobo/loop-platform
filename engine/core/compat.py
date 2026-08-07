@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from pathlib import Path
 
 from engine.core.contracts import RunContext, SpecBundle, ArtifactBundle, CheckReport
 from engine.core.paths import PlatformPaths
@@ -37,7 +39,9 @@ def make_with_context(
     from engine.makers import load_maker
 
     maker_config = {}
-    if timeout_seconds is not None:
+    # SampleMaker 是零配置的确定性本地实现；Profile 的通用超时预算
+    # 仍用于受支持的 Provider，不能作为构造参数传给 SampleMaker。
+    if timeout_seconds is not None and maker_name != "sample":
         maker_config["timeout_seconds"] = timeout_seconds
     maker = load_maker(maker_name, **maker_config)
     # 使用完整 run_id 隔离每次制品，禁止按日期前缀复用历史输出。
@@ -60,6 +64,16 @@ def make_with_context(
     prompt = "\n\n".join(prompt_parts)
     if requirement.strip():
         prompt = f"# original_requirement\n{requirement.strip()}\n\n{prompt}"
+    try:
+        acceptance = json.loads(Path(spec.acceptance_path).read_text(encoding="utf-8"))
+        pages = acceptance.get("pages") if acceptance.get("schema_version") == 2 else None
+        if isinstance(pages, list):
+            files = [page.get("file") for page in pages if isinstance(page, dict)]
+            prompt += ("\n\n# artifact_page_contract\n必须创建且只使用 acceptance 中声明的页面文件："
+                       + ", ".join(str(item) for item in files)
+                       + "。每个 declared navigation 必须以对应 <a href> 实现；不得链接未生成的本地文件。")
+    except (OSError, ValueError, TypeError):
+        pass
 
     result = maker.generate(str(output_dir), prompt, feedback=feedback)
     if not result.success:
@@ -100,6 +114,7 @@ def check_with_context(
     context: RunContext,
     artifacts: ArtifactBundle,
     checker_names: list[str] | None = None,
+    acceptance_path: str = "",
 ) -> CheckReport:
     """用 Phase 2 合同调用既有 Checker。
 
@@ -120,7 +135,7 @@ def check_with_context(
     for name in names:
         try:
             checker = load_checker(name)
-            result = checker.check(artifacts.output_dir, run_id=context.run_id)
+            result = checker.check(artifacts.output_dir, run_id=context.run_id, acceptance_path=acceptance_path)
             for c in result.checks:
                 # 标记来源 checker
                 if "checker" not in c:
