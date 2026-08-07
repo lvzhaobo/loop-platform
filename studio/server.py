@@ -88,19 +88,45 @@ def logout():
 # ── 页面路由 ──
 @app.route("/")
 def index():
-    if os.environ.get("STUDIO_VUE_ROOT") == "1":
-        return redirect("/studio-vue/")
-    return render_template("index.html")
+    """Vue 是正式入口；原 Flask Studio 保留在显式的 /studio Legacy 路径。"""
+    return redirect("/studio-vue/")
+
 
 @app.route("/studio")
 def studio_workbench():
     return render_template("index.html")
 
 
+def _vue_hash_redirect(route: str):
+    """将旧式路径深链稳定转换为 Vue Hash 路由，并保留查询参数。"""
+    query = request.query_string.decode("ascii", errors="ignore")
+    suffix = f"?{query}" if query else ""
+    return redirect(f"/studio-vue/#{route}{suffix}")
+
+
 @app.route("/studio-vue/intake")
 def vue_intake():
-    """Stable direct entry for the requirement-intake hash route."""
-    return redirect("/studio-vue/#/intake")
+    return _vue_hash_redirect("/intake")
+
+
+@app.route("/studio-vue/plans")
+def vue_plans():
+    return _vue_hash_redirect("/plans")
+
+
+@app.route("/studio-vue/governance")
+def vue_governance():
+    return _vue_hash_redirect("/governance")
+
+
+@app.route("/studio-vue/requirements/<task_id>")
+def vue_requirement(task_id):
+    return _vue_hash_redirect(f"/requirements/{task_id}")
+
+
+@app.route("/studio-vue/runs/<run_id>")
+def vue_run(run_id):
+    return _vue_hash_redirect(f"/runs/{run_id}")
 
 
 @app.route("/studio-vue/", defaults={"asset_path": ""})
@@ -308,9 +334,20 @@ def _execution_readiness(profile):
 
 
 def _profile_payload(profile):
+    """Expose server-adjudicated availability without leaking credentials or reimplementing policy in Vue."""
     payload = profile.to_dict() if hasattr(profile, "to_dict") else dict(profile)
-    if payload.get("valid", True):
-        payload["execution_readiness"] = _execution_readiness(payload)
+    if not payload.get("valid", True):
+        return payload
+    payload["execution_readiness"] = _execution_readiness(payload)
+    try:
+        from engine.core.profiles import ProfileError, load_profile
+        _studio_executable_profile(load_profile(str(payload["id"])))
+        payload["execution_eligible"] = True
+        payload["execution_blocker"] = ""
+    except ProfileError as exc:
+        # This is an informational UI projection only; the execution endpoint repeats the same gate.
+        payload["execution_eligible"] = False
+        payload["execution_blocker"] = str(exc)[:240]
     return payload
 
 
@@ -361,6 +398,24 @@ def _task_preview(task):
     }
 
 
+def _public_run_plan(plan):
+    """Project a frozen Plan for the browser without returning its execution input body."""
+    task = plan.get("task") if isinstance(plan.get("task"), dict) else {}
+    profile = plan.get("profile") if isinstance(plan.get("profile"), dict) else {}
+    delivery_config = profile.get("delivery_config") if isinstance(profile.get("delivery_config"), dict) else {}
+    public_delivery_config = {key: delivery_config[key] for key in ("repo", "branch", "prefix", "port_base", "workflow_deploy")
+                              if key in delivery_config}
+    return {
+        "schema_version": plan.get("schema_version", 1), "id": plan.get("id"), "run_id": plan.get("run_id"),
+        "created_at": plan.get("created_at"), "status": plan.get("status"), "digest": plan.get("digest"),
+        "profile": {"id": profile.get("id"), "ref": profile.get("ref"), "delivery": profile.get("delivery"),
+                    "delivery_config": public_delivery_config},
+        "task": {"id": task.get("id"), "title": _public_requirement_title(task, str(task.get("id") or "")),
+                 "source": task.get("source"), "priority": task.get("priority", 99)},
+        "components": plan.get("components", {}), "policy": plan.get("policy", {}),
+    }
+
+
 @app.route("/api/profiles/<profile_id>/pending-tasks", methods=["GET"])
 def get_profile_pending_tasks(profile_id):
     """List pending, Profile-bound tasks for the reviewed Studio execution profiles."""
@@ -386,14 +441,14 @@ def get_run_plans():
         limit = max(1, min(int(request.args.get("limit", "50")), 100))
     except ValueError:
         return jsonify({"ok": False, "error": "limit 必须是整数"}), 400
-    return jsonify({"ok": True, "plans": list_run_plans(limit)})
+    return jsonify({"ok": True, "plans": [_public_run_plan(plan) for plan in list_run_plans(limit)]})
 
 
 @app.route("/api/run-plans/<plan_id>", methods=["GET"])
 def get_run_plan(plan_id):
     from engine.core.profiles import ProfileError, get_run_plan
     try:
-        return jsonify({"ok": True, "plan": get_run_plan(plan_id)})
+        return jsonify({"ok": True, "plan": _public_run_plan(get_run_plan(plan_id))})
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
 
@@ -411,7 +466,7 @@ def freeze_run_plan():
         profile, task = _pending_profile_task(profile_id, task_id)
         plan = create_run_plan(profile, _task_preview(task))
         persist_run_plan(plan)
-        return jsonify({"ok": True, "plan": plan.to_dict()})
+        return jsonify({"ok": True, "plan": _public_run_plan(plan.to_dict())})
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
@@ -430,15 +485,15 @@ def preview_run_plan():
         else:
             profile = load_profile(profile_id)
             task = data.get("task") or {}
-        return jsonify({"ok": True, "plan": create_run_plan(profile, task).to_dict()})
+        return jsonify({"ok": True, "plan": _public_run_plan(create_run_plan(profile, task).to_dict())})
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
 
 @app.route("/api/profile-runs/confirm", methods=["POST"])
 def confirm_profile_run():
-    """Execute the one persisted Plan explicitly reviewed by the official Studio user."""
-    from engine.core.profiles import ProfileError, get_run_plan
+    """Claim one reviewed Plan and return its Run id before the external pipeline begins."""
+    from engine.core.profiles import Profile, ProfileError, claim_run_plan, get_run_plan
     from engine.core.run_executor import ProfileRunExecutor
     data = request.get_json(force=True) or {}
     if data.get("confirmed") is not True:
@@ -455,18 +510,46 @@ def confirm_profile_run():
             raise ProfileError("Run Plan digest 不匹配，必须重新审阅")
         if plan.get("profile", {}).get("id") != profile_id or plan.get("task", {}).get("id") != task_id:
             raise ProfileError("Run Plan 与确认的 Profile 或任务不一致，必须重新审阅")
-        from engine.core.profiles import Profile
         readiness = _execution_readiness(Profile.from_dict({
             key: value for key, value in plan["profile"].items() if key != "ref"
         }))
         if not readiness["ready"]:
             raise ProfileError("当前执行环境未就绪：" + "；".join(readiness["blockers"]))
-        result = ProfileRunExecutor().execute_plan(plan_id)
+        claim = claim_run_plan(plan_id)
     except ProfileError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
-    except Exception:
-        return jsonify({"ok": False, "error": "受控运行异常终止；请在 Run 详情查看脱敏证据"}), 500
-    return jsonify({"ok": result.status == "passed", "run": result.to_dict()})
+
+    def run_claimed_plan():
+        from engine.core.profiles import update_run_execution_claim
+        try:
+            update_run_execution_claim(plan_id, "running")
+            result = ProfileRunExecutor().execute_plan(plan_id)
+            terminal_reason = "执行已完成。" if result.status == "passed" else "执行未完成；请查看已记录的阶段状态与证据摘要。"
+            update_run_execution_claim(plan_id, result.status, reason=terminal_reason)
+        except Exception:
+            update_run_execution_claim(plan_id, "failed", reason="受控运行异常终止；请查看 Run Detail")
+
+    from threading import Thread
+    worker = Thread(target=run_claimed_plan, name=f"loop-run-{claim['run_id']}", daemon=True)
+    worker.start()
+    return jsonify({"ok": True, "accepted": True, "run": {
+        "run_id": claim["run_id"], "status": "queued", "event_count": 0,
+    }}), 202
+
+
+@app.route("/api/profile-runs/<run_id>/state", methods=["GET"])
+def get_profile_run_state(run_id):
+    """Expose minimal queue state until the verified event projection has a first event."""
+    from engine.core.profiles import ProfileError, get_run_execution_claim, get_run_plan
+    try:
+        plan = get_run_plan(run_id)
+        claim = get_run_execution_claim(run_id)
+        if claim.get("run_id") not in {None, plan.get("run_id")}:
+            raise ProfileError("Run 执行领取记录与冻结 Plan 不一致")
+        return jsonify({"ok": True, "run_id": plan["run_id"], "state": claim.get("state", "planned"),
+                        "updated_at": claim.get("updated_at"), "reason": claim.get("reason")})
+    except ProfileError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
 
 
 @app.route("/api/profile-runs/<run_id>/retry-delivery", methods=["POST"])
@@ -804,11 +887,11 @@ def add_backlog():
     if not spec_text and not token:
         return jsonify({"ok": False, "error": "请填写需求描述或粘贴飞书链接"}), 400
     if profile_id:
-        from engine.core.profiles import ProfileError, load_profile, validate_profile
+        from engine.core.profiles import ProfileError, load_profile
         try:
-            validate_profile(load_profile(profile_id))
+            _studio_executable_profile(load_profile(profile_id))
         except ProfileError as exc:
-            return jsonify({"ok": False, "error": f"Profile 无效: {exc}"}), 400
+            return jsonify({"ok": False, "error": f"Profile 当前不可执行: {exc}"}), 400
 
     docs_path = _feishu_docs_path()
     cfg = _read_json(docs_path) if os.path.exists(docs_path) else {"docs": []}

@@ -323,6 +323,62 @@ def get_run_plan(plan_id: str) -> dict[str, Any]:
     return plan
 
 
+def _run_claim_path(plan_id: str) -> Path:
+    if not plan_id or "/" in plan_id or "\\" in plan_id:
+        raise ProfileError("Run Plan id 非法")
+    return PlatformPaths.DATA_DIR / "run_execution_claims" / f"{plan_id}.json"
+
+
+def claim_run_plan(plan_id: str) -> dict[str, str]:
+    """Atomically reserve one reviewed Plan before any asynchronous execution starts."""
+    plan = get_run_plan(plan_id)
+    target = _run_claim_path(plan_id)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    claim = {
+        "plan_id": plan_id,
+        "run_id": str(plan["run_id"]),
+        "plan_digest": str(plan["digest"]),
+        "state": "queued",
+        "claimed_at": _now(),
+        "updated_at": _now(),
+    }
+    try:
+        with target.open("x", encoding="utf-8") as handle:
+            json.dump(claim, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
+    except FileExistsError as exc:
+        state = get_run_execution_claim(plan_id).get("state", "unknown")
+        raise ProfileError(f"Run Plan 已被领取（状态：{state}）；请查看既有 Run 或重新冻结 Plan") from exc
+    return claim
+
+
+def get_run_execution_claim(plan_id: str) -> dict[str, str]:
+    """Read a minimal execution state; this is queue metadata, not Run evidence."""
+    try:
+        value = json.loads(_run_claim_path(plan_id).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"state": "planned"}
+    except (OSError, ValueError, TypeError) as exc:
+        raise ProfileError("Run 执行领取记录损坏") from exc
+    if not isinstance(value, dict) or str(value.get("plan_id", "")) != plan_id:
+        raise ProfileError("Run 执行领取记录无效")
+    return {key: str(value[key]) for key in ("plan_id", "run_id", "plan_digest", "state", "claimed_at", "updated_at", "reason") if key in value}
+
+
+def update_run_execution_claim(plan_id: str, state: str, *, reason: str = "") -> dict[str, str]:
+    if state not in {"running", "passed", "failed", "unavailable", "indeterminate", "skipped"}:
+        raise ProfileError("Run 执行状态非法")
+    target = _run_claim_path(plan_id)
+    claim = get_run_execution_claim(plan_id)
+    if claim.get("state") == "planned":
+        raise ProfileError("Run Plan 尚未领取")
+    claim.update({"state": state, "updated_at": _now()})
+    if reason:
+        claim["reason"] = reason[:200]
+    target.write_text(json.dumps(claim, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    return claim
+
+
 def list_run_plans(limit: int = 50) -> list[dict[str, Any]]:
     if not PlatformPaths.RUN_PLANS_DIR.is_dir():
         return []

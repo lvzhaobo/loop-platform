@@ -1,5 +1,5 @@
 import { currentDataSource } from '../data/repository'
-import type { ApiEnvelope, ArtifactResponse, BacklogResponse, ConfirmResponse, CoverageResponse, LifecycleResponse, PlanResponse, ProfileComposerCatalogResponse, ProfileComposerPreflightResponse, ProfileDraft, ProfileSaveResponse, ProfilesResponse, RequirementDraft, RequirementsResponse, RunResponse, RunsResponse, TasksResponse } from './contracts'
+import type { ApiEnvelope, ArtifactResponse, BacklogResponse, ConfirmResponse, CoverageResponse, LifecycleResponse, PlanResponse, ProfileComposerCatalogResponse, ProfileComposerPreflightResponse, ProfileDraft, ProfileSaveResponse, ProfilesResponse, RequirementDraft, RequirementsResponse, RunExecutionState, RunResponse, RunsResponse, TasksResponse } from './contracts'
 
 const base = import.meta.env.DEV ? '/studio-api' : ''
 export const officialSource = { kind: 'event-verified' as const, label: '正式 Studio · 权威 API', detail: '页面只消费 Profile、冻结 Plan 与已验证 RunEvent / Evidence 投影；API 失败不会回退到 Mock、目录扫描或旧 trace。', refreshedAt: '请求时读取' }
@@ -25,6 +25,7 @@ export const api = {
   runPlan: (planId: string) => call<PlanResponse>(`/api/run-plans/${encodeURIComponent(planId)}`),
   runs: (status?: string) => call<RunsResponse>(`/api/observability/runs?limit=50${status ? `&status=${encodeURIComponent(status)}` : ''}`),
   run: (runId: string) => call<RunResponse>(`/api/observability/runs/${encodeURIComponent(runId)}`),
+  runState: (runId: string) => call<ApiEnvelope & RunExecutionState>(`/api/profile-runs/${encodeURIComponent(runId)}/state`),
   artifact: (runId: string) => call<ArtifactResponse>(`/api/profile-runs/${encodeURIComponent(runId)}/artifact`),
   openArtifactFolder: (runId: string) => call<ApiEnvelope>(`/api/profile-runs/${encodeURIComponent(runId)}/artifact/open`, { method: 'POST' }),
   requirements: () => call<RequirementsResponse>('/api/requirements'),

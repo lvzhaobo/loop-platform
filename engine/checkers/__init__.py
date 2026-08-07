@@ -12,14 +12,14 @@ def register(name: str):
     return decorator
 
 
+def _load_builtin_checkers() -> None:
+    """Import every built-in Checker even when one was imported directly first."""
+    from . import security, runtime, e2e, process, pages  # noqa: F401
+
+
 def load_checker(name: str = "security", **kwargs) -> Checker:
     """工厂：按名称加载 Checker。"""
-    if not _registry:
-        from . import security  # noqa: F401
-        from . import runtime  # noqa: F401
-        from . import e2e  # noqa: F401
-        from . import process  # noqa: F401
-        from . import pages  # noqa: F401
+    _load_builtin_checkers()
 
     if name == "all":
         from .all_checker import AllChecker
@@ -32,6 +32,5 @@ def load_checker(name: str = "security", **kwargs) -> Checker:
 
 
 def list_checkers() -> list[str]:
-    if not _registry:
-        from . import security, runtime, e2e, process, pages  # noqa: F401
+    _load_builtin_checkers()
     return list(_registry.keys())

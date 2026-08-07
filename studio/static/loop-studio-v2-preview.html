@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loop Studio · v2 预览</title>
+<style>
+:root{--bg:#f7f8fa;--surface:#fff;--subtle:#f1f4f8;--line:#e2e7ee;--text:#172033;--muted:#526077;--faint:#7b8799;--blue:#2563eb;--blue-bg:#eef4ff;--green:#16803c;--green-bg:#e9f8ef;--amber:#b96a00;--amber-bg:#fff5df;--red:#c63737;--red-bg:#fff0f0;--violet:#6d4bc2;--violet-bg:#f4f0ff;--shadow:0 12px 28px rgba(23,32,51,.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}.app{min-height:100vh}.topbar{height:64px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:0 28px;position:sticky;top:0;z-index:5}.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;white-space:nowrap}.logo-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;color:#fff;background:linear-gradient(135deg,#3b82f6,#1d4ed8)}.crumb{color:var(--faint);font-size:13px}.top-spacer{flex:1}.source{border:1px solid var(--line);background:var(--subtle);border-radius:999px;padding:5px 10px;font-size:12px;color:var(--muted)}.source::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px}.icon-btn,.ghost-btn{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;cursor:pointer}.icon-btn{width:36px;height:36px;font-size:17px}.ghost-btn{padding:8px 12px;font-weight:650}.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - 64px)}.sidebar{padding:20px 12px;border-right:1px solid var(--line);background:var(--surface)}.nav-caption{margin:14px 10px 6px;color:var(--faint);font-size:11px;font-weight:800;letter-spacing:.08em}.nav{width:100%;border:0;background:transparent;color:var(--muted);display:flex;align-items:center;gap:11px;text-align:left;padding:10px 12px;border-radius:8px;font:650 14px inherit;cursor:pointer}.nav:hover{background:var(--subtle);color:var(--text)}.nav.active{background:var(--blue-bg);color:var(--blue);box-shadow:inset 3px 0 var(--blue)}.nav-icon{width:20px;text-align:center;font-size:16px}.main{padding:32px;max-width:1510px;width:100%;margin:auto}.eyebrow{font-size:12px;color:var(--faint);font-weight:750;letter-spacing:.04em}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}.page-head h1{margin:3px 0 5px;font-size:26px;letter-spacing:-.04em}.page-head p{margin:0;color:var(--muted)}.primary{background:var(--blue);color:#fff;border:1px solid var(--blue);border-radius:8px;padding:10px 14px;font:700 14px inherit;cursor:pointer;white-space:nowrap}.primary:hover{background:#1d4ed8}.notice{display:flex;align-items:center;gap:10px;padding:11px 14px;margin-bottom:16px;background:var(--amber-bg);border:1px solid #f1d89a;border-radius:10px;color:#855000}.notice b{color:#704000}.notice a{margin-left:auto;color:#855000;font-weight:700;cursor:pointer}.grid{display:grid;gap:16px}.actions{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:22px}.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}.action-card{padding:18px;min-height:170px;display:flex;flex-direction:column}.card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h3{margin:14px 0 4px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:13px}.card-footer{margin-top:auto;padding-top:16px;display:flex;align-items:center;justify-content:space-between;color:var(--faint);font-size:12px}.card-link{border:0;background:transparent;color:var(--blue);font:700 13px inherit;cursor:pointer;padding:0}.status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:750;white-space:nowrap}.status::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}.failed{color:var(--red);background:var(--red-bg)}.indeterminate{color:var(--violet);background:var(--violet-bg)}.running{color:var(--blue);background:var(--blue-bg)}.passed{color:var(--green);background:var(--green-bg)}.unavailable{color:var(--amber);background:var(--amber-bg)}.summary{grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr)}.section{padding:20px}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.section h2{margin:0;font-size:16px}.section small{color:var(--faint)}.table-wrap{overflow:auto}.runs{border-collapse:collapse;width:100%;min-width:660px}.runs th{padding:0 12px 9px;text-align:left;color:var(--faint);font-size:11px;letter-spacing:.06em}.runs td{padding:13px 12px;border-top:1px solid var(--line);color:var(--muted)}.runs td:first-child{color:var(--text);font-weight:700}.runs tr{cursor:pointer}.runs tr:hover td{background:#f9fbff}.run-id{font:650 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--blue)}.metric{padding:16px 0;border-bottom:1px solid var(--line)}.metric:last-child{border-bottom:0}.metric-line{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px}.metric strong{color:var(--text);font-size:20px}.bar{height:7px;border-radius:9px;background:var(--subtle);overflow:hidden;margin-top:9px}.bar i{display:block;height:100%;border-radius:inherit;background:var(--blue)}.legend{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.legend span{color:var(--muted);font-size:12px}.legend i{width:8px;height:8px;display:inline-block;border-radius:2px;margin-right:5px}.drawer{position:fixed;right:0;top:0;bottom:0;width:min(510px,100vw);padding:20px;background:var(--surface);box-shadow:var(--shadow);transform:translateX(105%);transition:transform .22s ease;z-index:10;overflow:auto}.drawer.open{transform:translateX(0)}.drawer-head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:17px;border-bottom:1px solid var(--line)}.drawer h2{font-size:19px;margin:3px 0}.close{border:0;background:var(--subtle);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:18px}.stages{display:grid;gap:0;margin:20px 0}.stage{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}.stage-dot{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;font-size:12px}.stage h4{margin:0;font-size:14px}.stage p{margin:2px 0 0;font-size:12px}.details{margin-top:20px}.details h3{font-size:14px;margin:0 0 10px}.evidence{padding:12px;background:var(--subtle);border-radius:9px;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);word-break:break-all}.collapsed .shell{grid-template-columns:64px minmax(0,1fr)}.collapsed .sidebar{padding-inline:8px}.collapsed .nav{justify-content:center;padding:11px 0}.collapsed .nav-label,.collapsed .nav-caption{display:none}.collapsed .nav-icon{font-size:18px}
+@media(max-width:1024px){.topbar{padding:0 16px}.shell{grid-template-columns:64px minmax(0,1fr)}.sidebar{padding-inline:8px}.nav{justify-content:center;padding:11px 0}.nav-label,.nav-caption{display:none}.nav-icon{font-size:18px}.main{padding:24px}.actions{grid-template-columns:1fr}.action-card{min-height:145px}.summary{grid-template-columns:1fr}}@media(max-width:620px){.topbar{gap:9px}.crumb,.source{display:none}.main{padding:20px 16px}.page-head{display:block}.primary{margin-top:16px;width:100%}.page-head h1{font-size:23px}.notice{align-items:flex-start}.notice a{display:none}.sidebar{display:none}.shell{grid-template-columns:1fr}.legend{grid-template-columns:1fr}.drawer{padding:16px}}
+body.dark{--bg:#111827;--surface:#182235;--subtle:#202c41;--line:#314059;--text:#f1f5f9;--muted:#b2bed0;--faint:#8593a8;--blue-bg:#1d335c;--green-bg:#153d2a;--amber-bg:#4a3511;--red-bg:#4a2026;--violet-bg:#332653}.dark .runs tr:hover td{background:#1d2a40}.dark .notice{border-color:#73551d;color:#f2ce79}.dark .notice b,.dark .notice a{color:#f2ce79}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="logo"><span class="logo-mark">↻</span><span>Loop Studio</span></div>
+    <div class="crumb">交付运营 / <b style="color:var(--text)">交付概览</b></div>
+    <div class="top-spacer"></div>
+    <span class="source">静态演示数据</span>
+    <button class="icon-btn" onclick="toggleNav()" title="收起菜单">☰</button>
+    <button class="icon-btn" onclick="toggleTheme()" title="切换主题">◐</button>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="nav-caption">运营</div>
+      <button class="nav active"><span class="nav-icon">◫</span><span class="nav-label">交付概览</span></button>
+      <button class="nav"><span class="nav-icon">◎</span><span class="nav-label">交付运行</span></button>
+      <button class="nav"><span class="nav-icon">⌁</span><span class="nav-label">需求与契约</span></button>
+      <div class="nav-caption">治理</div>
+      <button class="nav"><span class="nav-icon">◇</span><span class="nav-label">治理覆盖</span></button>
+      <button class="nav"><span class="nav-icon">⚙</span><span class="nav-label">配置与交付</span></button>
+      <div class="nav-caption">开发者</div>
+      <button class="nav"><span class="nav-icon">⌘</span><span class="nav-label">API 与集成</span></button>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <div><div class="eyebrow">运营面 · 只读</div><h1>交付概览</h1><p>先处理需要关注的交付，再查看最近运行与证据完整度。</p></div>
+        <button class="primary" onclick="showToast(this)">创建 Delivery 计划</button>
+      </div>
+      <div class="notice"><span>⚠</span><span><b>演示模式：</b>本页所有数据均为静态样例；真实实现仅显示可回溯到事件和证据的结论。</span><a onclick="document.getElementById('run-002').click()">查看样例 Run →</a></div>
+      <section class="grid actions">
+        <article class="card action-card">
+          <div class="card-top"><span class="status failed">未通过</span><span class="run-id">run-20260806-024</span></div>
+          <h3>招聘站 · 运行时检查失败</h3><p>健康检查未在超时内返回预期状态。确定性检查已执行，可直接查看失败证据。</p>
+          <div class="card-footer"><span>12 分钟前 · P1</span><button class="card-link" onclick="openDrawer('failed')">查看 Run →</button></div>
+        </article>
+        <article class="card action-card">
+          <div class="card-top"><span class="status indeterminate">证据不可信</span><span class="run-id">run-20260806-023</span></div>
+          <h3>课程商城 · 诊断报告不匹配</h3><p>外部 advisory 报告的 artifact digest 与当前 Run 不一致，不能作为交付结论。</p>
+          <div class="card-footer"><span>28 分钟前 · 需核对</span><button class="card-link" onclick="openDrawer('indeterminate')">核对证据 →</button></div>
+        </article>
+        <article class="card action-card">
+          <div class="card-top"><span class="status running">运行中</span><span class="run-id">run-20260806-025</span></div>
+          <h3>番茄钟 · 正在确定性检查</h3><p>Maker 已产出 12 个文件，正在执行安全、运行时与 E2E 验收。</p>
+          <div class="card-footer"><span>第 1 次尝试 · 01:42</span><button class="card-link" onclick="openDrawer('running')">跟踪进度 →</button></div>
+        </article>
+      </section>
+      <section class="grid summary">
+        <article class="card section">
+          <div class="section-head"><div><h2>最近运行</h2><small>仅展示可关联的 Run 摘要</small></div><button class="ghost-btn">全部 Run</button></div>
+          <div class="table-wrap"><table class="runs"><thead><tr><th>RUN / 需求</th><th>状态</th><th>PROFILE</th><th>耗时</th><th>证据</th></tr></thead><tbody>
+            <tr id="run-002" onclick="openDrawer('running')"><td><span class="run-id">run-20260806-025</span><br>番茄钟</td><td><span class="status running">运行中</span></td><td>fixture-local</td><td>01:42</td><td>采集中</td></tr>
+            <tr onclick="openDrawer('failed')"><td><span class="run-id">run-20260806-024</span><br>招聘站</td><td><span class="status failed">未通过</span></td><td>api-batch</td><td>04:18</td><td>完整</td></tr>
+            <tr onclick="openDrawer('indeterminate')"><td><span class="run-id">run-20260806-023</span><br>课程商城</td><td><span class="status indeterminate">证据不可信</span></td><td>qoder-advisory</td><td>06:37</td><td>待核对</td></tr>
+            <tr onclick="openDrawer('passed')"><td><span class="run-id">run-20260806-022</span><br>博客站</td><td><span class="status passed">已通过</span></td><td>fixture-local</td><td>03:12</td><td>完整</td></tr>
+          </tbody></table></div>
+        </article>
+        <aside class="card section">
+          <div class="section-head"><div><h2>数据健康</h2><small>最近 7 天 · 可复算指标</small></div></div>
+          <div class="metric"><div class="metric-line"><span>证据完整度</span><strong>84%</strong></div><div class="bar"><i style="width:84%"></i></div></div>
+          <div class="metric"><div class="metric-line"><span>首次通过率</span><strong>68%</strong></div><div class="bar"><i style="width:68%;background:var(--green)"></i></div></div>
+          <div class="metric"><div class="metric-line"><span>暂不可用比例</span><strong>9%</strong></div><div class="bar"><i style="width:9%;background:var(--amber)"></i></div></div>
+          <div class="legend"><span><i style="background:var(--green)"></i>确定性通过</span><span><i style="background:var(--amber)"></i>数据未接入</span><span><i style="background:var(--violet)"></i>证据不可信</span><span><i style="background:var(--red)"></i>硬失败</span></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="drawer" id="drawer" aria-label="Run 详情">
+  <div class="drawer-head"><div><div class="eyebrow" id="drawer-meta">RUN DETAIL</div><h2 id="drawer-title">Run 详情</h2><span id="drawer-status" class="status running">运行中</span></div><button class="close" onclick="closeDrawer()">×</button></div>
+  <div class="stages" id="stages"></div>
+  <div class="details"><h3>证据与来源</h3><div class="evidence" id="evidence"></div></div>
+</div>
+<script>
+const samples={running:{id:'run-20260806-025',title:'番茄钟 · fixture-local',status:'running',label:'运行中',stages:[['需求','✓','passed','需求与 acceptance 已绑定'],['编译','✓','passed','Spec 三件套完整'],['生成','✓','passed','12 个文件，attempt 1'],['确定性检查','…','running','安全检查执行中'],['Delivery 计划','—','unavailable','尚未生成计划']],evidence:'source: append-only event\nrun_id: run-20260806-025\nartifact_digest: collecting\nscope: current run only\nstatus: evidence collection in progress'},failed:{id:'run-20260806-024',title:'招聘站 · api-batch',status:'failed',label:'未通过',stages:[['需求','✓','passed','需求与验收已绑定'],['编译','✓','passed','Spec 三件套完整'],['生成','✓','passed','9 个文件，attempt 2'],['确定性检查','!','failed','运行时健康检查超时'],['Delivery 计划','—','skipped','硬门禁未通过，明确跳过']],evidence:'source: runtime checker\nrun_id: run-20260806-024\nartifact_digest: sha256:8e65…c21a\ncollected_at: 2026-08-06T10:02:14Z\nresult: health endpoint timeout'},indeterminate:{id:'run-20260806-023',title:'课程商城 · qoder-advisory',status:'indeterminate',label:'证据不可信',stages:[['需求','✓','passed','关联有效'],['编译','✓','passed','关联有效'],['生成','✓','passed','artifact 已生成'],['确定性检查','✓','passed','硬门禁通过'],['Advisory 诊断','?','indeterminate','报告 digest 与当前产物不一致']],evidence:'source: Better Harness advisory\nrun_id: run-20260806-023\nartifact_digest: sha256:EXPECTED\nreported_digest: sha256:DIFFERENT\nvalidation: rejected; not usable as governance evidence'},passed:{id:'run-20260806-022',title:'博客站 · fixture-local',status:'passed',label:'已通过',stages:[['需求','✓','passed','需求与 acceptance 已绑定'],['编译','✓','passed','Spec 三件套完整'],['生成','✓','passed','11 个文件，attempt 1'],['确定性检查','✓','passed','安全、运行时、E2E 均通过'],['Delivery 计划','✓','passed','local artifact plan 已生成']],evidence:'source: event + evidence bundle\nrun_id: run-20260806-022\nartifact_digest: sha256:6bcf…19e4\nevidence_digest: sha256:ff82…014a\nvalidation: complete'}};
+function openDrawer(type){const d=samples[type],drawer=document.getElementById('drawer');document.getElementById('drawer-meta').textContent=d.id;document.getElementById('drawer-title').textContent=d.title;const s=document.getElementById('drawer-status');s.className='status '+d.status;s.textContent=d.label;document.getElementById('stages').innerHTML=d.stages.map(x=>`<div class="stage"><span class="stage-dot ${x[2]}" style="background:var(--${x[2]}-bg,var(--subtle));color:var(--${x[2]},var(--muted))">${x[1]}</span><div><h4>${x[0]}</h4><p>${x[3]}</p></div><span class="status ${x[2]}">${x[2]==='passed'?'已通过':x[2]==='failed'?'未通过':x[2]==='running'?'运行中':x[2]==='skipped'?'已跳过':'暂不可用'}</span></div>`).join('');document.getElementById('evidence').textContent=d.evidence;drawer.classList.add('open')}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open')}function toggleNav(){document.getElementById('app').classList.toggle('collapsed')}function toggleTheme(){document.body.classList.toggle('dark')}function showToast(b){const old=b.textContent;b.textContent='演示页不执行副作用';b.disabled=true;setTimeout(()=>{b.textContent=old;b.disabled=false},1800)}document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
+</script>
+</body>
+</html>

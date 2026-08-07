@@ -21,10 +21,13 @@ class TestStudioDeliveryRunsShell(unittest.TestCase):
     def tearDown(self):
         self.token.stop()
 
-    def test_production_shell_loads_the_delivery_runs_view(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('/static/js/platform.js', response.get_data(as_text=True))
+    def test_root_redirects_to_vue_and_legacy_shell_remains_explicit(self):
+        root = self.client.get("/", follow_redirects=False)
+        self.assertEqual(root.status_code, 302)
+        self.assertEqual(root.headers["Location"], "/studio-vue/")
+        legacy = self.client.get("/studio")
+        self.assertEqual(legacy.status_code, 200)
+        self.assertIn('/static/js/platform.js', legacy.get_data(as_text=True))
         self.assertIn("function installDeliveryRunsView", self.script)
         self.assertIn("page-delivery-runs", self.script)
         self.assertIn("交付运行（只读）", self.script)

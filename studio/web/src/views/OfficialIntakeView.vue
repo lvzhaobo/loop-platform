@@ -38,8 +38,9 @@ async function save() {
 }
 onMounted(async () => {
   try {
-    profiles.value = (await api.profiles()).profiles.filter(item => item.valid)
-    profileId.value = profiles.value.find(item => item.id === 'deepseek-local')?.id || ''
+    profiles.value = (await api.profiles()).profiles.filter(item => item.valid && item.execution_eligible && item.id !== 'fixture-local')
+    profileId.value = profiles.value.find(item => item.id === 'deepseek-local')?.id || profiles.value.find(item => item.id === 'deepseek-github')?.id || profiles.value[0]?.id || ''
+    if (!profileId.value) error.value = '当前没有可用于自定义需求的可执行 Profile；请先修复服务端 Profile 配置。'
   } catch (e) { error.value = e instanceof Error ? e.message : '无法读取 Profile' }
   finally { loading.value = false }
 })

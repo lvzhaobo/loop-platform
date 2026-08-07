@@ -1,5 +1,6 @@
 """既有只读 Checker/Profile HTTP API 的响应合同回归测试。"""
 
+import json
 import os
 import sys
 import unittest
@@ -52,6 +53,8 @@ class TestReadApiContracts(unittest.TestCase):
             "checkers": ["security"], "delivery": "local_artifact",
         })
         self.assertEqual(plan["task"]["id"], "draft-plan-review")
+        self.assertNotIn(task["spec_text"], json.dumps(payload, ensure_ascii=False))
+        self.assertNotIn("spec_text", plan["task"])
     def test_requirement_and_backlog_reads_hide_stored_body_and_tokens(self):
         import json
         import tempfile
