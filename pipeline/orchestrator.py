@@ -86,6 +86,24 @@ def case_available(case: str) -> bool:
     return os.path.exists(os.path.join(cdir, "spec", "manifest.json"))
 
 
+def compile_wbs(name: str) -> None:
+    """六轮 MumuSpec 编出契约后，把 12-plan 编成 spec/wbs.json 并报出与 AC 的缺口。
+
+    入口边界（踩过一次，写清楚）：只有 legacy 批次（不带 --profile 跑 orchestrator）
+    会走到这里。带 --profile 的 Run 走 run_executor → load_compiler，而 MumuSpecCompiler
+    当前是回退 SimpleCompiler 的预留实现，不产 mumuspec/ 文档，因此也没有 WBS 输入。
+    已编译的 wbs.json 仍可通过只读投影看到：GET /api/observability/wbs。
+
+    不阻断：WBS 的发现（哪条 AC 无任务负责、计划引用的 AC 数与契约不一致）是治理
+    信息，不影响 maker/checker 能不能跑；在这里失败只打警告，不占用返回值里的 err。
+    """
+    cmd = [sys.executable, f"{ENGINE}/tools/wbs_compiler.py", "--name", name]
+    proc = subprocess.run(cmd, cwd=ROOT)
+    if proc.returncode != 0:
+        print(f"[loop] ⚠ [{name}] WBS 编译未产出（rc={proc.returncode}），"
+              f"不影响生成链路，但任务↔验收的关联缺口不可见")
+
+
 def compile_from_spec(task: Task) -> tuple[str | None, str, str | None]:
     """把自由文本 Spec 交给编译层。
 
@@ -101,6 +119,8 @@ def compile_from_spec(task: Task) -> tuple[str | None, str, str | None]:
     proc = subprocess.run(mumu_cmd, cwd=ROOT)
     if proc.returncode == 0 and case_available(name):
         print(f"[loop] ✓ [{task.id}] MumuSpec 编译成功 → case={name}")
+        # 简单编译不产 mumuspec/ 文档，只在 MumuSpec 这条路上接 WBS
+        compile_wbs(name)
         return name, spec_path, None
 
     # 回退：简单 spec 编译

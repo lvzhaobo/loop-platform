@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Loop · AI Delivery Workspace</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2324292e'/%3E%3Ctext x='12' y='17' font-size='15' text-anchor='middle' fill='%23ffffff'%3E%E2%86%BB%3C/text%3E%3C/svg%3E" />
+    <script>
+      // 首帧前把主题类落到 <html>，否则 JS 挂载前会闪一次默认背景。
+      try { document.documentElement.classList.toggle('dark', localStorage.getItem('loop-theme') === 'dark') } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

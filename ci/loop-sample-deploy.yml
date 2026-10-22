@@ -89,16 +89,34 @@ jobs:
               PORT=$((1000 + N))
               echo "=== 部署 $D → 端口 $PORT ==="
               cd "$BASE/$REPO/$D"
-              python3 -m pip install -q -r requirements.txt || pip3 install -q -r requirements.txt
-              if [ -f app.pid ]; then kill "$(cat app.pid)" 2>/dev/null || true; sleep 1; fi
-              PORT="$PORT" setsid nohup python3 app.py > app.log 2>&1 &
+              # Python 应用按需安装依赖；纯静态制品无需 requirements.txt。
+              if [ -f requirements.txt ]; then
+                python3 -m pip install -q -r requirements.txt || pip3 install -q -r requirements.txt
+              fi
+              if [ -f app.pid ]; then
+                OLD_PID="$(cat app.pid 2>/dev/null || true)"
+                case "$OLD_PID" in
+                  ''|*[!0-9]*) ;;
+                  *) kill "$OLD_PID" 2>/dev/null || true; sleep 1 ;;
+                esac
+              fi
+              rm -f app.pid
+              if [ -f app.py ]; then
+                PORT="$PORT" setsid nohup python3 app.py > app.log 2>&1 &
+              elif [ -f index.html ]; then
+                PORT="$PORT" setsid nohup python3 -m http.server "$PORT" --bind 0.0.0.0 > app.log 2>&1 &
+              else
+                echo "DEPLOY_FAIL $D: 缺少 app.py 或 index.html"; exit 1
+              fi
               echo $! > app.pid
               sleep 2
-              if kill -0 "$(cat app.pid)" 2>/dev/null; then
-                echo "DEPLOY_OK $D pid=$(cat app.pid) port=$PORT"
-              else
-                echo "DEPLOY_FAIL $D"; tail -n 20 app.log; exit 1
+              if ! kill -0 "$(cat app.pid)" 2>/dev/null; then
+                echo "DEPLOY_FAIL $D: 进程未存活"; tail -n 20 app.log; exit 1
               fi
+              if ! curl -fsS --max-time 10 "http://127.0.0.1:$PORT/" >/dev/null; then
+                echo "DEPLOY_FAIL $D: 本机 HTTP 健康检查失败"; tail -n 20 app.log; exit 1
+              fi
+              echo "DEPLOY_OK $D pid=$(cat app.pid) port=$PORT health=passed"
               cd "$BASE/$REPO"
             done
             # B 方案清理:只保留最近 RETAIN 个样例进程存活,其余停进程(目录仍留 git,不删)

@@ -7,6 +7,8 @@ import OfficialRunsView from './views/OfficialRunsView.vue'
 import OfficialGovernanceView from './views/OfficialGovernanceView.vue'
 import ProfileComposerFormView from './views/ProfileComposerFormView.vue'
 import ProfileComposerCanvasView from './views/ProfileComposerCanvasView.vue'
+import DeliveryPanoramaView from './views/DeliveryPanoramaView.vue'
+import PipelineGraphView from './views/PipelineGraphView.vue'
 import ProfileSaveView from './views/ProfileSaveView.vue'
 import ProfileLibraryView from './views/ProfileLibraryView.vue'
 import ComponentRegistryView from './views/ComponentRegistryView.vue'
@@ -30,6 +32,8 @@ export default createRouter({
     { path: '/profile-components', component: ComponentRegistryView, meta: { title: '组件配置中心' } },
     { path: '/profile-composer/form', component: ProfileComposerFormView, meta: { title: 'Profile 编排' } },
     { path: '/profile-composer/canvas', component: ProfileComposerCanvasView, meta: { title: 'Profile 画布' } },
+    { path: '/panorama', component: DeliveryPanoramaView, meta: { title: '交付全景图' } },
+    { path: '/pipeline-graph', component: PipelineGraphView, meta: { title: '流水线拓扑画布' } },
     { path: '/profile-composer/save', component: ProfileSaveView, meta: { title: '保存 Profile' } },
     { path: '/runs/:runId?', component: OfficialRunsView, meta: { title: '交付运行' } },
     { path: '/governance', component: OfficialGovernanceView, meta: { title: '治理覆盖' } },

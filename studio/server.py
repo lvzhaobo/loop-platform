@@ -703,6 +703,83 @@ def get_governance_coverage():
     return jsonify({"ok": True, "coverage": coverage})
 
 
+# ── 只读 WBS 投影：实现计划 ↔ 验收判据 的关联缺口 ──
+_WBS_PLAN_REL = os.path.join("mumuspec", "12-implementation-plan.md")
+_WBS_FILE_REL = os.path.join("spec", "wbs.json")
+
+
+def _wbs_case_entries():
+    """扫 cases/，按磁盘现状给每个 case 定 WBS 状态。
+
+    GET 不跑编译：编译会写 spec/wbs.json，读接口不应有副作用。因此未编译的
+    case 只报状态和原因，不替它生成。区分「没计划」和「有计划未编」很有必要：
+    后者跑一次工具就能补齐，前者得先回去补 MumuSpec 第 12 轮。
+    """
+    cases_dir = str(PlatformPaths.CASES_DIR)
+    if not os.path.isdir(cases_dir):
+        return []
+    entries = []
+    for name in sorted(os.listdir(cases_dir)):
+        cdir = os.path.join(cases_dir, name)
+        if not os.path.isdir(cdir):
+            continue
+        wbs_path = os.path.join(cdir, _WBS_FILE_REL)
+        has_plan = os.path.isfile(os.path.join(cdir, _WBS_PLAN_REL))
+        if os.path.isfile(wbs_path):
+            try:
+                payload = _read_json(wbs_path)
+            except (json.JSONDecodeError, OSError) as exc:
+                entries.append({"name": name, "status": "unreadable", "reason": str(exc)})
+                continue
+            findings = payload.get("findings", {})
+            entries.append({
+                "name": name, "status": "compiled", "source": payload.get("source"),
+                "summary": payload.get("summary", {}),
+                "uncovered_ac": findings.get("uncovered_ac", []),
+                "dangling_ac": findings.get("dangling_ac", []),
+                "plan_only_routes": findings.get("plan_only_routes", []),
+                "ac_declaration": findings.get("ac_declaration"),
+            })
+        elif has_plan:
+            entries.append({"name": name, "status": "plan_not_compiled"})
+        else:
+            entries.append({"name": name, "status": "no_plan"})
+    return entries
+
+
+@app.route("/api/observability/wbs", methods=["GET"])
+def get_observability_wbs():
+    entries = _wbs_case_entries()
+    counts = {}
+    for item in entries:
+        counts[item["status"]] = counts.get(item["status"], 0) + 1
+    return jsonify({
+        "ok": True, "schema_version": 1, "source": "cases/* " + _WBS_FILE_REL,
+        "counts": counts,
+        "gap_total": sum(1 for i in entries if i["status"] == "compiled" and (
+            i.get("uncovered_ac") or i.get("dangling_ac") or i.get("plan_only_routes")
+            or i.get("ac_declaration"))),
+        "cases": entries,
+        "limitations": ["只读已落盘的 wbs.json；本接口不跑编译，不反映计划文件的新于产物"],
+    })
+
+
+@app.route("/api/observability/wbs/<name>", methods=["GET"])
+def get_observability_wbs_case(name):
+    if os.sep in name or ".." in name:
+        return jsonify({"ok": False, "error": "case 名不合法"}), 400
+    wbs_path = os.path.join(str(PlatformPaths.CASES_DIR), name, _WBS_FILE_REL)
+    if not os.path.isfile(wbs_path):
+        has_plan = os.path.isfile(os.path.join(str(PlatformPaths.CASES_DIR), name, _WBS_PLAN_REL))
+        hint = ("有 12-plan，跑 engine/tools/wbs_compiler.py --name " + name + " 可生成"
+                if has_plan else "无 mumuspec/12-implementation-plan.md，无法编译 WBS")
+        return jsonify({"ok": False, "error": f"wbs.json 不存在：{hint}"}), 404
+    try:
+        return jsonify({"ok": True, "wbs": _read_json(wbs_path)})
+    except (json.JSONDecodeError, OSError) as exc:
+        return jsonify({"ok": False, "error": f"wbs.json 解析失败：{exc}"}), 500
+
+
 # ── 基础 IO ──
 def _read_json(path):
     with open(path, encoding="utf-8") as f:
