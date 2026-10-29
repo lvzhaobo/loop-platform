@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "engine"))
 
-from engine.core.acceptance import check_chain, load_acceptance, record, summarize  # noqa: E402
+from engine.core.acceptance import (check_chain, load_acceptance, record,  # noqa: E402
+                                    run_tcs, summarize)
 from engine.core.event_store import EventStore                                      # noqa: E402
 from engine.core.observability import EvidenceRef, RunEvent                                       # noqa: E402
 from engine.core.review import ReviewRequest, request_review                         # noqa: E402
@@ -142,19 +143,17 @@ def main() -> int:
             break
 
     # ③ 验收（AC → TC → 结果）
-    print("[3] 验收（逐条 AC 记录）…")
+    print("[3] 验收（逐条 AC 真跑检查）…")
+    results = run_tcs(acc, work)          # ← 真的执行 TC，不是看 maker 成功
     passed = 0
     for ac in acc["acs"]:
+        ok, why = results.get(ac["id"], (False, "未执行"))
         tc = ac.get("tc") or ""
-        ok = bool(result and result.success) and any(
-            Path(p).exists() for p in (result.files or {}) or {"."})
-        # 最小判据：产物存在且 maker 成功。真实判据由 checker 给出。
-        ok = bool(result and result.success)
-        record(ROOT / "data" / "evidence", run_id, ac["id"], tc, ok, ac.get("desc", ""))
-        ev.append("checker", "passed" if ok else "failed", ac_id=ac["id"],
-                  tc_id=tc, desc=ac.get("desc", ""))
+        record(ROOT / "data" / "evidence", run_id, ac["id"], tc, ok, why)
+        ev.append("checker", "passed" if ok else "failed",
+                  ac_id=ac["id"], tc_id=tc, desc=ac.get("desc", ""), detail=why[:200])
         passed += 1 if ok else 0
-        print(f"    {'✅' if ok else '❌'} {ac['id']}  {ac.get('desc','')[:40]}")
+        print(f"    {'✅' if ok else '❌'} {ac['id']}  {ac.get('desc','')[:30]:<30} {why[:44]}")
     s = summarize(ROOT / "data" / "evidence", run_id)
     print(f"    → {s['passed']}/{s['total']} 通过")
 

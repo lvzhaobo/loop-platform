@@ -1,6 +1,75 @@
 {
-  "checks": [
-    {"name": "has_timer", "desc": "页面包含倒计时元素"},
-    {"name": "has_button", "desc": "页面包含开始按钮"}
+  "note": "AC → TC → 门禁结果。每条 AC 必须挂一条可执行的 TC。",
+  "acs": [
+    {
+      "id": "AC-001",
+      "desc": "有页面入口，且是 HTML",
+      "tc": "tc-001"
+    },
+    {
+      "id": "AC-002",
+      "desc": "页面里有倒计时显示",
+      "tc": "tc-002"
+    },
+    {
+      "id": "AC-003",
+      "desc": "有开始/暂停控制按钮",
+      "tc": "tc-003"
+    },
+    {
+      "id": "AC-004",
+      "desc": "倒计时逻辑与界面分离，可单独测试",
+      "tc": "tc-004"
+    },
+    {
+      "id": "AC-005",
+      "desc": "它自己写的单元测试必须通过",
+      "tc": "tc-005"
+    }
+  ],
+  "tcs": [
+    {
+      "id": "tc-001",
+      "ac_id": "AC-001",
+      "check": {
+        "type": "regex",
+        "file": "index.html",
+        "pattern": "(?i)<!doctype html>"
+      }
+    },
+    {
+      "id": "tc-002",
+      "ac_id": "AC-002",
+      "check": {
+        "type": "regex",
+        "file": "index.html",
+        "pattern": "\\d{2}:\\d{2}|倒计时|留下"
+      }
+    },
+    {
+      "id": "tc-003",
+      "ac_id": "AC-003",
+      "check": {
+        "type": "regex",
+        "file": "index.html",
+        "pattern": "<button[^>]*"
+      }
+    },
+    {
+      "id": "tc-004",
+      "ac_id": "AC-004",
+      "check": {
+        "type": "file_exists",
+        "file": "timer-core.js"
+      }
+    },
+    {
+      "id": "tc-005",
+      "ac_id": "AC-005",
+      "check": {
+        "type": "unit_test",
+        "command": "node tests/core.test.js"
+      }
+    }
   ]
 }

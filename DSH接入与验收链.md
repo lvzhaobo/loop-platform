@@ -170,6 +170,68 @@ $ python3 pipeline/full_flow.py --maker sample --auto-review reject
 
 ---
 
+## 四点五、验收是真跑的（不是看 maker 成功）
+
+`engine/core/acceptance.py` 的 `run_tcs()` 会**真的执行**每条 TC，支持 6 种检查：
+
+| 类型 | 参数 | 判据 |
+|---|---|---|
+| `file_exists` | `file` | 文件在 |
+| `text_contains` | `file`, `value` | 文本含 |
+| `text_absent` | `file`, `value` | 文本不含 |
+| `regex` | `file`, `pattern` | 正则匹配 |
+| `command` | `command`, `expect_exit` | 退出码等于期望 |
+| `unit_test` | `command` | 退出码 0 |
+
+### 实测：sample maker 只生成单文件 → 3/5
+
+```
+✅ AC-001  有页面入口，且是 HTML        匹配 '(?i)<!doctype html>' → '<!doctype html>'
+✅ AC-002  页面里有倒计时显示            匹配 '\d{2}:\d{2}' → '25:00'
+✅ AC-003  有开始/暂停控制按钮           匹配 '<button[^>]*' → '<button id="start"'
+❌ AC-004  倒计时逻辑与界面分离           文件不存在：timer-core.js
+❌ AC-005  它自己写的单元测试必须通过      退出码 1
+```
+
+**这就是真验收的价值**：它明确告诉你"界面有了，但逻辑没分离、也没有测试"。
+
+### 踩到一个假阴性（检查器自己要被校准）
+
+第一版 `AC-001` 的正则是 `<!DOCTYPE html>`（大写），而 sample 写的是 `<!doctype html>`（小写）
+→ **正确的产物被判失败**。
+
+改成 `(?i)<!doctype html>` 后通过。
+
+**这就是 `mumu_harness.py calibrate` 红绿测要解决的问题**：
+检查器自己也会有假阴性/假阳性，得用"必须变红的样本 + 必须通过的样本"双向校准。
+
+## 四点六、审计查询
+
+```bash
+python3 pipeline/audit.py --list                 # 列出所有 run
+python3 pipeline/audit.py --run RUN-65e53b88     # 看完整事件链
+python3 pipeline/audit.py --run RUN-xxx --json   # 机器可读
+```
+
+实测输出：
+
+```
+run RUN-65e53b88 · 7 条事件
+
+  1  source   passed  ev=1  maker=sample
+  2  maker    passed  ev=1  files=2 round=1
+  3  checker  passed  ev=1  ac_id=AC-001 detail=匹配 ... → '<!doctype html>'
+  4  checker  passed  ev=1  ac_id=AC-002 detail=匹配 ... → '25:00'
+  5  checker  passed  ev=1  ac_id=AC-003 detail=匹配 ... → '<button id="start"'
+  6  checker  failed  ev=0  ac_id=AC-004 detail=文件不存在：timer-core.js
+  7  checker  failed  ev=0  ac_id=AC-005 detail=退出码 1
+
+⚠️ 2 条失败
+```
+
+**注意 `ev=0`**：失败的检查没有 evidence（因为没东西可举证），通过的必须带。
+这正是审计合同的约束——**不能空口说通过**。
+
 ## 五、五件事的当前状态
 
 | 能力 | 状态 | 文件 |
@@ -184,7 +246,7 @@ $ python3 pipeline/full_flow.py --maker sample --auto-review reject
 
 | 限制 | 说明 |
 |---|---|
-| 验收判据还是"产物存在 + maker 成功" | 真正接 checker 的逐条判定，是下一步 |
+| ~~验收判据是"产物存在"~~ | ✅ 已改成真执行 TC（6 种检查类型） |
 | DSH 全量生成较慢 | 番茄钟任务 > 7 分钟，demo 建议用小任务或 `--maker sample` |
 | 没有并发控制 | 现在一次只跑一个，规模化再补 |
 | 审核没有界面 | 终端交互，Studio 页面是下一步 |

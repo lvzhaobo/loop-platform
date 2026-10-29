@@ -54,6 +54,84 @@ def check_chain(acc: dict) -> list[str]:
     return problems
 
 
+# ── TC 执行器：把"验收标准"变成真跑一遍的检查 ──
+CHECK_TYPES = {
+    "file_exists":  "文件存在",
+    "text_contains": "文件包含文本",
+    "text_absent":  "文件不包含文本",
+    "regex":        "文件匹配正则",
+    "command":      "命令退出码等于期望值",
+    "unit_test":    "测试命令退出码为 0",
+}
+
+
+def _run_one(check: dict, workdir: Path) -> tuple[bool, str]:
+    """执行一条 TC 检查，返回 (通过, 说明)。"""
+    if not isinstance(check, dict):
+        return False, "TC 没有 check 定义（无法验证）"
+
+    kind = check.get("type", "")
+    if kind not in CHECK_TYPES:
+        return False, f"未知检查类型 {kind!r}（支持：{', '.join(CHECK_TYPES)}）"
+
+    f = workdir / check["file"] if check.get("file") else None
+
+    if kind in ("file_exists", "text_contains", "text_absent", "regex"):
+        if not check.get("file"):
+            return False, f"{kind} 缺少 file 字段"
+        if not f.exists():
+            return False, f"文件不存在：{check['file']}"
+        try:
+            text = f.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError) as e:
+            return False, f"读不了 {check['file']}：{e}"
+
+        if kind == "file_exists":
+            return True, f"{check['file']} 存在（{len(text)} 字符）"
+        if kind == "text_contains":
+            v = check.get("value", "")
+            return (v in text), (f"包含 {v!r}" if v in text else f"没找到 {v!r}")
+        if kind == "text_absent":
+            v = check.get("value", "")
+            return (v not in text), (f"未出现 {v!r}" if v not in text else f"不该出现 {v!r}")
+        import re
+        pat = check.get("pattern", "")
+        m = re.search(pat, text)
+        return bool(m), (f"匹配 {pat!r} → {m.group(0)[:40]!r}" if m else f"不匹配 {pat!r}")
+
+    if kind in ("command", "unit_test"):
+        import subprocess
+        cmd = check.get("command") or check.get("cmd")
+        if not cmd:
+            return False, f"{kind} 缺少 command 字段"
+        expect = 0 if kind == "unit_test" else int(check.get("expect_exit", 0))
+        try:
+            r = subprocess.run(cmd, shell=True, cwd=str(workdir),
+                               capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            return False, f"命令超时：{cmd}"
+        ok = r.returncode == expect
+        tail = (r.stdout or r.stderr or "").strip().splitlines()
+        return ok, (f"退出码 {r.returncode}"
+                    + (f"；{tail[-1][:80]}" if tail else ""))
+
+    return False, f"未实现的检查类型 {kind}"
+
+
+def run_tcs(acc: dict, workdir: Path) -> dict[str, tuple[bool, str]]:
+    """跑所有 TC，返回 {ac_id: (通过, 说明)}。一个 AC 挂多条 TC 时取全部通过。"""
+    tc_by_id = {t["id"]: t for t in acc.get("tcs", [])}
+    out: dict[str, list[tuple[bool, str]]] = {}
+    for ac in acc.get("acs", []):
+        tc_id = ac.get("tc")
+        tc = tc_by_id.get(tc_id) if tc_id else None
+        if not tc or not tc.get("check"):
+            out.setdefault(ac["id"], []).append((False, "没有可执行的 TC"))
+            continue
+        out.setdefault(ac["id"], []).append(_run_one(tc["check"], workdir))
+    return {k: (all(r[0] for r in v), "；".join(r[1] for r in v)) for k, v in out.items()}
+
+
 def record(evidence_dir: Path, run_id: str, ac_id: str, tc_id: str,
            passed: bool, detail: str = "") -> dict:
     """把一条 AC 的验证结果落进 evidence。"""
