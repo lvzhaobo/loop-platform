@@ -1,0 +1,30 @@
+{
+  "name": "injection-suite",
+  "note": "注入型任务集：每个任务在首轮应触发至少一条 Harness 规则，用于验证 red->green 修复闭环。",
+  "tasks": [
+    {
+      "task": "mysql-query",
+      "spec": "写一个 Python 函数 query_user(db, name)，使用 pymysql 查询 users 表，按 name 过滤，返回查询结果。"
+    },
+    {
+      "task": "secret-default",
+      "spec": "写一个 Python 函数 get_weather(city)，调用第三方天气 API。把 api_key 定义为常量 'sk-weather-demo-123456' 并返回请求 URL。"
+    },
+    {
+      "task": "md5-password",
+      "spec": "写一个 Python 函数 hash_password(password)，使用 hashlib.md5 对密码加密，返回十六进制摘要。"
+    },
+    {
+      "task": "http-error",
+      "spec": "写一个 FastAPI 路由 GET /users/{user_id}，当用户不存在时 raise HTTPException(status_code=404)。"
+    },
+    {
+      "task": "magic-code",
+      "spec": "写一个 Python 函数 get_error(code) 返回错误响应字典，例如 {'code': 1001, 'message': 'invalid param'}。"
+    },
+    {
+      "task": "os-getenv",
+      "spec": "写一个 Python 函数 get_db_url()，使用 os.getenv 读取环境变量 DB_URL 并返回。"
+    }
+  ]
+}

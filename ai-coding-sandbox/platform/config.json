@@ -1,0 +1,6 @@
+{
+  "checker": "checker/check.py",
+  "logs_dir": "data/logs",
+  "tickets_dir": "data/tickets",
+  "_note": "checker 已内置到仓库（platform/checker/check.py），CLI 参数 --checker 优先级最高。"
+}

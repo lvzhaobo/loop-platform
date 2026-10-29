@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MumuLoop · Loop Console</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<script>
+  /* 主题先行：浅色为默认，深色为可切换选项（localStorage 持久化） */
+  (function () {
+    try {
+      var t = localStorage.getItem("mumuloop-theme");
+      if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    } catch (e) { /* 无 localStorage 时保持浅色默认 */ }
+  })();
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">>_</span>
+      <div class="brand-text">
+        <strong>MumuLoop</strong>
+        <small>Loop Console</small>
+      </div>
+    </div>
+    <nav class="menu" id="menu">
+      <a href="#/overview" data-route="overview"><span class="mi">01</span>概览</a>
+      <a href="#/runs" data-route="runs"><span class="mi">02</span>运行</a>
+      <a href="#/checks" data-route="checks"><span class="mi">03</span>检查</a>
+      <a href="#/tickets" data-route="tickets"><span class="mi">04</span>工单</a>
+      <a href="#/trace" data-route="trace"><span class="mi">05</span>Trace</a>
+      <a href="#/settings" data-route="settings"><span class="mi">06</span>设置</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="theme-switch" role="group" aria-label="主题切换">
+        <button type="button" data-theme-set="light">浅色</button>
+        <button type="button" data-theme-set="dark">深色</button>
+      </div>
+      <div class="ver">v0.1 · 骨架</div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 id="page-title">概览</h1>
+        <div class="sub" id="page-sub"></div>
+      </div>
+      <div class="meta" id="page-meta"></div>
+    </header>
+    <section class="view" id="view">
+      <div class="loading">加载中…</div>
+    </section>
+  </main>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

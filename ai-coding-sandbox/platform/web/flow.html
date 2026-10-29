@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MumuLoop · Run Trace</title>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f8f9fa; --card:#ffffff; --border:#e1e4e8; --text:#24292e; --muted:#6a737d;
+    --accent:#1a5fb4; --accent-soft:#eaf1fb;
+    --ok:#1a7f37; --ok-soft:#e6f4ea;
+    --warn:#9a6700; --warn-soft:#fff4d6;
+    --err:#cf222e; --err-soft:#fdecee;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.55 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 24px 40px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{font-family:var(--mono);font-size:13px;font-weight:600;color:#fff;
+    background:var(--accent);border-radius:7px;padding:5px 8px}
+  h1{font-size:17px;margin:0;font-weight:600}
+  .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px}
+  .kpi .k{font-size:11px;color:var(--muted)}
+  .kpi .v{font-size:21px;font-weight:600;font-family:var(--mono);margin-top:2px}
+  .kpi .x{font-size:11px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+  .card h2{margin:0 0 2px;font-size:13px;font-weight:600}
+  .card .hint{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .canvas{width:100%;overflow:auto}
+  svg{display:block}
+  .node-box{fill:var(--card);stroke:var(--border);stroke-width:1}
+  .node-title{font-size:12px;font-weight:600;fill:var(--text)}
+  .node-sub{font-size:10.5px;fill:var(--muted)}
+  .edge{stroke:var(--border);stroke-width:1.6;fill:none}
+  .edge.live{stroke:var(--accent);stroke-dasharray:6 5;animation:dash 1s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-22}}
+  .arrow{fill:var(--border)}
+  .round-node{stroke-width:1.6}
+  .round-node.closed{fill:var(--ok-soft);stroke:var(--ok)}
+  .round-node.pending_fix{fill:var(--warn-soft);stroke:var(--warn)}
+  .round-node.escalate{fill:var(--err-soft);stroke:var(--err)}
+  .round-link{stroke:var(--border);stroke-width:1.4}
+  .task-label{font-size:11px;fill:var(--muted);font-family:var(--mono)}
+  .maker-badge{font-size:9px;font-family:var(--mono)}
+  .ledger{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .ledger .row{display:flex;gap:10px;align-items:baseline;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px}
+  .ledger .row:last-child{border-bottom:0}
+  .ledger .tag{font-family:var(--mono);font-size:11px;border-radius:5px;padding:1px 6px}
+  .tag.reg{background:var(--err-soft);color:var(--err)}
+  .tag.flat{background:var(--warn-soft);color:var(--warn)}
+  .tag.pass{background:var(--ok-soft);color:var(--ok)}
+  .empty{color:var(--muted);font-size:12px;padding:12px}
+  footer{font-size:11.5px;color:var(--muted);margin-top:14px}
+  code{font-family:var(--mono);font-size:11px;background:#f6f8fa;border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark">&gt;_</span>
+      <div>
+        <h1>MumuLoop · Run Trace</h1>
+        <div class="sub">需求 → 生成 → 检查 → 处置 → 人工 Gate → Trace 回流（每 5 秒刷新）</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--ok)"></i>closed 已收敛</span>
+      <span><i style="background:var(--warn)"></i>pending_fix 待修复</span>
+      <span><i style="background:var(--err)"></i>escalate 需人工</span>
+    </div>
+  </header>
+
+  <div class="kpis" id="kpis"><div class="kpi"><div class="k">数据源</div><div class="v">—</div><div class="x">加载中</div></div></div>
+
+  <section class="card">
+    <h2>任务级运行轨迹</h2>
+    <div class="hint">每行一个任务；节点为轮次，连线为相邻轮；圆点颜色为轮末状态。悬停查看违规与判定账本。</div>
+    <div class="canvas"><svg id="runs" width="1120" height="420"></svg></div>
+    <div class="hint" id="detail" style="min-height:18px;margin:10px 0 0">—</div>
+  </section>
+
+  <section class="card">
+    <h2>判定账本（回归 / 停滞）</h2>
+    <div class="hint">diff = fixed / regressed / still_red；regression 排在 flat 前面——变坏必须先回人。</div>
+    <div class="ledger" id="ledger"><div class="empty">加载中…</div></div>
+  </section>
+
+  <footer>数据源：<code>/api/runs</code> · <code>/api/overview</code> · 浅色为默认主题 · 架构图见 <code>flow-arch-v2.html</code></footer>
+</div>
+
+<script>
+const COLORS = {
+  closed: ["var(--ok-soft)", "var(--ok)"],
+  pending_fix: ["var(--warn-soft)", "var(--warn)"],
+  escalate: ["var(--err-soft)", "var(--err)"],
+};
+const MAKER_COLOR = { deepseek: "#1a5fb4", bedrock: "#c05621", kiro: "#8250df" };
+
+function esc(v){return String(v ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function makerOf(entries){
+  for (const e of entries){ if (e.maker) return e.maker; }
+  return null;
+}
+
+function drawRuns(runs){
+  const svg = document.getElementById("runs");
+  const left = 168, top = 30, rowH = 58, r = 13;
+  const maxRounds = Math.max(1, ...runs.map(t => Math.max(...t.entries.map(e => e.round))));
+  const step = (1120 - left - 40) / Math.max(maxRounds, 1);
+  let html = "";
+
+  runs.forEach((t, ti) => {
+    const y = top + ti * rowH + rowH / 2;
+    const maker = makerOf(t.entries);
+    const mc = MAKER_COLOR[maker] || "#6a737d";
+    html += `<text class="task-label" x="${left-12}" y="${y-3}" text-anchor="end">${esc(t.task)}</text>`;
+    if (maker){
+      html += `<text class="maker-badge" x="${left-12}" y="${y+12}" text-anchor="end" fill="${mc}">${esc(maker)}</text>`;
+    }
+    const es = [...t.entries].sort((a,b) => a.round - b.round);
+    es.forEach((e, i) => {
+      const cx = left + (e.round - 1) * step;
+      const [fill, stroke] = COLORS[e.result] || ["var(--card)", "var(--border)"];
+      if (i > 0){
+        const px = left + (es[i-1].round - 1) * step;
+        html += `<line class="round-link" x1="${px+r}" y1="${y}" x2="${cx-r}" y2="${y}"/>`;
+      }
+      const by = Object.entries(e.byRule || {}).map(([k,n])=>`${k}×${n}`).join(" ") || "0 违规";
+      const diff = e.diff ? `fixed ${e.diff.fixed} / regressed ${e.diff.regressed} / still_red ${e.diff.still_red}` : "";
+      html += `<circle class="round-node ${e.result}" cx="${cx}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}">
+<title>${esc(t.task)} · 第 ${e.round} 轮
+${esc(e.ts)} · ${esc(e.result)}
+违规 ${e.violations} · ${by}
+maker ${esc(e.maker || "-")} · model ${esc(e.model || "-")}${diff ? "\n账本 " + diff : ""}
+action: ${esc(e.action || "none")}</title></circle>`;
+      html += `<text x="${cx}" y="${y+3.5}" text-anchor="middle" style="font-family:var(--mono);font-size:9px;fill:var(--text)">${e.round}</text>`;
+    });
+  });
+  svg.innerHTML = html;
+  svg.setAttribute("height", top + runs.length * rowH + 10);
+  svg.querySelectorAll("circle").forEach(c => {
+    c.addEventListener("mouseenter", () => {
+      document.getElementById("detail").innerHTML = c.querySelector("title").textContent
+        .split("\n").map(l => `<div>${esc(l)}</div>`).join("");
+    });
+  });
+}
+
+function drawLedger(runs){
+  const el = document.getElementById("ledger");
+  const rows = [];
+  for (const t of runs){
+    for (const e of t.entries){
+      const d = e.diff || {};
+      if (e.result === "escalate" || d.regressed > 0){
+        const kind = d.regressed > 0 ? ["reg", "回归"] : ["flat", "升级"];
+        rows.push({t: t.task, r: e.round, kind, d, ts: e.ts, result: e.result});
+      }
+    }
+  }
+  rows.sort((a,b) => b.ts.localeCompare(a.ts));
+  if (!rows.length){
+    el.innerHTML = `<div class="empty">暂无回归或升级记录——当前全部任务首轮即收敛或已修复。</div>`;
+    return;
+  }
+  el.innerHTML = rows.map(r => `
+    <div class="row">
+      <span class="tag ${r.kind[0]}">${r.kind[1]}</span>
+      <b>${esc(r.t)}</b>
+      <span style="color:var(--muted)">第 ${r.r} 轮 · ${esc(r.result)}</span>
+      <span style="font-family:var(--mono);color:var(--muted)">fixed ${r.d.fixed} / regressed ${r.d.regressed} / still_red ${r.d.still_red}</span>
+      <span style="color:var(--muted);margin-left:auto">${esc(r.ts)}</span>
+    </div>`).join("");
+}
+
+function drawKpis(d){
+  document.getElementById("kpis").innerHTML = [
+    ["任务数", d.tasks, ""],
+    ["总轮数", d.rounds, ""],
+    ["收敛", `${d.converged}/${d.tasks}`, ""],
+    ["拦截累计", d.total_hits, ""],
+    ["有效拦截率", d.effective_rate == null ? "-" : d.effective_rate + "%", `末轮残留 ${d.pending}`],
+    ["规则数", d.by_rule ? d.by_rule.length : "-", "SEC/ERR/CFG"],
+  ].map(([k,v,x]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="x">${x}</div></div>`).join("");
+}
+
+async function refresh(){
+  try{
+    const [overview, runs] = await Promise.all([
+      fetch("/api/overview").then(r => r.json()),
+      fetch("/api/runs").then(r => r.json()),
+    ]);
+    drawKpis(overview);
+    drawRuns(runs);
+    drawLedger(runs);
+  }catch(e){
+    document.getElementById("detail").textContent = "加载失败：" + e.message;
+  }
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

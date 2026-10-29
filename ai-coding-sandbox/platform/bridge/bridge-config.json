@@ -1,0 +1,28 @@
+{
+  "provider": "zentao",
+  "threshold": "escalate",
+  "priority_map": {"escalate": "P1", "pending_fix": "P3"},
+  "zentao": {
+    "base_url": "http://127.0.0.1:8080",
+    "api_base": "/api.php/v1",
+    "account_env": "MUMULOOP_ZENTAO_ACCOUNT",
+    "password_env": "MUMULOOP_ZENTAO_PASSWORD",
+    "routes": {
+      "token": "/tokens",
+      "create_ticket": "/tickets",
+      "update_ticket": "/tickets/{id}",
+      "close_ticket": "/tickets/{id}/close"
+    },
+    "field_map": {"title": "title", "body_md": "desc", "priority": "pri", "tags": "keywords"}
+  },
+  "jira": {
+    "base_url": "https://your-domain.atlassian.net",
+    "api_version": "2",
+    "project_key": "MUMU",
+    "issue_type": "Task",
+    "email_env": "MUMULOOP_JIRA_EMAIL",
+    "token_env": "MUMULOOP_JIRA_API_TOKEN",
+    "transition_ids": {"closed": ""}
+  },
+  "_note": "凭据不落文件：只写环境变量名。禅道路由/字段按部署版本（REST v1 16.5+）可调；Jira 走 REST v2 端点纯文本（规避 v3 ADF 强格式），为预留骨架未实测。"
+}

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MumuLoop · Architecture (AWS-style)</title>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f8f9fa; --card:#ffffff; --border:#e1e4e8; --text:#24292e; --muted:#6a737d;
+    --accent:#1a5fb4; --accent-soft:#eaf1fb;
+    --ok:#1a7f37; --ok-soft:#e6f4ea; --warn:#9a6700; --warn-soft:#fff4d6;
+    --err:#cf222e; --err-soft:#fdecee; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.55 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif}
+  .wrap{max-width:1600px;margin:0 auto;padding:20px 24px 40px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{font-family:var(--mono);font-size:13px;font-weight:600;color:#fff;
+    background:var(--accent);border-radius:7px;padding:5px 8px}
+  h1{font-size:17px;margin:0;font-weight:600}
+  .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:12px;height:0;border-top:2.5px solid;margin-right:5px;vertical-align:middle}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px}
+  .kpi .k{font-size:11px;color:var(--muted)}
+  .kpi .v{font-size:21px;font-weight:600;font-family:var(--mono);margin-top:2px}
+  .kpi .x{font-size:11px;color:var(--muted)}
+  .kpi.off .v{color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+  .card h2{margin:0 0 2px;font-size:13px;font-weight:600}
+  .card .hint{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .canvas{width:100%;overflow:auto}
+  svg{display:block}
+  .tier{stroke-width:1.6}
+  .tier-label{font-size:12.5px;font-weight:600}
+  .tier-sub{font-size:10px}
+  .box{fill:#ffffff;stroke-width:1.2}
+  .box-title{font-size:12px;font-weight:600;fill:var(--text)}
+  .box-sub{font-size:10px;fill:var(--muted)}
+  .badge{font-size:9.5px;font-family:var(--mono)}
+  .edge{fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .pri{stroke:var(--accent);stroke-width:1.8}
+  .pri.live{stroke-dasharray:7 5;animation:dash 1.1s linear infinite}
+  .fb{stroke-width:1.6;stroke-dasharray:5 5}
+  .fb.red{stroke:var(--err)}
+  .fb.green{stroke:var(--ok)}
+  .choice{stroke:#8c959f;stroke-width:1.2;stroke-dasharray:3 3}
+  .flow-label{font-size:10px;fill:var(--muted);font-family:var(--mono)}
+  @keyframes dash{to{stroke-dashoffset:-24}}
+  footer{font-size:11.5px;color:var(--muted);margin-top:14px}
+  code{font-family:var(--mono);font-size:11px;background:#f6f8fa;border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark">&gt;_</span>
+      <div>
+        <h1>MumuLoop · Architecture</h1>
+        <div class="sub">需求 → Harness 约束 → Maker 生成 → 确定性门禁 → 人工 Gate → Trace 回流（AWS 风格 · 从左到右）</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="border-color:var(--accent)"></i>主流程</span>
+      <span><i style="border-color:var(--err)"></i>失败回环</span>
+      <span><i style="border-color:var(--ok)"></i>经验回流</span>
+      <span><i style="border-color:#8c959f"></i>可替换分支</span>
+    </div>
+  </header>
+
+  <div class="kpis" id="kpis">
+    <div class="kpi off"><div class="k">数据源</div><div class="v">—</div><div class="x">加载中</div></div>
+  </div>
+
+  <section class="card">
+    <h2>系统架构（左 → 右）</h2>
+    <div class="hint">五层各司其职：意图规范、约束装配、生成端、判定门禁、观测回流。唯一强制人工点是「人工 Gate」。</div>
+    <div class="canvas">
+      <svg viewBox="0 0 1560 380" width="1560" height="380" role="img" aria-label="MumuLoop 架构图">
+        <defs>
+          <marker id="arP" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="#1a5fb4"/>
+          </marker>
+          <marker id="arR" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="#cf222e"/>
+          </marker>
+          <marker id="arG" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="#1a7f37"/>
+          </marker>
+          <path id="mainPath" d="M144 101 L144 167 L144 233 L252 233 L298 233 L298 101 L346 101 L454 101 L454 167 L454 233 L454 299 L562 299 L608 299 L608 101 L656 101 L764 101 L764 167 L872 167 L918 167 L918 101 L966 101 L1074 101 L1074 167 L1074 233 L1182 233 L1228 233 L1228 101 L1276 101 L1384 101 L1384 167 L1384 233 L1384 299" fill="none" stroke="none"/>
+        </defs>
+
+        <!-- ===== 分层容器 ===== -->
+        <!-- A 需求与意图 -->
+        <rect class="tier" x="24" y="18" width="240" height="228" rx="12" fill="#eef4fc" stroke="#1a5fb4"/>
+        <text class="tier-label" x="36" y="40" fill="#1a5fb4">① 需求与意图</text>
+        <text class="tier-sub" x="36" y="54" fill="#6a737d">MumuSpec · 14 文档</text>
+
+        <rect class="box" x="36" y="74" width="216" height="54" rx="8" stroke="#1a5fb4"/>
+        <text class="box-title" x="48" y="95">需求 Requirement</text>
+        <text class="box-sub" x="48" y="113">MumuSpec 意图文档</text>
+
+        <rect class="box" x="36" y="140" width="216" height="54" rx="8" stroke="#1a5fb4"/>
+        <text class="box-title" x="48" y="161">Unit of Work</text>
+        <text class="box-sub" x="48" y="179">按可验收产物切单元</text>
+
+        <rect class="box" x="36" y="206" width="216" height="54" rx="8" stroke="#1a5fb4"/>
+        <text class="box-title" x="48" y="227">验收条件 AC</text>
+        <text class="box-sub" x="48" y="245">冻结判据 · sha256</text>
+
+        <!-- B Harness 约束装配 -->
+        <rect class="tier" x="334" y="18" width="240" height="294" rx="12" fill="#e8f6f6" stroke="#0b7285"/>
+        <text class="tier-label" x="346" y="40" fill="#0b7285">② Harness 约束装配</text>
+        <text class="tier-sub" x="346" y="54" fill="#6a737d">H01-H08 · 四层</text>
+
+        <rect class="box" x="346" y="74" width="216" height="54" rx="8" stroke="#0b7285"/>
+        <text class="box-title" x="358" y="95">注入层</text>
+        <text class="box-sub" x="358" y="113">AGENTS.md + rules/*.md</text>
+
+        <rect class="box" x="346" y="140" width="216" height="54" rx="8" stroke="#0b7285"/>
+        <text class="box-title" x="358" y="161">检查层</text>
+        <text class="box-sub" x="358" y="179">check.py · 6 规则 · 0/1/2</text>
+
+        <rect class="box" x="346" y="206" width="216" height="54" rx="8" stroke="#0b7285"/>
+        <text class="box-title" x="358" y="227">审查层</text>
+        <text class="box-sub" x="358" y="245">security.md 正反例</text>
+
+        <rect class="box" x="346" y="272" width="216" height="54" rx="8" stroke="#0b7285"/>
+        <text class="box-title" x="358" y="293">闭环层</text>
+        <text class="box-sub" x="358" y="311">loop.py 四要素</text>
+
+        <!-- C Maker 生成端 -->
+        <rect class="tier" x="644" y="18" width="240" height="294" rx="12" fill="#fdf1e8" stroke="#c05621"/>
+        <text class="tier-label" x="656" y="40" fill="#b34d14">③ Maker 生成端（可插拔）</text>
+        <text class="tier-sub" x="656" y="54" fill="#6a737d">Maker-agnostic</text>
+
+        <rect class="box" x="656" y="74" width="216" height="54" rx="8" stroke="#c05621"/>
+        <text class="box-title" x="668" y="95">MakerClient Protocol</text>
+        <text class="box-sub" x="668" y="113">generate(unit, ctx) → Artifact</text>
+
+        <rect class="box" x="656" y="140" width="216" height="54" rx="8" stroke="#c05621"/>
+        <text class="box-title" x="668" y="161">DeepSeekMaker</text>
+        <text class="box-sub" x="668" y="179">deepseek-chat · 临时验证</text>
+        <rect class="badge" x="812" y="150" width="52" height="16" rx="8" fill="#e6f4ea" stroke="#1a7f37"/>
+        <text class="badge" x="838" y="161" text-anchor="middle" fill="#57606a">可替换</text>
+
+        <rect class="box" x="656" y="206" width="216" height="54" rx="8" stroke="#c05621"/>
+        <text class="box-title" x="668" y="227">BedrockMaker</text>
+        <text class="box-sub" x="668" y="245">boto3 converse · nova/claude</text>
+        <rect class="badge" x="812" y="216" width="52" height="16" rx="8" fill="#fff4d6" stroke="#d4a72c"/>
+        <text class="badge" x="838" y="227" text-anchor="middle" fill="#57606a">可替换</text>
+
+        <rect class="box" x="656" y="272" width="216" height="54" rx="8" stroke="#c05621"/>
+        <text class="box-title" x="668" y="293">KiroMaker</text>
+        <text class="box-sub" x="668" y="311">Qwen Code CLI · subprocess</text>
+        <rect class="badge" x="812" y="282" width="52" height="16" rx="8" fill="#eef1f4" stroke="#8c959f"/>
+        <text class="badge" x="838" y="293" text-anchor="middle" fill="#57606a">沙箱</text>
+
+        <!-- 三选一 bracket -->
+        <path class="choice" d="M650 140 L650 299"/>
+        <path class="choice" d="M650 167 L656 167"/>
+        <path class="choice" d="M650 233 L656 233"/>
+        <path class="choice" d="M650 299 L656 299"/>
+        <text class="flow-label" x="647" y="220" transform="rotate(-90 647 220)" fill="#8c959f">三选一</text>
+
+        <!-- D 判定与门禁 -->
+        <rect class="tier" x="954" y="18" width="240" height="228" rx="12" fill="#e9f6ec" stroke="#1a7f37"/>
+        <text class="tier-label" x="966" y="40" fill="#1a7f37">④ 判定与门禁</text>
+        <text class="tier-sub" x="966" y="54" fill="#6a737d">机器结论 + 人工 Gate</text>
+
+        <rect class="box" x="966" y="74" width="216" height="54" rx="8" stroke="#1a7f37"/>
+        <text class="box-title" x="978" y="95">Checker 门禁</text>
+        <text class="box-sub" x="978" y="113">PASS / FAIL / UNCERTAIN</text>
+
+        <rect class="box" x="966" y="140" width="216" height="54" rx="8" stroke="#1a7f37"/>
+        <text class="box-title" x="978" y="161">处置</text>
+        <text class="box-sub" x="978" y="179">retry / escalate / EXHAUSTED</text>
+
+        <rect class="box" x="966" y="206" width="216" height="54" rx="8" stroke="#1a7f37"/>
+        <text class="box-title" x="978" y="227">人工 Gate</text>
+        <text class="box-sub" x="978" y="245">唯一强制人工点</text>
+
+        <!-- E 观测与回流 -->
+        <rect class="tier" x="1264" y="18" width="240" height="294" rx="12" fill="#f2eefb" stroke="#8250df"/>
+        <text class="tier-label" x="1276" y="40" fill="#6f42c1">⑤ 观测与回流</text>
+        <text class="tier-sub" x="1276" y="54" fill="#6a737d">append-only · 可回放</text>
+
+        <rect class="box" x="1276" y="74" width="216" height="54" rx="8" stroke="#8250df"/>
+        <text class="box-title" x="1288" y="95">Trace JSONL</text>
+        <text class="box-sub" x="1288" y="113">append-only · 逐轮落盘</text>
+
+        <rect class="box" x="1276" y="140" width="216" height="54" rx="8" stroke="#8250df"/>
+        <text class="box-title" x="1288" y="161">Server REST API</text>
+        <text class="box-sub" x="1288" y="179">6 端点聚合</text>
+
+        <rect class="box" x="1276" y="206" width="216" height="54" rx="8" stroke="#8250df"/>
+        <text class="box-title" x="1288" y="227">Flow Canvas</text>
+        <text class="box-sub" x="1288" y="245">浅色控制台 · 5s 刷新</text>
+
+        <rect class="box" x="1276" y="272" width="216" height="54" rx="8" stroke="#8250df"/>
+        <text class="box-title" x="1288" y="293">CloudWatch / LangFuse</text>
+        <text class="box-sub" x="1288" y="311">可观测外链（规划）</text>
+        <rect class="badge" x="1440" y="282" width="52" height="16" rx="8" fill="#eef1f4" stroke="#8c959f"/>
+        <text class="badge" x="1466" y="293" text-anchor="middle" fill="#57606a">规划</text>
+
+        <!-- ===== 主流程（蓝） ===== -->
+        <path class="edge pri live" marker-end="url(#arP)" d="M144 128 L144 140"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M144 194 L144 206"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M252 233 L298 233 L298 101 L346 101"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M454 128 L454 140"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M454 194 L454 206"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M454 260 L454 272"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M562 299 L608 299 L608 101 L656 101"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M764 128 L764 140"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M872 167 L918 167"/>
+        <path class="edge pri live" d="M918 299 L918 101"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M918 101 L966 101"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1074 128 L1074 140"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1074 194 L1074 206"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1182 233 L1228 233 L1228 101 L1276 101"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1384 128 L1384 140"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1384 194 L1384 206"/>
+        <path class="edge pri live" marker-end="url(#arP)" d="M1384 260 L1384 272"/>
+
+        <!-- Maker 汇流：C2/C3 → bus -->
+        <path class="choice" d="M872 233 L918 233"/>
+        <path class="choice" d="M872 299 L918 299"/>
+
+        <!-- 主流程标签 -->
+        <text class="flow-label" x="300" y="96">AC · 意图</text>
+        <text class="flow-label" x="610" y="96">spec + constraints</text>
+        <text class="flow-label" x="918" y="96">generated.py 候选</text>
+        <text class="flow-label" x="1230" y="96">trace 落盘</text>
+
+        <!-- ===== 失败回环（红） ===== -->
+        <path class="edge fb red" marker-end="url(#arR)" d="M966 167 L960 167 L960 6 L840 6 L840 74"/>
+
+        <!-- ===== 经验回流（绿） ===== -->
+        <path class="edge fb green" marker-end="url(#arG)" d="M1492 233 L1508 233 L1508 360 L340 360 L340 167 L346 167"/>
+        <text class="flow-label" x="800" y="376" fill="#1a7f37">逃逸项 → 校准新规则（P6 组织演进）</text>
+
+        <!-- 失败回环标签 -->
+        <text class="flow-label" x="900" y="16" text-anchor="middle" fill="#cf222e">失败回环：FAIL → 重试 Maker</text>
+
+        <!-- 运行粒子 -->
+        <circle r="4.5" fill="#1a5fb4" opacity="0.85">
+          <animateMotion dur="7s" repeatCount="indefinite" rotate="0">
+            <mpath href="#mainPath"/>
+          </animateMotion>
+        </circle>
+      </svg>
+    </div>
+    <div class="hint" style="margin-top:10px">终局校验：WAF 六支柱 P1-P6（评审循环，非每轮门禁）· 主流程自动判定，唯一强制人工点为「人工 Gate」。</div>
+  </section>
+
+  <footer>
+    数据源：<code>/api/overview</code> · <code>/api/runs</code> · 架构为静态分层图，任务级轨迹见 <code>flow.html</code> · 浅色为默认主题
+  </footer>
+</div>
+
+<script>
+const el = document.getElementById("kpis");
+function kpi(k, v, x){return `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="x">${x||""}</div></div>`;}
+async function refresh(){
+  try{
+    const r = await fetch("/api/overview");
+    const d = await r.json();
+    el.innerHTML =
+      kpi("任务数", d.tasks, "tasks") +
+      kpi("总轮数", d.rounds, "rounds") +
+      kpi("收敛", `${d.converged}/${d.tasks}`, "closed 任务") +
+      kpi("拦截累计", d.total_hits, "violations 之和") +
+      kpi("有效拦截率", d.effective_rate == null ? "-" : d.effective_rate + "%", "末轮残留 " + d.pending) +
+      kpi("Maker 后端", "DeepSeek \u21c4 Bedrock", "同接口可替换");
+  }catch(e){
+    el.innerHTML = kpi("数据源", "—", "启动 Server 后自动加载：python3 platform/server/app.py");
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
