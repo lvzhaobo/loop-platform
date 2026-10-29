@@ -1,5 +1,5 @@
 import { currentDataSource } from '../data/repository'
-import type { ApiEnvelope, ArtifactResponse, BacklogResponse, ConfirmResponse, CoverageResponse, LifecycleResponse, PlanResponse, ProfileComposerCatalogResponse, ProfileComposerPreflightResponse, ProfileDraft, ProfileSaveResponse, ProfilesResponse, RequirementDraft, RequirementsResponse, RunExecutionState, RunResponse, RunsResponse, TasksResponse } from './contracts'
+import type { ApiEnvelope, ArtifactResponse, BacklogResponse, ChecksResponse, ConfirmResponse, CoverageResponse, KnowledgeResponse, LifecycleResponse, PipelineResponse, PlanResponse, ProfileComposerCatalogResponse, ProfileComposerPreflightResponse, ProfileDraft, ProfileSaveResponse, ProfilesResponse, RequirementDraft, RequirementsResponse, RunExecutionState, RunResponse, RunsResponse, SpecCompileResponse, TasksResponse, TraceResponse } from './contracts'
 
 const base = import.meta.env.DEV ? '/studio-api' : ''
 export const officialSource = { kind: 'event-verified' as const, label: '正式 Studio · 权威 API', detail: '页面只消费 Profile、冻结 Plan 与已验证 RunEvent / Evidence 投影；API 失败不会回退到 Mock、目录扫描或旧 trace。', refreshedAt: '请求时读取' }
@@ -33,4 +33,9 @@ export const api = {
   coverage: () => call<CoverageResponse>('/api/observability/governance-coverage'),
   profileComposerCatalog: () => call<ProfileComposerCatalogResponse>('/api/profile-composer/catalog'),
   preflightProfileDraft: (profile: ProfileDraft) => call<ProfileComposerPreflightResponse>('/api/profile-composer/preflight', { method: 'POST', body: JSON.stringify({ profile }) }, true),
+  checks: () => call<ChecksResponse>('/api/checks'),
+  knowledge: () => call<KnowledgeResponse>('/api/knowledge'),
+  trace: () => call<TraceResponse>('/api/trace'),
+  pipeline: () => call<PipelineResponse>('/api/pipeline'),
+  specCompile: (requirement: string, name: string, mock: boolean) => call<SpecCompileResponse>('/api/spec/compile', { method: 'POST', body: JSON.stringify({ requirement, name, mock }) }),
 }

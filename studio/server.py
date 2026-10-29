@@ -161,8 +161,8 @@ def healthz():
 _COMPOSER_CATALOG = {
     "schema_version": 1,
     "stages": {
-        "source": [{"id": "local_queue", "label": "本地需求队列", "description": "从受控本地队列读取已绑定需求。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"backlog_path": {"type": "string", "secret": False}, "state_path": {"type": "string", "secret": False}}}}],
-        "compiler": [{"id": "simple", "label": "Simple Compiler", "description": "确定性本地 Spec 编译器。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "mumuspec", "label": "MumuSpec Compiler", "description": "实验性本地编译器；当前会回退到 SimpleCompiler。", "experimental": True, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
+        "source": [{"id": "local_queue", "label": "本地需求队列", "description": "从受控本地队列读取已绑定需求。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"backlog_path": {"type": "string", "secret": False}, "state_path": {"type": "string", "secret": False}}}}, {"id": "jira", "label": "Jira 系统", "description": "从 Jira 项目拉取 Issue 作为需求，进入受控执行链（待接入）。", "experimental": True, "available": False, "capabilities": {"network": True, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"server": {"type": "string", "secret": False}, "project_key": {"type": "string", "secret": False}}}}],
+        "compiler": [{"id": "simple", "label": "Simple Compiler", "description": "确定性本地 Spec 编译器。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "mumuspec", "label": "MumuSpec Compiler", "description": "实验性本地编译器；当前会回退到 SimpleCompiler。", "experimental": True, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "openspec", "label": "OpenSpec Compiler", "description": "按 OpenSpec 规范把需求编译为可验收的 Spec 与 Acceptance（待接入）。", "experimental": True, "available": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"spec_dir": {"type": "string", "secret": False}, "spec_format": {"type": "string", "secret": False}}}}],
         "maker": [{"id": "sample", "label": "Sample Maker", "description": "离线参考生成器，用于 fixture 回归。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "deepseek", "label": "DeepSeek API Maker", "description": "需显式允许网络与模型调用的受控生成器。", "experimental": False, "capabilities": {"network": True, "model": True, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
         "checker": [{"id": "security", "label": "Security Checker", "description": "确定性安全与结构检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "pages", "label": "Pages Contract Checker", "description": "验证冻结页面合同、页面文件和本地跳转。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "runtime", "label": "Runtime Checker", "description": "运行时检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "e2e", "label": "E2E Checker", "description": "端到端验收检查。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "process", "label": "Process Checker", "description": "受证据约束的外部流程诊断检查。", "experimental": True, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}],
         "delivery": [{"id": "local_artifact", "label": "本地制品", "description": "仅在本机保存受控制品；不发布、不部署。", "experimental": False, "capabilities": {"network": False, "model": False, "git": False, "publish": False, "deploy": False, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False}}, {"id": "github_workflow", "label": "GitHub Workflow", "description": "受控推送到固定仓库；仓库 Workflow 后续部署，ECS 健康不在本阶段推断。", "experimental": False, "capabilities": {"network": True, "model": True, "git": True, "publish": True, "deploy": True, "ssh": False}, "config_schema": {"type": "object", "additionalProperties": False, "properties": {"repo": {"type": "string", "secret": False}, "branch": {"type": "string", "secret": False}, "prefix": {"type": "string", "secret": False}, "port_base": {"type": "integer", "secret": False}, "workflow_deploy": {"type": "boolean", "secret": False}}}}],
@@ -1829,6 +1829,56 @@ def list_pipeline():
     except Exception:  # noqa: BLE001
         pass
     return jsonify({"ok": True, "stages": stages})
+
+
+# ── Spec 编译 ──
+@app.route("/api/spec/compile", methods=["POST"])
+def spec_compile():
+    """运行 MumuSpec 六轮编译（mock 或真实 LLM），返回生成的 Spec 文档。
+
+    无 DEEPSEEK_API_KEY 时强制 mock（内置样例）；有 key 且未显式 mock 时走真实 LLM。
+    """
+    import subprocess
+    data = request.get_json(silent=True) or {}
+    requirement = (data.get("requirement") or "").strip()
+    name = (data.get("name") or "spec-demo").strip() or "spec-demo"
+    has_key = bool(os.environ.get("DEEPSEEK_API_KEY") or load_config().get("DEEPSEEK_API_KEY", "").strip())
+    use_mock = bool(data.get("mock", not has_key))
+    if not use_mock and not requirement:
+        return jsonify({"ok": False, "error": "真实 LLM 模式需要提供需求文本"}), 400
+
+    root = find_root()
+    cli = str(root / "engine" / "tools" / "mumuspec_compiler.py")
+    cmd = [sys.executable, cli, "--name", name]
+    if use_mock:
+        cmd.append("--mock")
+    else:
+        cmd.extend(["--text", requirement])
+    try:
+        proc = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, timeout=1800)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"编译执行失败: {exc}"}), 500
+    if proc.returncode != 0:
+        return jsonify({"ok": False, "error": (proc.stderr or proc.stdout or "编译失败")[-1200:]}), 500
+
+    case_dir = root / "cases" / name
+    docs = []
+    for sub in ("mumuspec", "spec"):
+        subdir = case_dir / sub
+        if not subdir.is_dir():
+            continue
+        for f in sorted(subdir.iterdir()):
+            if not f.is_file():
+                continue
+            try:
+                content = f.read_text(encoding="utf-8")
+            except Exception:  # noqa: BLE001
+                content = f.read_text(encoding="utf-8", errors="ignore")
+            docs.append({"path": f"{sub}/{f.name}", "name": f.name, "content": content})
+
+    if not docs:
+        return jsonify({"ok": False, "error": "编译未产出文档"}), 500
+    return jsonify({"ok": True, "name": name, "mock": use_mock, "docs": docs})
 
 
 # ── Swagger ──

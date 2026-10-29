@@ -21,10 +21,18 @@ import MonitorView from './views/MonitorView.vue'
 import SettingsView from './views/SettingsView.vue'
 import DeveloperView from './views/DeveloperView.vue'
 import PlansView from './views/PlansView.vue'
+import ModuleRegistryView from './views/ModuleRegistryView.vue'
+import ModuleDetailView from './views/ModuleDetailView.vue'
+import HarnessChecksView from './views/HarnessChecksView.vue'
+import KnowledgeView from './views/KnowledgeView.vue'
+import TraceView from './views/TraceView.vue'
+import LandingZoneView from './views/LandingZoneView.vue'
+import ArchitectureView from './views/ArchitectureView.vue'
+import SpecFlowView from './views/SpecFlowView.vue'
 export default createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', component: OfficialOverviewView, meta: { title: '交付概览' } },
+    { path: '/', component: OfficialOverviewView, meta: { title: 'Dashboard' } },
     { path: '/intake', component: OfficialIntakeView, meta: { title: '新建需求' } },
     { path: '/plans', component: OfficialPlansView, meta: { title: '受控执行' } },
     { path: '/requirements/:taskId?', component: OfficialRequirementsView, meta: { title: '需求详情' } },
@@ -32,8 +40,8 @@ export default createRouter({
     { path: '/profile-components', component: ComponentRegistryView, meta: { title: '组件配置中心' } },
     { path: '/profile-composer/form', component: ProfileComposerFormView, meta: { title: 'Profile 编排' } },
     { path: '/profile-composer/canvas', component: ProfileComposerCanvasView, meta: { title: 'Profile 画布' } },
-    { path: '/panorama', component: DeliveryPanoramaView, meta: { title: '交付全景图' } },
-    { path: '/pipeline-graph', component: PipelineGraphView, meta: { title: '流水线拓扑画布' } },
+    { path: '/panorama', component: ArchitectureView, meta: { title: '架构与运行逻辑' } },
+    { path: '/pipeline-graph', component: PipelineGraphView, meta: { title: '整体运行逻辑' } },
     { path: '/profile-composer/save', component: ProfileSaveView, meta: { title: '保存 Profile' } },
     { path: '/runs/:runId?', component: OfficialRunsView, meta: { title: '交付运行' } },
     { path: '/governance', component: OfficialGovernanceView, meta: { title: '治理覆盖' } },
@@ -46,6 +54,18 @@ export default createRouter({
     { path: '/preview/monitor', component: MonitorView, meta: { title: '预览：监控与追溯' } },
     { path: '/preview/settings', component: SettingsView, meta: { title: '预览：平台设置' } },
     { path: '/preview/developer', component: DeveloperView, meta: { title: '预览：开发者' } },
+    // 可插拔模块配置屏（各阶段一个菜单项，卡片/列表视图）
+    { path: '/modules/compiler', component: ModuleRegistryView, props: { stage: 'compiler' }, meta: { title: 'Spec 配置' } },
+    { path: '/modules/maker', component: ModuleRegistryView, props: { stage: 'maker' }, meta: { title: 'Maker 配置' } },
+    { path: '/modules/checker', component: ModuleRegistryView, props: { stage: 'checker' }, meta: { title: 'Checker 配置' } },
+    { path: '/modules/delivery', component: ModuleRegistryView, props: { stage: 'delivery' }, meta: { title: '交付配置' } },
+    { path: '/modules/source', component: ModuleRegistryView, props: { stage: 'source' }, meta: { title: '需求来源' } },
+    { path: '/modules/:stage/:componentId', component: ModuleDetailView, props: true, meta: { title: '模块详情' } },
+    { path: '/landing-zone', component: LandingZoneView, meta: { title: 'Landing Zone' } },
+    { path: '/checks', component: HarnessChecksView, meta: { title: 'Harness 约束' } },
+    { path: '/knowledge', component: KnowledgeView, meta: { title: '知识工程' } },
+    { path: '/trace', component: TraceView, meta: { title: '日志与 Trace' } },
+    { path: '/spec-flow', component: SpecFlowView, meta: { title: 'Spec 编译流程' } },
     // Hash 地址拼写错误时回到正式概览，避免出现空白 RouterView 或跳转至 Legacy 页面。
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
