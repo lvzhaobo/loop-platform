@@ -1924,6 +1924,32 @@ def swagger_ui():
     return render_template("swagger.html")
 
 
+
+# ── 设计稿层：原型 29 页 + 覆盖度（只读，不影响正式路径）──
+DESIGN_DIR = os.path.join(STUDIO_DIR, "design")
+if DESIGN_DIR not in sys.path:
+    sys.path.insert(0, DESIGN_DIR)
+
+
+@app.route("/design")
+def design_prototype():
+    """29 页设计稿：右上角可切「真实平台视图」，未接后端的菜单置灰。"""
+    return send_from_directory(DESIGN_DIR, "proto2.html")
+
+
+@app.route("/design/v12")
+def design_v12():
+    """29 页设计稿原版（全部可点，给客户演示用）。"""
+    return send_from_directory(DESIGN_DIR, "v12.html")
+
+
+@app.route("/api/coverage")
+def api_coverage():
+    """哪些页面真有后端 —— 原型据此决定菜单是否置灰。"""
+    from coverage import build_coverage
+    return jsonify(build_coverage(app))
+
+
 # ── 启动 ──
 if __name__ == "__main__":
     port = int(os.environ.get("STUDIO_PORT", "5101"))
