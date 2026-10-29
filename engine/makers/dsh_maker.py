@@ -82,10 +82,12 @@ class DshMaker(Maker):
 
         files: dict[str, str] = {}
         for p in wd.rglob("*"):
-            if p.is_file() and not any(s in p.parts for s in
-                                       (".git", "node_modules", "__pycache__", ".dsh")):
+            rel = p.relative_to(wd)
+            # 跳过隐藏目录（.git / .dsh / .chrome-profile* 等）与依赖目录
+            if p.is_file() and not any(part.startswith(".") or part in
+                                       ("node_modules", "__pycache__") for part in rel.parts):
                 try:
-                    files[str(p.relative_to(wd))] = p.read_text(encoding="utf-8")
+                    files[str(rel)] = p.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, OSError):
                     continue
 

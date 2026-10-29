@@ -195,7 +195,27 @@ $ python3 pipeline/full_flow.py --maker sample --auto-review reject
 
 **这就是真验收的价值**：它明确告诉你"界面有了，但逻辑没分离、也没有测试"。
 
-### 踩到一个假阴性（检查器自己要被校准）
+### 踩到两个真坑（都是写验收标准时最容易犯的）
+
+#### 坑一：把实现细节当验收条件
+
+第一版 `AC-004` 写的是「存在 `timer-core.js`」。DSH 第一次生成的文件叫 `timer-core.js`（通过），
+第二次生成的文件叫 `core.js`（失败）——**同一份代码质量，验收结果不同**。
+
+这说明 TC 验的是**文件名**，不是**性质**。
+
+改成验性质：
+
+```json
+{"id": "tc-004", "check": {"type": "glob_exists", "pattern": "tests/*.test.js", "min": 1}}
+{"id": "tc-005", "check": {"type": "node_test_glob", "pattern": "tests/*.test.js"}}
+```
+
+改完 DSH 产物 **5/5 全绿**（`core.test.js` 的 10 条测试全过）。
+
+> **判据：如果换一种合法的实现方式就会失败，那这条 TC 写错了。**
+
+#### 坑二：假阴性（检查器自己要被校准）
 
 第一版 `AC-001` 的正则是 `<!DOCTYPE html>`（大写），而 sample 写的是 `<!doctype html>`（小写）
 → **正确的产物被判失败**。

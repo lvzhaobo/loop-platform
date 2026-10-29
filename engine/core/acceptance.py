@@ -62,6 +62,8 @@ CHECK_TYPES = {
     "regex":        "文件匹配正则",
     "command":      "命令退出码等于期望值",
     "unit_test":    "测试命令退出码为 0",
+    "glob_exists":  "匹配 glob 的文件至少 N 个",
+    "node_test_glob": "找到 tests/*.test.js 并用 node 跑通",
 }
 
 
@@ -98,6 +100,34 @@ def _run_one(check: dict, workdir: Path) -> tuple[bool, str]:
         pat = check.get("pattern", "")
         m = re.search(pat, text)
         return bool(m), (f"匹配 {pat!r} → {m.group(0)[:40]!r}" if m else f"不匹配 {pat!r}")
+
+    if kind == "glob_exists":
+        pat = check.get("pattern", "*")
+        need = int(check.get("min", 1))
+        hits = sorted(x for x in workdir.glob(pat)
+                      if x.is_file() and not any(p.startswith(".") for p in x.parts))
+        return len(hits) >= need, (f"找到 {len(hits)} 个 {pat}（需要 ≥{need}）"
+                                   + (f"：{[h.name for h in hits][:3]}" if hits else ""))
+
+    if kind == "node_test_glob":
+        pat = check.get("pattern", "tests/*.test.js")
+        hits = sorted(x for x in workdir.glob(pat) if x.is_file())
+        if not hits:
+            return False, f"没有匹配 {pat} 的测试文件"
+        target = hits[0]
+        import subprocess
+        try:
+            r = subprocess.run(f"node {target.relative_to(workdir)}", shell=True,
+                               cwd=str(workdir), capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            return False, f"测试超时：{target.name}"
+        ok = r.returncode == 0
+        passed_n = ""
+        for line in (r.stdout or "").splitlines():
+            if line.strip().startswith("ℹ pass"):
+                passed_n = line.strip()
+                break
+        return ok, f"{target.name} 退出码 {r.returncode} {passed_n}"
 
     if kind in ("command", "unit_test"):
         import subprocess

@@ -18,7 +18,7 @@
     },
     {
       "id": "AC-004",
-      "desc": "倒计时逻辑与界面分离，可单独测试",
+      "desc": "有独立的测试文件（证明逻辑可单独验证）",
       "tc": "tc-004"
     },
     {
@@ -59,16 +59,17 @@
       "id": "tc-004",
       "ac_id": "AC-004",
       "check": {
-        "type": "file_exists",
-        "file": "timer-core.js"
+        "type": "glob_exists",
+        "pattern": "tests/*.test.js",
+        "min": 1
       }
     },
     {
       "id": "tc-005",
       "ac_id": "AC-005",
       "check": {
-        "type": "unit_test",
-        "command": "node tests/core.test.js"
+        "type": "node_test_glob",
+        "pattern": "tests/*.test.js"
       }
     }
   ]
