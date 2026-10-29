@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>演示回放 v2 · 两种装置，一份门禁</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --bg2:#eef2f9; --card:#ffffff; --line:#dbe3ee; --line2:#e8eef6;
+    --ink:#16202f; --muted:#5b6b82; --dim:#8a99ad;
+    --blue:#2563eb; --bluebg:#eef4ff; --bluebd:#c7dbff;
+    --green:#0f8a5f; --greenbg:#eefaf4; --greenbd:#b7e6d2;
+    --red:#d13b46; --redbg:#fff2f3; --redbd:#f5c6ca;
+    --amber:#c2740b; --amberbg:#fff8ea; --amberbd:#f5d99b;
+    --violet:#6d3fd1; --violetbg:#f4f0ff; --violetbd:#d9ccff;
+    --term-bg:#fbfcfe; --term-ink:#33445c; --term-dim:#8a99ad; --term-cmd:#0f172a;
+    --term-green:#0f8a5f; --term-red:#d13b46; --term-amber:#a85f06;
+    --term-blue:#2563eb; --term-violet:#6d3fd1; --term-line:#e2e9f3;
+    --shadow:0 18px 44px -26px rgba(22,32,47,.28);
+  }
+  [data-theme="dark"]{
+    --bg:#0b1020; --bg2:#0e1526; --card:#131c30; --line:#26324a; --line2:#1b2740;
+    --ink:#e6edf7; --muted:#8fa3bf; --dim:#5b6d88;
+    --blue:#60a5fa; --bluebg:#152641; --bluebd:#2a4a78;
+    --green:#34d399; --greenbg:#0f2a22; --greenbd:#1f5c46;
+    --red:#fb7185; --redbg:#2a1420; --redbd:#5c2434;
+    --amber:#fbbf24; --amberbg:#2a2010; --amberbd:#5c4520;
+    --violet:#a78bfa; --violetbg:#221a3d; --violetbd:#4a3a80;
+    --term-bg:#080e1a; --term-ink:#c9d6e8; --term-dim:#5b6d88; --term-cmd:#ffffff;
+    --term-green:#5eead4; --term-red:#fb7185; --term-amber:#fbbf24;
+    --term-blue:#7dd3fc; --term-violet:#c4b5fd; --term-line:#16233a;
+    --shadow:0 20px 50px -28px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+    background:radial-gradient(900px 500px at 0% -10%,var(--bg2) 0%,transparent 55%),var(--bg);
+    color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;
+  }
+  .app{display:grid;grid-template-rows:auto auto 1fr auto;height:100vh;}
+
+  header{display:flex;align-items:center;gap:14px;padding:11px 22px;border-bottom:1px solid var(--line);
+    background:color-mix(in srgb,var(--card) 78%,transparent);backdrop-filter:blur(8px);flex-wrap:wrap;}
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .kick{font-size:10px;letter-spacing:.18em;color:var(--violet);font-weight:800;}
+  h1{font-size:16.5px;font-weight:800;letter-spacing:-.01em;}
+  .sp{flex:1;}
+  .btn{padding:7px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+       font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.16s;white-space:nowrap;}
+  .btn:hover{border-color:var(--blue);color:var(--blue);}
+  .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .btn.pri:hover{filter:brightness(1.08);color:#fff;}
+  .btn.icon{width:36px;padding:7px 0;text-align:center;font-size:14px;}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card);}
+  .seg button{border:none;background:transparent;color:var(--muted);font-size:11.5px;font-weight:700;
+              padding:7px 11px;cursor:pointer;font-family:inherit;}
+  .seg button.on{background:var(--bluebg);color:var(--blue);}
+
+  /* 共用资产条 */
+  .shared{display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 22px;
+          border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--violetbg) 55%,transparent);}
+  .shared .lb{font-size:10px;letter-spacing:.14em;font-weight:800;color:var(--violet);}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--ink);
+        background:var(--card);border:1px solid var(--violetbd);border-radius:99px;padding:4px 11px;}
+  .chip i{width:6px;height:6px;border-radius:50%;background:var(--violet);}
+  .shared .note{font-size:11px;color:var(--muted);}
+
+  main{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:12px 18px 6px;min-height:0;}
+  .pane{display:flex;flex-direction:column;min-height:0;border-radius:12px;overflow:hidden;
+        border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);transition:.2s;}
+  .pane.act{border-color:var(--blue);box-shadow:0 0 0 1px var(--bluebd),var(--shadow);}
+  .pane.act.r{border-color:var(--violet);box-shadow:0 0 0 1px var(--violetbd),var(--shadow);}
+  .pbar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);}
+  .pbar .nm{font-size:12.5px;font-weight:800;}
+  .pbar .who{font-size:10.5px;color:var(--dim);margin-left:auto;}
+  .pill{font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:2px 7px;border-radius:5px;border:1px solid;}
+  .pill.l{color:var(--blue);border-color:var(--bluebd);background:var(--bluebg);}
+  .pill.r{color:var(--violet);border-color:var(--violetbd);background:var(--violetbg);}
+
+  .term{flex:1;min-height:0;overflow:auto;padding:10px 14px 14px;background:var(--term-bg);
+        font-family:ui-monospace,SFMono-Regular,Menlo,"Courier New",monospace;
+        font-size:12px;line-height:1.72;color:var(--term-ink);}
+  .term::-webkit-scrollbar{width:6px;} .term::-webkit-scrollbar-thumb{background:var(--term-line);border-radius:3px;}
+  .ln{white-space:pre-wrap;word-break:break-word;animation:fade .2s ease-out;}
+  @keyframes fade{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:none;}}
+  .ln.cmd{color:var(--term-cmd);font-weight:700;}
+  .ln.dim{color:var(--term-dim);}
+  .ln.ok{color:var(--term-green);}
+  .ln.err{color:var(--term-red);}
+  .ln.warn{color:var(--term-amber);}
+  .ln.info{color:var(--term-blue);}
+  .ln.vio{color:var(--term-violet);}
+  .ln.same{border-left:2px solid var(--term-green);margin-left:-8px;padding-left:6px;opacity:.95;}
+
+  .caps{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px;border-top:1px solid var(--line);min-height:38px;}
+  .cap{font-size:10px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--line);
+       color:var(--dim);background:transparent;transition:.25s;}
+  .cap.yes{color:var(--green);border-color:var(--greenbd);background:var(--greenbg);}
+  .cap.no{color:var(--red);border-color:var(--redbd);background:var(--redbg);}
+
+  footer{display:flex;align-items:center;gap:14px;padding:9px 22px;border-top:1px solid var(--line);
+         background:color-mix(in srgb,var(--card) 78%,transparent);}
+  .phase{font-size:12px;font-weight:800;color:var(--ink);flex:none;}
+  .say{font-size:12px;color:var(--muted);flex:1;line-height:1.5;}
+  .say b{color:var(--ink);}
+  .prog{flex:0 0 200px;height:4px;border-radius:3px;background:var(--line2);overflow:hidden;}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--violet));transition:width .3s;}
+  @media (max-width:1080px){ main{grid-template-columns:1fr;grid-template-rows:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="kick">两种装置 · 一份门禁 · 同步对照</span>
+      <h1>左边 IDE，右边 DSH —— 看门禁输出是否一致</h1>
+    </div>
+    <div class="sp"></div>
+    <div class="seg" id="speed">
+      <button data-s="1" class="on">1×</button>
+      <button data-s="2">2×</button>
+      <button data-s="4">4×</button>
+    </div>
+    <button class="btn pri" id="play">▶ 开始对照</button>
+    <button class="btn" id="next">下一步</button>
+    <button class="btn" id="reset">重置</button>
+    <button class="btn icon" id="theme" title="切换主题">🌙</button>
+  </header>
+
+  <div class="shared">
+    <span class="lb">两侧完全相同</span>
+    <span class="chip"><i></i>shared/tasks.md</span>
+    <span class="chip"><i></i>shared/check.py</span>
+    <span class="chip"><i></i>shared/fixture/pomodoro</span>
+    <span class="note">换装置不换工程 —— 这是本页要证明的唯一一件事　<span style="color:var(--green);font-weight:700;">▍绿线 = 两侧逐字相同</span></span>
+  </div>
+
+  <main>
+    <section class="pane l" id="paneL">
+      <div class="pbar"><span class="pill l">装置 A</span><span class="nm">IDE（Claude Code / Qoder / Kiro / Cursor）</span>
+        <span class="who">人在编辑器里盯着</span></div>
+      <div class="term" id="termL"></div>
+      <div class="caps" id="capL"></div>
+    </section>
+    <section class="pane r" id="paneR">
+      <div class="pbar"><span class="pill r">装置 B</span><span class="nm">DSH headless + 沙箱</span>
+        <span class="who">无人值守，退出码为准</span></div>
+      <div class="term" id="termR"></div>
+      <div class="caps" id="capR"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span class="phase" id="phase">未开始</span>
+    <span class="say" id="say">点「开始对照」，两边会同步往下走。</span>
+    <div class="prog"><i id="prog"></i></div>
+  </footer>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const CAPS = {
+  L: [['人盯着',1],['能中断',1],['沙箱隔离',0],['可回放',0],['无人值守',0]],
+  R: [['人盯着',0],['能中断',1],['沙箱隔离',1],['可回放',1],['无人值守',1]],
+};
+
+const PHASES = [
+  { label:'① 同一个工程',
+    say:'左边 IDE、右边 DSH，用的是<b>同一份 tasks.md、同一个 check.py、同一套 fixture</b>。',
+    L:[['dim','# 工作区：shared/fixture/pomodoro'],
+       ['dim','# 任务：shared/tasks.md（给番茄钟加自定义时长）'],
+       ['dim','# 门禁：shared/check.py（7 条断言）']],
+    R:[['dim','# 工作区：shared/fixture/pomodoro'],
+       ['dim','# 任务：shared/tasks.md（给番茄钟加自定义时长）'],
+       ['dim','# 门禁：shared/check.py（7 条断言）']] },
+
+  { label:'② 启动方式不同',
+    say:'装置差别从第一行就开始：<b>人点开始</b> vs <b>一条命令</b>。',
+    L:[['cmd','$ claude            # 在工程目录里打开'],
+       ['info','> 给番茄钟加自定义时长，跑 check.py 直到绿'],
+       ['dim','（人在场：随时可以打断、纠偏、补一句话）']],
+    R:[['cmd','$ dsh --profile headless "$(cat shared/tasks.md)"'],
+       ['dim','（无人值守：跑完只交退出码和会话日志）']] },
+
+  { label:'③ 第一次跑门禁（改之前）',
+    say:'两边都先跑一遍门禁 —— <b>输出逐字相同</b>。门禁不认识装置。',
+    L:[['cmd','$ python3 shared/check.py','L'],
+       ['dim','门禁：shared/fixture/pomodoro','L'],
+       ['err','❌ 存在 work-minutes / break-minutes 两个数字输入框','L'],
+       ['err','❌ app.js 从这两个控件读取数值','L'],
+       ['ok','✅ 按「分钟 × 60」换算成秒','L'],
+       ['err','❌ 非法值（≤0 / >180 / NaN）回退到 25 / 5','L'],
+       ['ok','✅ 原有功能没被改坏 / 零依赖 / 门禁未篡改','L'],
+       ['err','4/7 通过 —— 门禁红，不许合并','L'],
+       ['cmd','$ echo $?  →  1','L']],
+    R:[['cmd','$ python3 shared/check.py','R'],
+       ['dim','门禁：shared/fixture/pomodoro','R'],
+       ['err','❌ 存在 work-minutes / break-minutes 两个数字输入框','R'],
+       ['err','❌ app.js 从这两个控件读取数值','R'],
+       ['ok','✅ 按「分钟 × 60」换算成秒','R'],
+       ['err','❌ 非法值（≤0 / >180 / NaN）回退到 25 / 5','R'],
+       ['ok','✅ 原有功能没被改坏 / 零依赖 / 门禁未篡改','R'],
+       ['err','4/7 通过 —— 门禁红，不许合并','R'],
+       ['cmd','$ echo $?  →  1','R']] },
+
+  { label:'④ 改代码（差别在这一步）',
+    say:'同样是改两个文件，一个<b>直接写</b>，一个<b>行前审批</b>。这是装置差别，不是门禁差别。',
+    L:[['info','● 读取 index.html、app.js'],
+       ['info','● 修改 index.html（加两个数字输入框）'],
+       ['info','● 修改 app.js（加 clampMinutes 回退）'],
+       ['dim','（写文件前会问一句，取决于你那边的权限设置）']],
+    R:[['info','[step 1] → list_files(".")'],
+       ['info','[step 2] → read_file("index.html")'],
+       ['info','[step 3] → read_file("app.js")'],
+       ['warn','[step 4] → write_file(index.html)   ⏸ approval: ask'],
+       ['ok','        ✓ 人点了允许'],
+       ['warn','[step 5] → write_file(app.js)        ⏸ approval: ask'],
+       ['ok','        ✓ 人点了允许（无人值守时可配 --yes）']] },
+
+  { label:'⑤ 第二次跑门禁（改之后）',
+    say:'再跑一次 —— <b>输出还是逐字相同，两边一起变绿</b>。',
+    L:[['cmd','$ python3 shared/check.py','L'],
+       ['ok','✅ 存在 work-minutes / break-minutes 两个数字输入框','L'],
+       ['ok','✅ app.js 从这两个控件读取数值','L'],
+       ['ok','✅ 按「分钟 × 60」换算成秒','L'],
+       ['ok','✅ 非法值（≤0 / >180 / NaN）回退到 25 / 5','L'],
+       ['ok','✅ 原有功能没被改坏 / 零依赖 / 门禁未篡改','L'],
+       ['ok','7/7 通过 —— 门禁绿，可以合并','L'],
+       ['cmd','$ echo $?  →  0','L']],
+    R:[['cmd','$ python3 shared/check.py','R'],
+       ['ok','✅ 存在 work-minutes / break-minutes 两个数字输入框','R'],
+       ['ok','✅ app.js 从这两个控件读取数值','R'],
+       ['ok','✅ 按「分钟 × 60」换算成秒','R'],
+       ['ok','✅ 非法值（≤0 / >180 / NaN）回退到 25 / 5','R'],
+       ['ok','✅ 原有功能没被改坏 / 零依赖 / 门禁未篡改','R'],
+       ['ok','7/7 通过 —— 门禁绿，可以合并','R'],
+       ['cmd','$ echo $?  →  0','R']] },
+
+  { label:'⑥ 结束之后（这才是真差别）',
+    say:'门禁一样，<b>留下来的东西不一样</b>：一段对话，还是一份可回放的会话 + 一个退出码。',
+    L:[['dim','# 关掉编辑器：'],
+       ['dim','#   · 对话记录留在本机，凭记忆找回'],
+       ['dim','#   · 没有全局的"这次跑了什么"的台账'],
+       ['dim','#   · 想批量跑 100 个仓库？做不到'],
+       ['dim','# 结论：适合"人在场、一次一个"的活']],
+    R:[['ok','# 退出码 0 → CI 可以直接拿它做合并条件'],
+       ['ok','# demo/runs/A.jsonl（20 条事件）→ 可回放、可审计'],
+       ['ok','# 沙箱已回收，凭证不落环境变量'],
+       ['ok','# 想批量跑 100 个仓库？循环调它就行'],
+       ['ok','# 结论：适合"没人盯、要留痕"的活']] },
+
+  { label:'⑦ 四条差异（其余全同）',
+    say:'只有这四条不一样。<b>工程、任务、门禁、验收标准 —— 一条都没变。</b>',
+    L:[['dim','谁能跑      人点开始'],
+       ['dim','隔离        跑在你的用户权限下'],
+       ['dim','留痕        本地对话记录'],
+       ['dim','无人值守    ✗']],
+    R:[['vio','谁能跑      一行命令 / CI 事件'],
+       ['vio','隔离        容器沙箱'],
+       ['vio','留痕        仅追加事件日志，可回放'],
+       ['vio','无人值守    ✓']] },
+];
+
+/* ================= 状态 ================= */
+const $ = s => document.querySelector(s);
+const termL = $('#termL'), termR = $('#termR'), capL = $('#capL'), capR = $('#capR'),
+      sayEl = $('#say'), phaseEl = $('#phase'), prog = $('#prog'),
+      paneL = $('#paneL'), paneR = $('#paneR');
+
+let cur = -1, li = 0, ri = 0, timer = null, playing = false, speed = 1;
+
+function renderCaps(){
+  const mk = (list, el) => el.innerHTML = list.map(([t,on],i)=>{
+    const cls = cur >= 6 ? (on ? 'yes' : 'no') : '';
+    return `<span class="cap ${cls}">${on ? '✓' : '✗'} ${t}</span>`;
+  }).join('');
+  mk(CAPS.L, capL); mk(CAPS.R, capR);
+}
+function append(which, kind, text, same){
+  const el = which === 'L' ? termL : termR;
+  const d = document.createElement('div');
+  d.className = 'ln ' + kind + (same ? ' same' : '');
+  d.textContent = text;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function clearBoth(){
+  termL.innerHTML = ''; termR.innerHTML = ''; li = 0; ri = 0;
+  paneL.classList.add('act'); paneR.classList.remove('act');
+}
+
+/* ================= 播放 ================= */
+function setHead(){
+  phaseEl.textContent = cur < 0 ? '未开始' : PHASES[cur].label;
+  prog.style.width = cur < 0 ? '0%' : ((cur+1)/PHASES.length*100)+'%';
+  if(cur >= 0) sayEl.innerHTML = PHASES[cur].say;
+}
+
+function goto(i){
+  if(i < 0 || i >= PHASES.length) return;
+  // 重建"已发生的历史"
+  termL.innerHTML = ''; termR.innerHTML = '';
+  for(let k=0;k<i;k++){
+    PHASES[k].L.forEach(([kind,text,same])=>append('L',kind,text,same==='L'));
+    PHASES[k].R.forEach(([kind,text,same])=>append('R',kind,text,same==='R'));
+  }
+  cur = i; li = 0; ri = 0;
+  setHead(); renderCaps();
+  paneL.classList.add('act'); paneR.classList.remove('act');
+  streamStep();
+}
+
+function streamStep(){
+  const p = PHASES[cur];
+  if(!p) return;
+  const Ldone = li >= p.L.length, Rdone = ri >= p.R.length;
+  if(Ldone && Rdone){
+    if(playing) timer = setTimeout(()=>{ playing && goto(cur+1); }, 900/speed);
+    else $('#play').textContent = '▶ 继续';
+    return;
+  }
+  // 交替推进，制造"同时发生"的感觉
+  if(!Ldone){
+    const [k,t,s] = p.L[li++];
+    append('L', k, t, s==='L');
+  }
+  if(!Rdone){
+    const [k,t,s] = p.R[ri++];
+    append('R', k, t, s==='R');
+  }
+  paneL.classList.toggle('act', !Ldone);
+  paneR.classList.toggle('act', !Rdone);
+  timer = setTimeout(streamStep, 300/speed);
+}
+
+function play(){
+  if(playing){ pause(); return; }
+  if(cur < 0) { clearBoth(); goto(0); playing = true; $('#play').textContent='❚❚ 暂停'; return; }
+  playing = true; $('#play').textContent = '❚❚ 暂停'; streamStep();
+}
+function pause(){ playing = false; clearTimeout(timer); $('#play').textContent = '▶ 继续'; }
+function next(){
+  pause();
+  if(cur < 0){ clearBoth(); goto(0); return; }
+  const p = PHASES[cur];
+  while(li < p.L.length){ const [k,t,s]=p.L[li++]; append('L',k,t,s==='L'); }
+  while(ri < p.R.length){ const [k,t,s]=p.R[ri++]; append('R',k,t,s==='R'); }
+  if(cur < PHASES.length-1) goto(cur+1);
+}
+function reset(){
+  pause(); cur = -1; li = 0; ri = 0;
+  termL.innerHTML=''; termR.innerHTML='';
+  phaseEl.textContent='未开始'; prog.style.width='0%';
+  sayEl.textContent='点「开始对照」，两边会同步往下走。';
+  $('#play').textContent='▶ 开始对照';
+  renderCaps();
+}
+
+/* ================= 主题 ================= */
+function setTheme(t){
+  document.documentElement.dataset.theme = t;
+  $('#theme').textContent = t==='dark' ? '☀️' : '🌙';
+  try{ localStorage.setItem('demo2-theme', t); }catch(e){}
+}
+const qTheme = new URLSearchParams(location.search).get('theme');
+const saved = (()=>{ try{ return localStorage.getItem('demo2-theme'); }catch(e){ return null; } })();
+setTheme(qTheme || saved || 'light');
+$('#theme').onclick = ()=> setTheme(document.documentElement.dataset.theme==='dark' ? 'light' : 'dark');
+
+/* ================= 绑定 ================= */
+$('#play').onclick = play;
+$('#next').onclick = next;
+$('#reset').onclick = reset;
+document.querySelectorAll('#speed button').forEach(b=>{
+  b.onclick = ()=>{ document.querySelectorAll('#speed button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); speed = +b.dataset.s; };
+});
+document.addEventListener('keydown', e=>{
+  if(e.key===' '){ e.preventDefault(); play(); }
+  if(e.key==='ArrowRight'){ e.preventDefault(); next(); }
+  if(e.key==='r'||e.key==='R'){ reset(); }
+});
+
+renderCaps();
+if(new URLSearchParams(location.search).has('auto')) setTimeout(()=>{ play(); }, 400);
+</script>
+</body>
+</html>

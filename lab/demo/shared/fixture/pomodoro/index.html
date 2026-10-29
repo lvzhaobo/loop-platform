@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>番茄时钟</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <div class="mode" id="mode">专注</div>
+
+    <div class="ring">
+      <svg viewBox="0 0 220 220">
+        <circle class="bg" cx="110" cy="110" r="96"></circle>
+        <circle class="fg" id="progress" cx="110" cy="110" r="96"></circle>
+      </svg>
+      <div class="time" id="timer">25:00</div>
+    </div>
+
+    <!-- 任务要求：在这里加两个 number 输入框，id 分别是 work-minutes / break-minutes -->
+    <div class="controls">
+      <button id="toggle" class="primary">开始</button>
+      <button id="reset">重置</button>
+    </div>
+
+    <div class="hint" id="hint"></div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

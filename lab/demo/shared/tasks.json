@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "id": "pomodoro",
+      "name": "番茄时钟 · 支持自定义时长",
+      "fixture": "shared/fixture/pomodoro",
+      "check": "shared/check.py",
+      "task": "shared/tasks.md",
+      "mock": "shared/mock/pomodoro.json",
+      "note": "纯前端。门禁靠正则读 HTML/JS —— 只能验「写了什么」。"
+    },
+    {
+      "id": "cs",
+      "name": "智能客服 · 意图识别与转人工",
+      "fixture": "shared/fixture/cs",
+      "check": "shared/check-cs.py",
+      "task": "shared/tasks-cs.md",
+      "mock": "shared/mock/cs.json",
+      "note": "纯 Python。门禁直接 import 调用它 —— 能验「怎么表现」。"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# ============================================================
+# Sample B 的 profile 覆盖层（模板）
+# 用法：把下面内容合并到 ~/.dsh/profiles/<你的 profile>/cordis.patch.yml
+#       或启动时用 --patch 叠加：dsh web --patch /path/to/this.yml
+# ⚠️ 包名 / 插件 id 请按你本机 `dsh --dump-config` 的实际结果调整
+# ============================================================
+
+# ① 关掉不需要的工具（减法能力 —— 比在提示词里"禁止使用"确定得多）
+- id: tool-subagent
+  disabled: true
+
+# ② 让高危动作必须审批（行前闸门 G1）
+- id: permission-presets
+  config:
+    presets:
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask          # 写文件 / 跑命令前停下来问人
+
+# ③ 把模型的出口指向网关（可选，企业里便于算账与审计）
+# - id: llm-deepseek
+#   config:
+#     baseURL: https://llm-gw.corp/v1
+#     model: deepseek-chat
+
+# ④ 插入你自己的门禁插件（示例：每次工具执行前跑一遍 check.py）
+# - insert:
+#     - id: corp-gate
+#       name: file:///abs/path/gate-plugin/index.js
+#       config: { script: /abs/path/demo/shared/check.py }
