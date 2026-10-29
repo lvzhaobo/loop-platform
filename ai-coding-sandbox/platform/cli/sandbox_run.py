@@ -179,7 +179,7 @@ def main() -> int:
     ap.add_argument("--checker", default=None, help="规则检查器路径（默认读 config.json）")
     ap.add_argument("--outdir", default="/tmp/mumuloop-sandbox", help="生成物输出根目录")
     ap.add_argument("--max-rounds", type=int, default=3)
-    ap.add_argument("--maker", choices=["deepseek", "bedrock"], default="deepseek")
+    ap.add_argument("--maker", choices=["deepseek", "bedrock", "dsh"], default="deepseek")
     ap.add_argument("--model", default="us.anthropic.claude-3-5-sonnet-20241022-v2:0")
     ap.add_argument("--deepseek-model", default="deepseek-chat")
     ap.add_argument("--deepseek-base-url", default="https://api.deepseek.com")

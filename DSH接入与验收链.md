@@ -1,0 +1,190 @@
+# DSH 接入 · 验收链 · 审计 · 人工审核
+
+四条能力，一条命令验证：
+
+```bash
+python3 pipeline/full_flow.py --maker dsh        # 用 DSH 生成
+python3 pipeline/full_flow.py --maker sample     # 离线，不花钱
+python3 pipeline/full_flow.py --maker deepseek   # 用 DeepSeek
+```
+
+---
+
+## 一、DSH / 非 DSH 可切换
+
+`engine/makers/dsh_maker.py` 实现和 `deepseek_api` / `cli_adapter` **同一个接口**：
+
+```python
+class DshMaker(Maker):
+    name = "dsh"
+    def generate(self, workdir, prompt, feedback=None) -> MakerResult
+```
+
+切换只改一个参数：
+
+```bash
+python3 pipeline/full_flow.py --maker dsh
+python3 pipeline/full_flow.py --maker deepseek
+```
+
+或改 profile 里的 `"maker": "dsh"`（见 `profiles/dsh-local.json`）。
+**Checkers 固定不动**——这是原有的设计原则。
+
+### ⚠️ 必须知道的一个坑
+
+DeepSeek 给 DSH 走的是 **Messages（Anthropic 兼容）协议**，不是 `/chat/completions`：
+
+| base URL | 结果 |
+|---|---|
+| `https://api.deepseek.com` | ❌ `HTTP_404: DeepSeek Messages request failed` |
+| `https://api.deepseek.com/anthropic` | ✅ 正常 |
+
+`DshMaker` 默认就用后者，可用 `DSH_BASE_URL` 覆盖。
+
+**另一个坑**：不要用 `DSH_PROFILE` 传 profile——那是用户全局的桌面 profile（值是 `desktop`），
+会撞车。用 `DSH_MAKER_PROFILE`（默认 `headless`）。
+
+### 环境变量
+
+```bash
+DSH_BIN=dsh                                 # 可执行文件
+DSH_MAKER_PROFILE=headless                  # 用的 profile
+DSH_BASE_URL=https://api.deepseek.com/anthropic
+DSH_TIMEOUT=600
+DEEPSEEK_API_KEY=sk-...                     # DSH 通过 credentials service 读
+```
+
+### 实测结果
+
+用 `--maker dsh` 跑番茄钟任务，DSH 生成 6 个文件、3,676 行：
+
+```
+output/RUN-6bcb4c5e/
+├── index.html        325 行
+├── styles.css      1,991 行
+├── app.js          1,103 行
+├── timer-core.js     247 行   ← 纯逻辑，可单测
+├── tests/core.test.js          ← 它自己写的测试
+└── package.json
+```
+
+**它生成的测试能跑通 9/9：**
+
+```
+$ node tests/core.test.js
+ℹ pass 9
+ℹ fail 0
+```
+
+---
+
+## 二、验收：AC → TC → 门禁结果
+
+`engine/core/acceptance.py`
+
+```json
+{
+  "acs": [
+    {"id": "AC-001", "desc": "页面包含倒计时元素", "tc": "has_timer"},
+    {"id": "AC-002", "desc": "页面包含开始按钮", "tc": "has_button"}
+  ],
+  "tcs": [
+    {"id": "has_timer",  "ac_id": "AC-001"},
+    {"id": "has_button", "ac_id": "AC-002"}
+  ]
+}
+```
+
+**向后兼容**：老格式 `{"checks":[{"name","desc"}]}` 会自动升级成 AC 编号。
+
+链的完整性检查（`check_chain`）会报出：
+
+| 问题 | 报什么 |
+|---|---|
+| 没有 AC | 「没有任何 AC —— 门禁无据可依」 |
+| AC 没挂 TC | 「AC-001 没有关联 TC —— 这条标准无法验证」 |
+| AC 提到的 TC 不存在 | 「AC-001 关联的 TC tc-1 不存在」 |
+| TC 挂在未知 AC | 「TC tc-9 挂在未知 AC AC-999 上（孤儿用例）」 |
+
+每条验证结果写 `data/evidence/acceptance.jsonl`，按 run 汇总。
+
+**为什么要有这条链**：没有链，门禁是黑盒，客户问"你凭什么叫通过"答不上来。
+
+---
+
+## 三、审计
+
+复用 `engine/core/event_store.py`（append-only JSONL，拒绝改写、跳号、跨 run）。
+
+`pipeline/full_flow.py` 里的 `AuditLog` 按 `RunEvent` 合同写事件：
+
+```
+序号  stage    status   evidence  digests
+1    source   passed   1         1
+2    maker    passed   1         4
+3    checker  passed   1         4
+4    checker  passed   1         4
+```
+
+合同很严，但严得有道理：
+
+- `passed` 事件**必须带至少一条 evidence**（不能空口说通过）
+- `digests` 必须包含该阶段要求的所有摘要（source 要 input；maker 要 input/spec/acceptance/artifact）
+- `evidence.scope` 必须有 `run_id` / `plan_digest` / `kind`
+
+**这是"审计不能造假"的代码化。**
+
+---
+
+## 四、人工审核
+
+`engine/core/review.py` —— **真的停下来**，不是在日志里写一行"需要审核"。
+
+三种放行方式：
+
+| 方式 | 怎么用 | 谁 |
+|---|---|---|
+| 交互（默认） | 终端 y/n | 人 |
+| 自动 | `REVIEW_AUTO=allow\|reject` | CI / demo |
+| 超时 | `REVIEW_TIMEOUT=60`，超时**默认拒绝** | 无人值守 |
+
+**关键设计：超时默认拒绝，不是默认通过。** 没人签字就不放行。
+
+每次决策写审计事件（`type=review_decision`，带 by / reason / ts）。
+
+### 实测
+
+```bash
+$ python3 pipeline/full_flow.py --maker sample --auto-review allow
+[4] 人工审核…
+    ✅ 放行（auto:REVIEW_AUTO）
+→ 退出码 0
+
+$ python3 pipeline/full_flow.py --maker sample --auto-review reject
+[4] 人工审核…
+    ⛔ 驳回（auto:REVIEW_AUTO）
+→ 退出码 2
+```
+
+**退出码本身就是判据**，可以直接进 CI。
+
+---
+
+## 五、五件事的当前状态
+
+| 能力 | 状态 | 文件 |
+|---|---|---|
+| 验收（AC→TC→结果） | ✅ 可用 | `engine/core/acceptance.py` |
+| 审计 | ✅ 可用 | `engine/core/event_store.py` + `AuditLog` |
+| 人工审核 | ✅ 可用，真阻塞 | `engine/core/review.py` |
+| 完整流程 | ✅ 一条命令 | `pipeline/full_flow.py` |
+| DSH / 非 DSH 切换 | ✅ 可用 | `engine/makers/dsh_maker.py` |
+
+## 六、已知限制
+
+| 限制 | 说明 |
+|---|---|
+| 验收判据还是"产物存在 + maker 成功" | 真正接 checker 的逐条判定，是下一步 |
+| DSH 全量生成较慢 | 番茄钟任务 > 7 分钟，demo 建议用小任务或 `--maker sample` |
+| 没有并发控制 | 现在一次只跑一个，规模化再补 |
+| 审核没有界面 | 终端交互，Studio 页面是下一步 |

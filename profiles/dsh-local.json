@@ -1,0 +1,17 @@
+{
+  "id": "dsh-local",
+  "version": 1,
+  "description": "DSH 生成 + 安全验收 + 本地交付。和 deepseek-local 只差 maker 一个字段。",
+  "source": {"name": "local_queue", "config": {"backlog_path": "fixtures/fixture-local-backlog.json"}},
+  "compiler": "simple",
+  "maker": "dsh",
+  "checkers": ["security"],
+  "delivery": "local_artifact",
+  "policy": {
+    "max_attempts": 2,
+    "allow_network": false,
+    "allow_publish": false,
+    "allow_deploy": false,
+    "on_unavailable": "review_required"
+  }
+}
